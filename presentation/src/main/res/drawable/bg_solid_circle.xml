@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+
+    <!-- Fill color -->
+    <solid android:color="@color/bar_code_scan_clr" />
+
+    <!-- Optional border -->
+    <!-- <stroke android:width="2dp" android:color="@color/black" /> -->
+
+    <!-- Size is optional; you can control size from the View.
+         If you prefer fixed size from drawable, uncomment below. -->
+
+    <size
+        android:width="48dp"
+        android:height="48dp" />
+</shape>

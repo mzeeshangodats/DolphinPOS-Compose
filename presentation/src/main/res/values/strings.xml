@@ -1,0 +1,230 @@
+<resources>
+    <string name="app_name">Dolphin Pos</string>
+    <string name="hello_blank_fragment">Hello Blank</string>
+    <string name="retail_pos_logo_content_description">Retail Pos Logo</string>
+    <string name="let_s_start">Let’s Start</string>
+    <string name="let_s_get_started">Let’s Get Started!</string>
+    <string name="log_in_to_your_retail_pos_system_and_manage_transactions_effortlessly">Log in to your Retail POS system and \n manage transactions effortlessly</string>
+    <string name="enter_username">Enter Username</string>
+    <string name="password">Password*</string>
+    <string name="enter_password">Enter Password</string>
+    <string name="username">Username*</string>
+    <string name="login">Login</string>
+    <string name="split">Split</string>
+    <string name="search">Search</string>
+    <string name="coins">Coins</string>
+    <string name="no_loc_found">No Location Found</string>
+    <string name="no_register_found">No register found at this location</string>
+    <string name="select_register_error">Please select a register</string>
+    <string name="pin_code_incorrect">PIN Code Incorrect</string>
+    <string name="search_items">Search Items</string>
+    <string name="pending_orders">Pending Orders</string>
+    <string name="gift_card">Gift Card</string>
+    <string name="plz_wait">Please Wait...</string>
+    <string name="you_re_almost_ready_to_start_your_shift_please_select_your_register_to_continue">You\'re almost ready to start your shift.\nPlease select your register to continue.</string>
+    <string name="button_continue">Continue</string>
+    <string name="select_store">Select Store</string>
+    <string name="select_register">Select Register</string>
+    <string name="select_birthday">Select Birthday</string>
+    <string name="select_location">Select Location</string>
+    <string name="welcome_username">Welcome %1$s!</string>
+    <string name="select_stores_hint">--Select Stores--</string>
+    <string name="select_register_hint">--Select Register--</string>
+    <string name="select_locations_hint">--Select Locations--</string>
+    <string name="enter_pin_code">Enter PIN Code</string>
+    <string name="clear">Clear</string>
+    <string name="card">Card</string>
+    <string name="next">Next</string>
+    <string name="exact">Exact</string>
+    <string name="item_details">Item Details</string>
+    <string name="apply_discount_code">Apply Discount Code</string>
+    <string name="empty">Empty</string>
+    <string name="_0">0</string>
+    <string name="_3">3</string>
+    <string name="_2">2</string>
+    <string name="_1">1</string>
+    <string name="_6">6</string>
+    <string name="_5">5</string>
+    <string name="_4">4</string>
+    <string name="_9">9</string>
+    <string name="_8">8</string>
+    <string name="_7">7</string>
+    <string name="_00">00</string>
+    <string name="_10">10</string>
+    <string name="_20">20</string>
+    <string name="_50">50</string>
+    <string name="_100">100</string>
+    <string name="_1.0">1.0</string>
+    <string name="cash">Cash</string>
+    <string name="_0_00">$ 0.00</string>
+    <string name="cash_tray">Cash Tray</string>
+    <string name="coin_tray">Coins Tray</string>
+    <string name="default_count">Count: 0</string>
+    <string name="counter_label">Counter</string>
+    <string name="counting_cash_in_drawer">Counting Cash in Drawer</string>
+    <string name="save_and_start_batch">Save and Start Batch</string>
+    <string name="start_batch">Start Batch</string>
+    <string name="open_cash_drawer">Open Cash Drawer</string>
+    <string name="coins_tray">Coins Tray</string>
+    <string name="cash_1">CASH_1</string>
+    <string name="cash_5">CASH_5</string>
+    <string name="cash_10">CASH_10</string>
+    <string name="cash_20">CASH_20</string>
+    <string name="cash_50">CASH_50</string>
+    <string name="cash_100">CASH_100</string>
+    <string name="coin_0_01">COIN_0.01</string>
+    <string name="coin_0_05">COIN_0.05</string>
+    <string name="coin_0_1">COIN_0.1</string>
+    <string name="coin_0_25">COIN_0.25</string>
+    <string name="dollar_one">$1</string>
+    <string name="dollar_five">$5</string>
+    <string name="dollar_ten">$10</string>
+    <string name="dollar_twenty">$20</string>
+    <string name="dollar_fifty">$50</string>
+    <string name="dollar_hundred">$100</string>
+    <string name="cent_one">$0.01</string>
+    <string name="cent_five">$0.05</string>
+    <string name="cent_ten">$0.10</string>
+    <string name="cent_twenty_five">$0.25</string>
+    <string name="count_with_value">Count: %1$d</string>
+    <string name="ok">OK</string>
+    <string name="no">NO</string>
+
+
+    <string name="error">Error</string>
+    <string name="unknown_error_occurred">Unknown Error Occurred</string>
+    <string name="printer_is_ready">Printer is ready</string>
+    <string name="printer_encountered_an_error">Printer encountered an error</string>
+    <string name="communication_error">Communication error: %1$s</string>
+    <string name="printer_is_out_of_paper">Printer is out of paper</string>
+    <string name="no_saved_printer_details">No saved printer details</string>
+    <string name="printer_is_null_during_drawer_open">Printer is null during drawer open</string>
+    <string name="failed_to_print_after_retry">Failed to print after retry</string>
+    <string name="failed_to_open_printer">Failed to open printer</string>
+    <string name="printer_is_null_during_print">Printer is null during print</string>
+    <string name="currency_format">$%.2f</string>
+
+    <string name="select_printer_interface">Select interface</string>
+    <string name="network">Network</string>
+    <string name="classic_bluetooth">Bluetooth</string>
+    <string name="bluetooth_low_energy">Bluetooth Low Energy</string>
+    <string name="usb">USB</string>
+
+    <string name="not_find_data">cannot find any printer</string>
+    <string name="wifi_off">WiFi OFF. Please open wifi for searching printers</string>
+    <string name="wifi_not_connect">WiFi not connected. Please connect your ssid for searching printers</string>
+    <string name="bluetooth_off">Bluetooth OFF. Please open Bluetooth for searching printers</string>
+    <string name="usb_permission">USB Device Connect Permission</string>
+    <string name="no_permission">Cannot continue without permission:</string>
+    <string name="determine_model">Model Determination</string>
+
+    <string name="camera_permission_title">Camera Permission Needed</string>
+    <string name="camera_permission_description">This app requires camera access to scan barcodes.</string>
+    <string name="allow">Allow</string>
+    <string name="camera_permission_denied">Permission Denied</string>
+    <string name="camera_permission_denied_description">Camera permission is required. Please enable it in the app settings.</string>
+
+
+    <string name="settings">Settings</string>
+    <string name="cancel">Cancel</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="age_verification">Age Verification</string>
+    <string name="age_verification_description">This sale includes restricted items that require age confirmation before proceeding. Please scan a valid Driver License.</string>
+    <string name="manual_verification">Manual Verification</string>
+    <string name="scan_id">Scan ID</string>
+    <string name="cash_drawer">Cash Drawer</string>
+    <string name="please_enter_reason_for_opening_cash_drawer">Please enter reason for opening cash drawer</string>
+    <string name="apply_all_discounts">Apply all discounts</string>
+    <string name="save">Save</string>
+    <string name="logout">Logout</string>
+    <string name="enter_reason">Enter Reason</string>
+    <string name="example_cash_change">Example : Cash Change</string>
+    <string name="no_internet">Please check your connection and try again.</string>
+    <string name="registers_in_use">All registers are in use. Please add more register from Portal.</string>
+
+    <string name="try_again">Try Again</string>
+    <string name="home">Home</string>
+    <string name="products">Products</string>
+    <string name="product">Product</string>
+    <string name="orders">Orders</string>
+    <string name="inventory">Inventory</string>
+    <string name="reports">Reports</string>
+    <string name="quick_access">Quick Access</string>
+    <string name="setup">Setup</string>
+
+    <string name="subtotal">Subtotal</string>
+    <string name="discount">Discount</string>
+    <string name="cash_discount">Cash Discount</string>
+    <string name="firstName">FirstName*</string>
+    <string name="enterFirstName">Enter First Name</string>
+    <string name="enterLastName">Enter Last Name</string>
+    <string name="enterEmail">Enter Email</string>
+    <string name="lastName">LastName*</string>
+    <string name="email">Email*</string>
+    <string name="birthday">Birthday</string>
+    <string name="add">Add</string>
+    <string name="tax">Tax</string>
+    <string name="total">Total:</string>
+    <string name="payment_amount">Payment Amount*</string>
+    <string name="amount">Amount ($)</string>
+    <string name="clear_cart">Clear Cart</string>
+    <string name="hold_cart">Hold Cart</string>
+    <string name="price">Price:</string>
+    <string name="quantity">Quantity:</string>
+    <string name="apply_tax">Apply Tax:</string>
+    <string name="apply_custom_discount">Apply Custom Discount:</string>
+    <string name="discount_type">Discount Type:</string>
+    <string name="enter_discount">Enter discount</string>
+    <string name="reason_for_discount">Reason for discount</string>
+    <string name="price_check">Price Check</string>
+    <string name="print_last_receipt">Print Last Receipt</string>
+    <string name="txt_toolbar_general">general toolbar for dolphin pos</string>
+    <string name="business_profile_setup">Business Profile</string>
+    <string name="business_information_setup">Business Information</string>
+    <string name="credit_card_setup">Credit Card</string>
+    <string name="credit_card_processing_setup">Credit Card Processing</string>
+    <string name="customer_display_setup">Customer Display</string>
+    <string name="client_customer_display">Client </string>
+    <string name="client_customer_display_desc">( Turn this on if its cashier screen)</string>
+    <string name="server_customer_display">Server </string>
+    <string name="server_customer_desc">(Turn this on to make display screen)</string>
+    <string name="enable_customer_display_customer_display">Enable Customer Display</string>
+    <string name="ip_address_customer_display">Customer Display Ip Address</string>
+    <string name="customer_display_setting">Customer Display Setting</string>
+    <string name="customer_display">Customer Display</string>
+    <string name="enable_customer_display">Enable Customer Display</string>
+    <string name="dual_price_card_label">Dual Price Card*</string>
+    <string name="dual_price_setup">Dual Price</string>
+    <string name="setup_test_update_printer">Setup/Test/Update Printer</string>
+    <string name="printer_setup">Printer</string>
+    <string name="barcode_reader_on_printer">Barcode Reader On</string>
+    <string name="no_printer_connected">Printer:</string>
+    <string name="no_printer_connected_desc">No printer connected, Please verify Bluetooth/USB/TCP</string>
+    <string name="printer_model">PrinterModel</string>
+    <string name="no_select_printer">Printer is not selected</string>
+    <string name="select_printer">Select Printer</string>
+
+    <string-array name="discount_reasons">
+        <item>Select Reason</item>
+        <item>Customer Loyalty</item>
+        <item>Seasonal Promotion</item>
+        <item>Clearance Sale</item>
+        <item>First Purchase</item>
+        <item>Bulk Purchase</item>
+        <item>Referral Discount</item>
+        <item>Discount Code</item>
+        <item>Employee Discount</item>
+        <item>Birthday Discount</item>
+        <item>Special Offer</item>
+        <item>Damaged Item</item>
+        <item>Student Discount</item>
+        <item>Cash Payment Discount</item>
+        <item>Membership Discount</item>
+        <item>Holiday Discount</item>
+        <item>Senior Discount</item>
+        <item>Clearance Items</item>
+        <item>Dancer Discount</item>
+        <item>Military Discount</item>
+    </string-array>
+
+</resources>

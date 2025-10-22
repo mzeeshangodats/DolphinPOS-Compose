@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="CustomEditTextStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">@dimen/_20sdp</item>
+        <item name="android:paddingVertical">@dimen/space_8</item>
+        <item name="android:textColor">@color/black</item>
+        <item name="android:textColorHint">@color/textColorHint</item>
+        <item name="android:fontFamily">@font/general_sans_medium</item>
+        <item name="android:background">@drawable/edittext_box</item>
+    </style>
+
+    <style name="TextAppearance.Display.Large" parent="TextAppearance.Material3.DisplayLarge">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_display_large</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="TextAppearance.Display.Medium" parent="TextAppearance.Material3.DisplayMedium">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_display_medium</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Heading.Large" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>'
+        <item name="android:textSize">@dimen/text_heading_large</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Heading.Medium" parent="TextAppearance.Material3.HeadlineMedium">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_heading_medium</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+   <style name="TextAppearance.Heading.Small" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_heading_small</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Body.Large" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_large</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Body.Medium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_medium</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Body.Small" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_small</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Label.Large" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/general_sans_semi_bold</item>
+        <item name="font">@font/general_sans_semi_bold</item>
+        <item name="android:fontFamily">@font/general_sans_semi_bold</item>
+        <item name="android:font">@font/general_sans_semi_bold</item>
+        <item name="android:textSize">@dimen/text_body_large</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="TextAppearance.Label.Medium" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/general_sans_semi_bold</item>
+        <item name="font">@font/general_sans_semi_bold</item>
+        <item name="android:fontFamily">@font/general_sans_semi_bold</item>
+        <item name="android:font">@font/general_sans_semi_bold</item>
+        <item name="android:textSize">@dimen/text_body_medium</item>
+        <item name="android:textColor">@color/white</item>
+
+    </style>
+
+    <style name="Widget.Button.Base" parent="Widget.Material3.Button">
+        <item name="cornerRadius">@dimen/button_radius</item>
+        <item name="android:textSize">@dimen/text_heading_small</item>
+        <item name="android:fontFamily">@font/general_sans_medium</item>
+        <item name="font">@font/general_sans_medium</item>
+        <item name="fontFamily">@font/general_sans_medium</item>
+        <item name="android:font">@font/general_sans_medium</item>
+        <item name="android:paddingVertical">@dimen/space_8</item>
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="Widget.Button.Primary" parent="Widget.Button.Base">
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <style name="Widget.Button.Success" parent="Widget.Button.Base">
+        <item name="backgroundTint">@color/green_success</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <style name="Widget.Button.Error" parent="Widget.Button.Base">
+        <item name="backgroundTint">@color/red_error</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <style name="Widget.Button.Warning" parent="Widget.Button.Base">
+        <item name="backgroundTint">@color/dark_blue</item>
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <style name="Widget.Button.Neutral" parent="Widget.Button.Base">
+        <item name="backgroundTint">@color/gray_neutral</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <!-- Outlined Version -->
+    <style name="Widget.Button.Outlined" parent="Widget.Button.Base">
+        <item name="strokeColor">@color/colorHint</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="android:textColor">@color/colorHint</item>
+    </style>
+
+
+    <style name="CustomTextInputLayoutStyle" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="hintTextAppearance">@style/CustomHintTextAppearance</item>
+        <item name="boxCornerRadiusTopStart">@dimen/button_radius</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/button_radius</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/button_radius</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/button_radius</item>
+    </style>
+
+    <style name="CustomHintTextAppearance" parent="TextAppearance.MaterialComponents.Caption">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_large</item>
+        <item name="android:textColor">@color/colorHint</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="CustomTextInputEditTextStyle" parent="Widget.Material3.TextInputEditText.OutlinedBox">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_large</item>
+        <item name="android:textColor">@color/colorTextLightMode</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="CustomExposedDropdownMenuStyle" parent="Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+        <item name="hintTextAppearance">@style/CustomDropdownHintAppearance</item>
+        <item name="boxBackgroundColor">@color/white</item>
+        <item name="boxCornerRadiusTopStart">@dimen/button_radius</item>
+        <item name="boxCornerRadiusTopEnd">@dimen/button_radius</item>
+        <item name="boxCornerRadiusBottomStart">@dimen/button_radius</item>
+        <item name="boxCornerRadiusBottomEnd">@dimen/button_radius</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="CustomDropdownHintAppearance" parent="TextAppearance.MaterialComponents.Subtitle2">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">@dimen/text_body_medium</item>
+        <item name="android:textColor">@color/colorHint</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="CustomDropdownAutoCompleteTextViewStyle" parent="Widget.Material3.AutoCompleteTextView.OutlinedBox">
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">@color/colorHint</item>
+        <item name="android:popupBackground">@color/white</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="KeypadButton" parent="Widget.Button.Base">
+        <item name="android:layout_margin">2dp</item>
+        <item name="android:background">@drawable/background_shape_pin_pad_normal</item>
+        <item name="backgroundTint">#BDC3CE</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">@dimen/text_heading_medium</item>
+        <item name="fontFamily">@font/general_sans_regular</item>
+        <item name="font">@font/general_sans_regular</item>
+        <item name="android:fontFamily">@font/general_sans_regular</item>
+        <item name="android:font">@font/general_sans_regular</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="ActionButton" parent="Widget.Button.Base">
+        <item name="android:layout_margin">2dp</item>
+        <item name="android:background">@drawable/background_shape_pin_pad_normal</item>
+        <item name="backgroundTint">@color/primary</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">@dimen/text_heading_medium</item>
+        <item name="fontFamily">@font/general_sans_medium</item>
+        <item name="font">@font/general_sans_medium</item>
+        <item name="android:fontFamily">@font/general_sans_medium</item>
+        <item name="android:font">@font/general_sans_medium</item>
+        <item name="android:textAppearance">@style/CustomTextAppearance</item>
+    </style>
+
+    <style name="CustomTextAppearance" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/general_sans_medium</item>
+        <item name="android:fontFamily">@font/general_sans_medium</item>
+    </style>
+
+    <style name="MyDatePickerTheme" parent="ThemeOverlay.MaterialComponents.MaterialCalendar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorControlActivated">@color/primary</item>
+        <item name="android:textColorPrimary">@color/primary</item>
+    </style>
+
+</resources>

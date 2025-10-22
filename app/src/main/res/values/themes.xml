@@ -1,0 +1,27 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.DolphinPOS" parent="Theme.MaterialComponents.DayNight.NoActionBar"/>
+</resources>
+
+<!--<resources xmlns:tools="http://schemas.android.com/tools">-->
+<!--&lt;!&ndash; Base application theme. &ndash;&gt;-->
+<!--<style name="Base.Theme.DolphinPos" parent="Theme.Material3.DayNight.NoActionBar">-->
+<!--    &lt;!&ndash; Customize your light theme here. &ndash;&gt;-->
+<!--    <item name="colorPrimary">@color/my_light_primary</item>-->
+<!--&lt;!&ndash;    <item name="fontFamily">@font/general_sans_regular</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="font">@font/general_sans_regular</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="android:font">@font/general_sans_regular</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="android:fontFamily">@font/general_sans_regular</item>&ndash;&gt;-->
+<!--    <item name="backgroundTint">@color/white</item>-->
+<!--    <item name="backgroundColor">@color/white</item>-->
+<!--&lt;!&ndash;    <item name="textAppearanceHeadlineSmall">@style/CustomTextAppearance</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="textAppearanceBodyLarge">@style/CustomTextAppearance</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="textAppearanceBodyMedium">@style/CustomTextAppearance</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="textAppearanceLabelLarge">@style/CustomTextAppearance</item>&ndash;&gt;-->
+<!--&lt;!&ndash;    <item name="textAppearanceTitleMedium">@style/CustomTextAppearance</item>&ndash;&gt;-->
+
+<!--</style>-->
+
+<!--<style name="Theme.DolphinPos" parent="Base.Theme.DolphinPos" />-->
+
+<!--</resources>-->

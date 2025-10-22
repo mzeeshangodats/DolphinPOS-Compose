@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen IDs for navigation -->
+    <item name="homeScreen" type="id" />
+    <item name="productsScreen" type="id" />
+    <item name="ordersScreen" type="id" />
+    <item name="inventoryScreen" type="id" />
+    <item name="reportsScreen" type="id" />
+    <item name="setupScreen" type="id" />
+</resources>
