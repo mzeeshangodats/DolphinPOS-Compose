@@ -174,7 +174,7 @@ class HomeViewModel @Inject constructor(
                     cardPrice = product.cardPrice.toDouble(),
                     cashPrice = product.cashPrice.toDouble(),
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
-                    selectedPrice = if (isCashSelected) product.cashPrice.toDouble() else product.cardPrice.toDouble()
+                    selectedPrice = product.cardPrice.toDouble()  // Always add new products at card price
                 )
             )
         }
@@ -192,10 +192,18 @@ class HomeViewModel @Inject constructor(
         calculateSubtotal(updatedCart)
     }
 
-    fun removeFromCart(productId: Int) {
+    fun removeFromCart(productId: Int): Boolean {
+        if (!canRemoveItemFromCart()) {
+            return false  // Cannot remove item after cash discount applied
+        }
+        
         val updatedCart = _cartItems.value.filter { it.productId != productId }
         _cartItems.value = updatedCart
+        if (updatedCart.isEmpty()) {
+            isCashSelected = false  // Set default to card when cart becomes empty
+        }
         calculateSubtotal(updatedCart)
+        return true
     }
 
     fun updateCartItem(updatedItem: CartItem) {
@@ -209,18 +217,50 @@ class HomeViewModel @Inject constructor(
             }
         }
         _cartItems.value = currentList
+        if (currentList.isEmpty()) {
+            isCashSelected = false  // Set default to card when cart becomes empty
+        }
         calculateSubtotal(currentList)
     }
 
     fun clearCart() {
         _cartItems.value = emptyList()
+        isCashSelected = false  // Set default to card when cart is cleared
         calculateSubtotal(emptyList())
     }
 
     private fun calculateCashDiscount(cartItems: List<CartItem>) {
         if (isCashSelected) {
-            val diffTotal = cartItems.sumOf { (it.cardPrice - it.cashPrice) * it.quantity }
-            _cashDiscountTotal.value = diffTotal
+            // Calculate cash discount as the difference between card-based subtotal and cash-based subtotal
+            val cardBasedSubtotal = cartItems.sumOf { cartItem ->
+                val cardPrice = cartItem.cardPrice
+                val discountedCardPrice = when (cartItem.discountType) {
+                    DiscountType.PERCENTAGE -> {
+                        cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cardPrice - (cartItem.discountValue ?: 0.0)
+                    }
+                    else -> cardPrice
+                }
+                discountedCardPrice * cartItem.quantity
+            }
+            
+            val cashBasedSubtotal = cartItems.sumOf { cartItem ->
+                val cashPrice = cartItem.cashPrice
+                val discountedCashPrice = when (cartItem.discountType) {
+                    DiscountType.PERCENTAGE -> {
+                        cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cashPrice - (cartItem.discountValue ?: 0.0)
+                    }
+                    else -> cashPrice
+                }
+                discountedCashPrice * cartItem.quantity
+            }
+            
+            _cashDiscountTotal.value = cardBasedSubtotal - cashBasedSubtotal
         } else {
             _cashDiscountTotal.value = 0.0
         }
@@ -232,11 +272,27 @@ class HomeViewModel @Inject constructor(
 
     private fun calculateSubtotal(cartItems: List<CartItem>) {
         viewModelScope.launch(Dispatchers.Default) {
-            // 1️⃣ Base subtotal
-            val baseSubtotal = cartItems.sumOf { it.getProductDiscountedPrice() * it.quantity }
+            // 1️⃣ Base subtotal (card prices minus product-level discounts only)
+            val baseSubtotal = cartItems.sumOf { it.cardPrice * it.quantity }
+            
+            // Calculate product-level discounts using card prices (subtotal always shows card prices)
+            val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
+                val cardPrice = cartItem.cardPrice
+                val discountedPrice = when (cartItem.discountType) {
+                    DiscountType.PERCENTAGE -> {
+                        cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cardPrice - (cartItem.discountValue ?: 0.0)
+                    }
+                    else -> cardPrice
+                }
+                discountedPrice * cartItem.quantity
+            }
+            val subtotal = productDiscountedSubtotal  // Subtotal shows card prices minus product discounts
 
-            // 2️⃣ Apply all order-level discounts sequentially
-            var discountedSubtotal = baseSubtotal
+            // 3️⃣ Apply all order-level discounts sequentially
+            var discountedSubtotal = productDiscountedSubtotal
             var totalOrderDiscount = 0.0
 
             for (discount in _orderLevelDiscounts.value) {
@@ -254,25 +310,31 @@ class HomeViewModel @Inject constructor(
                 totalOrderDiscount += (beforeDiscount - discountedSubtotal)
             }
 
-            // 3️⃣ Tax (only for taxable products, proportional to discount)
+            // 4️⃣ Apply cash discount (after order-level discounts)
+            val finalSubtotal = discountedSubtotal - _cashDiscountTotal.value
+
+            // 5️⃣ Tax (only for taxable products, proportional to discount)
             val taxableBase = cartItems.sumOf { cart ->
                 if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
             }
 
-            val taxableAfterOrderDiscounts = if (baseSubtotal > 0) {
-                taxableBase * (discountedSubtotal / baseSubtotal)
+            val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0) {
+                taxableBase * (finalSubtotal / productDiscountedSubtotal)
             } else 0.0
 
             val taxValue = taxableAfterOrderDiscounts * 8.25 / 100.0
 
-            // 4️⃣ Final total
-            val totalAmount = discountedSubtotal + taxValue
+            // 6️⃣ Final total
+            val totalAmount = finalSubtotal + taxValue
 
             withContext(Dispatchers.Main) {
-                _subtotal.value = baseSubtotal   // subtotal always before order-level discount
+                _subtotal.value = subtotal   // subtotal shows card prices minus product-level discounts only
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
+                
+                // Recalculate cash discount when cart changes
+                calculateCashDiscount(cartItems)
             }
         }
     }
@@ -299,10 +361,25 @@ class HomeViewModel @Inject constructor(
             .toDouble()
     }
 
+    // Validation functions for discount scenarios
+    fun canApplyProductDiscount(): Boolean {
+        return !isCashSelected || _cashDiscountTotal.value <= 0
+    }
+
+    fun canRemoveItemFromCart(): Boolean {
+        return !isCashSelected || _cashDiscountTotal.value <= 0
+    }
+
+    fun hasCashDiscountApplied(): Boolean {
+        return isCashSelected && _cashDiscountTotal.value > 0
+    }
+
     fun removeLastDigit(amount: Double): Double {
         val cents = (amount * 100).toLong().toString()
         val newCents = if (cents.length > 1) cents.dropLast(1).toLong() else 0L
-        return newCents / 100.0
+        val result = newCents / 100.0
+        // Ensure the result doesn't go below 0.00
+        return maxOf(result, 0.0)
     }
 
     fun formatAmount(amount: Double): String {

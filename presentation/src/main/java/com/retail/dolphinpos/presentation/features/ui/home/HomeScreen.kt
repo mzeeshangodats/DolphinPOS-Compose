@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
-import android.widget.Toast
+import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,8 +31,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -61,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,7 +88,6 @@ import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -168,11 +168,19 @@ fun HomeScreen(
             CartPanel(
                 modifier = Modifier.weight(0.3f),
                 cartItems = cartItems,
-                onRemoveFromCart = { viewModel.removeFromCart(it) },
+                onRemoveFromCart = { productId ->
+                    val success = viewModel.removeFromCart(productId)
+                    if (!success) {
+                        ErrorDialogHandler.showError("You can't remove item from cart after applying cash discount. If you want to remove click on card first")
+                    }
+                },
                 onUpdateCartItem = { viewModel.updateCartItem(it) },
                 onAddCustomer = {
                     // TODO: Show add customer dialog
-                }
+                },
+
+                canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
+                canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() }
             )
 
             // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
@@ -189,7 +197,8 @@ fun HomeScreen(
                     cashDiscountTotal = cashDiscountTotal,
                     orderDiscountTotal = orderDiscountTotal,
                     tax = tax,
-                    totalAmount = totalAmount
+                    totalAmount = totalAmount,
+                    isCashSelected = viewModel.isCashSelected
                 )
 
                 // Cart Action Buttons
@@ -265,7 +274,8 @@ fun HomeScreen(
             OrderLevelDiscountDialog(
                 onDismiss = { showOrderDiscountDialog = false },
                 onApplyDiscount = { discounts ->
-                    // TODO: Apply order level discounts to viewModel
+                    viewModel.setOrderLevelDiscounts(discounts)
+                    viewModel.updateCartPrices()
                     showOrderDiscountDialog = false
                 }
             )
@@ -279,7 +289,9 @@ fun CartPanel(
     cartItems: List<CartItem>,
     onRemoveFromCart: (Int) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
-    onAddCustomer: () -> Unit
+    onAddCustomer: () -> Unit,
+    canApplyProductDiscount: () -> Boolean,
+    canRemoveItemFromCart: () -> Boolean
 ) {
     var selectedCartItem by remember { mutableStateOf<CartItem?>(null) }
     Column(
@@ -306,7 +318,15 @@ fun CartPanel(
                 CartItemsList(
                     cartItems = cartItems,
                     onRemoveFromCart = onRemoveFromCart,
-                    onUpdateCartItem = { selectedCartItem = it }
+                    onUpdateCartItem = { cartItem ->
+                        if (canApplyProductDiscount()) {
+                            selectedCartItem = cartItem
+                        } else {
+                            ErrorDialogHandler.showError("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card")
+                        }
+                    },
+                    canApplyProductDiscount = canApplyProductDiscount,
+                    canRemoveItemFromCart = canRemoveItemFromCart
                 )
             }
         }
@@ -433,7 +453,8 @@ fun PricingSummary(
     cashDiscountTotal: Double,
     orderDiscountTotal: Double,
     tax: Double,
-    totalAmount: Double
+    totalAmount: Double,
+    isCashSelected: Boolean
 ) {
     Column(
         modifier = Modifier
@@ -445,50 +466,6 @@ fun PricingSummary(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Cash Discount
-        if (cashDiscountTotal > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                BaseText(
-                    text = "Cash Discount:",
-                    color = Color.Green,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans
-                )
-                BaseText(
-                    text = String.format(Locale.US, "-$%.2f", cashDiscountTotal),
-                    color = Color.Green,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        // Order Discount
-        if (orderDiscountTotal > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                BaseText(
-                    text = "Order Discount:",
-                    color = colorResource(id = R.color.green_success),
-                    fontSize = 12f,
-                    fontFamily = GeneralSans
-                )
-                BaseText(
-                    text = String.format(Locale.US, "-$%.2f", orderDiscountTotal),
-                    color = Color.Green,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
         // Subtotal
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -507,6 +484,50 @@ fun PricingSummary(
                 fontFamily = GeneralSans,
                 fontWeight = FontWeight.SemiBold
             )
+        }
+
+        // Cash Discount
+        if (isCashSelected && cashDiscountTotal > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                BaseText(
+                    text = "Cash Discount:",
+                    color = colorResource(id = R.color.green_success),
+                    fontSize = 12f,
+                    fontFamily = GeneralSans
+                )
+                BaseText(
+                    text = String.format(Locale.US, "-$%.2f", cashDiscountTotal),
+                    color = colorResource(id = R.color.green_success),
+                    fontSize = 12f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+
+        // Order Discount
+        if (orderDiscountTotal > 0) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                BaseText(
+                    text = "Discount:",
+                    color = colorResource(id = R.color.green_success),
+                    fontSize = 12f,
+                    fontFamily = GeneralSans
+                )
+                BaseText(
+                    text = String.format(Locale.US, "-$%.2f", orderDiscountTotal),
+                    color = colorResource(id = R.color.green_success),
+                    fontSize = 12f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
 
         // Tax
@@ -633,7 +654,9 @@ fun EmptyCartState() {
 fun CartItemsList(
     cartItems: List<CartItem>,
     onRemoveFromCart: (Int) -> Unit,
-    onUpdateCartItem: (CartItem) -> Unit
+    onUpdateCartItem: (CartItem) -> Unit,
+    canApplyProductDiscount: () -> Boolean,
+    canRemoveItemFromCart: () -> Boolean
 ) {
     LazyColumn(
         modifier = Modifier
@@ -851,37 +874,56 @@ fun PaymentInput(
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            androidx.compose.foundation.text.BasicTextField(
+            BasicTextField(
                 value = paymentAmount,
-                onValueChange = onPaymentAmountChange,
-                modifier = Modifier.weight(1f),
-                textStyle = androidx.compose.ui.text.TextStyle(
+                onValueChange = { newValue ->
+                    // Prevent deletion below 0.00
+                    val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                    val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
+                    
+                    // Only allow changes if the new amount is not less than 0.00
+                    if (newAmount >= 0.0) {
+                        onPaymentAmountChange(newValue)
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        // Prevent keyboard from opening by consuming all pointer events
+                        awaitPointerEventScope {
+                            while (true) {
+                                awaitPointerEvent()
+                            }
+                        }
+                    },
+                textStyle = TextStyle(
                     fontFamily = GeneralSans,
                     fontSize = 12.sp,
                     color = Color.Black
                 ),
+                cursorBrush = SolidColor(Color.Transparent), // Hide cursor
+                readOnly = true, // Prevent keyboard from opening
                 decorationBox = { innerTextField ->
-                    if (paymentAmount.isEmpty()) {
-                        BaseText(
-                            text = "0.00",
-                            color = Color.Gray,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
                     innerTextField()
                 }
             )
 
             IconButton(
-                onClick = onRemoveDigit,
-                modifier = Modifier.size(24.dp)
+                onClick = {
+                    // Only allow removal if current amount is greater than 0.00
+                    val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                    if (currentAmount > 0.0) {
+                        onRemoveDigit()
+                    }
+                },
+                modifier = Modifier.size(24.dp),
+                enabled = (paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0) > 0.0
             ) {
                 Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = "Clear",
+                    painter = painterResource(id = R.drawable.clear_text_icon),
+                    contentDescription = "Remove Digit",
                     modifier = Modifier.size(16.dp),
-                    tint = Color.Gray
+                    tint = if ((paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0) > 0.0) Color.Gray else Color.LightGray
                 )
             }
         }
@@ -1393,11 +1435,7 @@ fun ActionButtonsPanel(
                 when (action) {
                     "Order Discount" -> {
                         if (cartItems.isEmpty()) {
-                            Toast.makeText(
-                                context,
-                                "There are no items in cart",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            ErrorDialogHandler.showError("There are no items in cart")
                         } else {
                             onShowOrderDiscountDialog()
                         }
@@ -1456,7 +1494,15 @@ fun ProductLevelDiscountDialog(
 ) {
     val context = LocalContext.current
     var quantity by remember { mutableStateOf(cartItem.quantity) }
-    var discountValue by remember { mutableStateOf(cartItem.discountValue?.toString() ?: "") }
+    var discountValue by remember { 
+        mutableStateOf(
+            if (cartItem.discountValue != null && cartItem.discountValue != 0.0) {
+                cartItem.discountValue.toString()
+            } else {
+                ""
+            }
+        )
+    }
     var discountReason by remember { mutableStateOf(cartItem.discountReason ?: "") }
     var discountType by remember { mutableStateOf(cartItem.discountType) }
     var chargeTax by remember { mutableStateOf(cartItem.chargeTaxOnThisProduct) }
@@ -1602,20 +1648,17 @@ fun ProductLevelDiscountDialog(
                             shape = RoundedCornerShape(8.dp)
                         )
                         .padding(12.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(
+                    textStyle = TextStyle(
                         fontFamily = GeneralSans,
                         fontSize = 12.sp,
                         color = Color.Black
                     ),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    singleLine = true,
                     decorationBox = { innerTextField ->
-                        if (discountValue.isEmpty()) {
-                            BaseText(
-                                text = "0.0",
-                                color = Color.Gray,
-                                fontSize = 12f,
-                                fontFamily = GeneralSans
-                            )
-                        }
                         innerTextField()
                     }
                 )
@@ -1723,35 +1766,22 @@ fun ProductLevelDiscountDialog(
                         // Validations (matching your Fragment logic exactly)
                         when {
                             quantity <= 0 -> {
-                                Toast.makeText(
-                                    context,
-                                    "Quantity must be at least 1",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                ErrorDialogHandler.showError("Quantity must be at least 1")
                                 return@Button
                             }
                             // If discount value entered but no type selected
                             discountValueDouble > 0 && discountType == null -> {
-                                Toast.makeText(context, "Select discount type", Toast.LENGTH_SHORT)
-                                    .show()
+                                ErrorDialogHandler.showError("Select discount type")
                                 return@Button
                             }
                             // If percentage discount, must be <= 100
                             discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE && discountValueDouble > 100 -> {
-                                Toast.makeText(
-                                    context,
-                                    "Percentage cannot be more than 100",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                ErrorDialogHandler.showError("Percentage cannot be more than 100")
                                 return@Button
                             }
                             // If discount applied, reason must not be empty
                             discountValueDouble > 0 && discountReason.isEmpty() -> {
-                                Toast.makeText(
-                                    context,
-                                    "Please enter discount reason",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                ErrorDialogHandler.showError("Please enter discount reason")
                                 return@Button
                             }
                         }
@@ -1918,16 +1948,12 @@ fun OrderLevelDiscountDialog(
                         fontSize = 12.sp,
                         color = Color.Black
                     ),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Decimal,
+                        imeAction = ImeAction.Done
+                    ),
+                    singleLine = true,
                     decorationBox = { innerTextField ->
-                        if (discountValue.isEmpty()) {
-                            BaseText(
-                                text = "0.0",
-                                color = Color.Gray,
-                                fontSize = 12f,
-                                fontFamily = GeneralSans
-                            )
-                        }
                         innerTextField()
                     }
                 )
@@ -2063,11 +2089,7 @@ fun OrderLevelDiscountDialog(
                             discountType =
                                 com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
                         } else {
-                            Toast.makeText(
-                                context,
-                                "Please select reason and enter value",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            ErrorDialogHandler.showError("Please select reason and enter value")
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
