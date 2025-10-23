@@ -11,4 +11,9 @@ object Constants {
     const val OCCUPIED_REGISTER_ID = "occupied_register_id"
     const val NAME = "name"
     const val PASSWORD = "password"
+    
+    // Order discount persistence
+    const val ORDER_DISCOUNT_VALUE = "order_discount_value"
+    const val ORDER_DISCOUNT_TYPE = "order_discount_type"
+    const val ORDER_DISCOUNT_REASON = "order_discount_reason"
 }

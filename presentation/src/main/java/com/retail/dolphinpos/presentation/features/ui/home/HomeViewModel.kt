@@ -77,6 +77,7 @@ class HomeViewModel @Inject constructor(
     init {
         loadCategories()
         loadMenus()
+        resetOrderDiscountValues()  // Reset order discount values on initialization
     }
 
     private fun loadCategories() {
@@ -201,6 +202,7 @@ class HomeViewModel @Inject constructor(
         _cartItems.value = updatedCart
         if (updatedCart.isEmpty()) {
             isCashSelected = false  // Set default to card when cart becomes empty
+            resetOrderDiscountValues()  // Reset order discount values when cart becomes empty
         }
         calculateSubtotal(updatedCart)
         return true
@@ -219,6 +221,7 @@ class HomeViewModel @Inject constructor(
         _cartItems.value = currentList
         if (currentList.isEmpty()) {
             isCashSelected = false  // Set default to card when cart becomes empty
+            resetOrderDiscountValues()  // Reset order discount values when cart becomes empty
         }
         calculateSubtotal(currentList)
     }
@@ -226,6 +229,7 @@ class HomeViewModel @Inject constructor(
     fun clearCart() {
         _cartItems.value = emptyList()
         isCashSelected = false  // Set default to card when cart is cleared
+        resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
     }
 
@@ -268,6 +272,33 @@ class HomeViewModel @Inject constructor(
 
     fun setOrderLevelDiscounts(discounts: List<OrderDiscount>) {
         _orderLevelDiscounts.value = discounts
+    }
+
+    fun saveOrderDiscountValues(discountValue: String, discountType: String, discountReason: String) {
+        preferenceManager.setOrderDiscountValue(discountValue)
+        preferenceManager.setOrderDiscountType(discountType)
+        preferenceManager.setOrderDiscountReason(discountReason)
+    }
+
+    fun getOrderDiscountValue(): String {
+        return preferenceManager.getOrderDiscountValue()
+    }
+
+    fun getOrderDiscountType(): String {
+        return preferenceManager.getOrderDiscountType()
+    }
+
+    fun getOrderDiscountReason(): String {
+        return preferenceManager.getOrderDiscountReason()
+    }
+
+    fun resetOrderDiscountValues() {
+        preferenceManager.clearOrderDiscountValues()
+    }
+
+    fun removeAllOrderDiscounts() {
+        _orderLevelDiscounts.value = emptyList()
+        calculateSubtotal(_cartItems.value)
     }
 
     private fun calculateSubtotal(cartItems: List<CartItem>) {
@@ -363,6 +394,10 @@ class HomeViewModel @Inject constructor(
 
     // Validation functions for discount scenarios
     fun canApplyProductDiscount(): Boolean {
+        return !isCashSelected || _cashDiscountTotal.value <= 0
+    }
+
+    fun canApplyOrderLevelDiscount(): Boolean {
         return !isCashSelected || _cashDiscountTotal.value <= 0
     }
 

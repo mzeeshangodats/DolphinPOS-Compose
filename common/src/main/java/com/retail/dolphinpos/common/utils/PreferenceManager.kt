@@ -102,4 +102,37 @@ class PreferenceManager @Inject constructor(
         setLogin(true)
     }
 
+    // Order discount persistence methods
+    fun setOrderDiscountValue(value: String) {
+        prefs.edit { putString(Constants.ORDER_DISCOUNT_VALUE, value) }
+    }
+
+    fun getOrderDiscountValue(defaultValue: String = ""): String {
+        return prefs.getString(Constants.ORDER_DISCOUNT_VALUE, defaultValue) ?: defaultValue
+    }
+
+    fun setOrderDiscountType(type: String) {
+        prefs.edit { putString(Constants.ORDER_DISCOUNT_TYPE, type) }
+    }
+
+    fun getOrderDiscountType(defaultValue: String = "PERCENTAGE"): String {
+        return prefs.getString(Constants.ORDER_DISCOUNT_TYPE, defaultValue) ?: defaultValue
+    }
+
+    fun setOrderDiscountReason(reason: String) {
+        prefs.edit { putString(Constants.ORDER_DISCOUNT_REASON, reason) }
+    }
+
+    fun getOrderDiscountReason(defaultValue: String = "Select Reason"): String {
+        return prefs.getString(Constants.ORDER_DISCOUNT_REASON, defaultValue) ?: defaultValue
+    }
+
+    fun clearOrderDiscountValues() {
+        prefs.edit {
+            remove(Constants.ORDER_DISCOUNT_VALUE)
+            remove(Constants.ORDER_DISCOUNT_TYPE)
+            remove(Constants.ORDER_DISCOUNT_REASON)
+        }
+    }
+
 }

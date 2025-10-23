@@ -107,6 +107,7 @@ fun HomeScreen(
     val totalAmount by viewModel.totalAmount.collectAsStateWithLifecycle()
     val cashDiscountTotal by viewModel.cashDiscountTotal.collectAsStateWithLifecycle()
     val orderDiscountTotal by viewModel.orderDiscountTotal.collectAsStateWithLifecycle()
+    val orderLevelDiscounts by viewModel.orderLevelDiscounts.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchProductResults.collectAsStateWithLifecycle()
 
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
@@ -265,7 +266,15 @@ fun HomeScreen(
                 onProductClick = { product ->
                     viewModel.addToCart(product)
                 },
-                onShowOrderDiscountDialog = { showOrderDiscountDialog = true }
+                onShowOrderDiscountDialog = { 
+                    if (cartItems.isEmpty()) {
+                        ErrorDialogHandler.showError("There are no items in cart")
+                    } else if (!viewModel.canApplyOrderLevelDiscount()) {
+                        ErrorDialogHandler.showError("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
+                    } else {
+                        showOrderDiscountDialog = true
+                    }
+                }
             )
         }
 
@@ -277,7 +286,20 @@ fun HomeScreen(
                     viewModel.setOrderLevelDiscounts(discounts)
                     viewModel.updateCartPrices()
                     showOrderDiscountDialog = false
-                }
+                },
+                onSaveDiscountValues = { discountValue, discountType, discountReason ->
+                    viewModel.saveOrderDiscountValues(discountValue, discountType, discountReason)
+                },
+                onRemoveAllDiscounts = {
+                    viewModel.removeAllOrderDiscounts()
+                },
+                onResetDiscountValues = {
+                    viewModel.resetOrderDiscountValues()
+                },
+                preFilledDiscountValue = viewModel.getOrderDiscountValue(),
+                preFilledDiscountType = viewModel.getOrderDiscountType(),
+                preFilledDiscountReason = viewModel.getOrderDiscountReason(),
+                existingOrderDiscounts = orderLevelDiscounts
             )
         }
     }
@@ -322,7 +344,7 @@ fun CartPanel(
                         if (canApplyProductDiscount()) {
                             selectedCartItem = cartItem
                         } else {
-                            ErrorDialogHandler.showError("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card")
+                            ErrorDialogHandler.showError("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
                         }
                     },
                     canApplyProductDiscount = canApplyProductDiscount,
@@ -1434,11 +1456,7 @@ fun ActionButtonsPanel(
             onActionClick = { action ->
                 when (action) {
                     "Order Discount" -> {
-                        if (cartItems.isEmpty()) {
-                            ErrorDialogHandler.showError("There are no items in cart")
-                        } else {
-                            onShowOrderDiscountDialog()
-                        }
+                        onShowOrderDiscountDialog()
                     }
                     // TODO: Add other action handlers
                 }
@@ -1816,13 +1834,28 @@ fun ProductLevelDiscountDialog(
 @Composable
 fun OrderLevelDiscountDialog(
     onDismiss: () -> Unit,
-    onApplyDiscount: (List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount>) -> Unit
+    onApplyDiscount: (List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount>) -> Unit,
+    onSaveDiscountValues: (String, String, String) -> Unit,
+    onRemoveAllDiscounts: () -> Unit,
+    onResetDiscountValues: () -> Unit,
+    preFilledDiscountValue: String = "",
+    preFilledDiscountType: String = "PERCENTAGE",
+    preFilledDiscountReason: String = "Select Reason",
+    existingOrderDiscounts: List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount> = emptyList()
 ) {
     val context = LocalContext.current
-    var discountValue by remember { mutableStateOf("") }
-    var discountType by remember { mutableStateOf(com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) }
-    var selectedReason by remember { mutableStateOf("Select Reason") }
-    var orderDiscounts by remember { mutableStateOf(listOf<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount>()) }
+    var discountValue by remember { mutableStateOf(preFilledDiscountValue) }
+    var discountType by remember { 
+        mutableStateOf(
+            if (preFilledDiscountType == "PERCENTAGE") {
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+            } else {
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT
+            }
+        )
+    }
+    var selectedReason by remember { mutableStateOf(preFilledDiscountReason) }
+    var orderDiscounts by remember { mutableStateOf(existingOrderDiscounts) }
 
     val reasons = listOf(
         "Select Reason",
@@ -2068,58 +2101,96 @@ fun OrderLevelDiscountDialog(
             }
         },
         confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Button(
-                    onClick = {
-                        val value = discountValue.toDoubleOrNull()
-                        if (selectedReason != "Select Reason" && value != null && value > 0) {
-                            val newDiscount =
-                                com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
-                                    reason = selectedReason,
-                                    type = discountType,
-                                    value = value
-                                )
-                            orderDiscounts = orderDiscounts + newDiscount
-
-                            // Reset fields
-                            discountValue = ""
-                            selectedReason = "Select Reason"
-                            discountType =
-                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
-                        } else {
-                            ErrorDialogHandler.showError("Please select reason and enter value")
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Remove All Discounts button (only show if there are existing discounts)
+                    if (existingOrderDiscounts.isNotEmpty()) {
+                        Button(
+                            onClick = {
+                                orderDiscounts = emptyList()
+                                onRemoveAllDiscounts()
+                                onResetDiscountValues()
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Red
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            BaseText(
+                                text = "Remove All",
+                                color = Color.White,
+                                fontSize = 12f,
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6C757D)
-                    )
-                ) {
-                    BaseText(
-                        text = "Add Discount",
-                        color = Color.White,
-                        fontSize = 12f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                Button(
-                    onClick = {
-                        onApplyDiscount(orderDiscounts)
-                        onDismiss()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(id = R.color.primary)
-                    )
-                ) {
-                    BaseText(
-                        text = "Apply All",
-                        color = Color.White,
-                        fontSize = 12f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    }
+                    
+                    Button(
+                        onClick = {
+                            val value = discountValue.toDoubleOrNull()
+                            if (selectedReason != "Select Reason" && value != null && value > 0) {
+                                val newDiscount =
+                                    com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
+                                        reason = selectedReason,
+                                        type = discountType,
+                                        value = value
+                                    )
+                                orderDiscounts = orderDiscounts + newDiscount
+
+                                // Save current values for persistence
+                                onSaveDiscountValues(
+                                    discountValue,
+                                    if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
+                                    selectedReason
+                                )
+
+                                // Reset fields
+                                discountValue = ""
+                                selectedReason = "Select Reason"
+                                discountType =
+                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                            } else {
+                                ErrorDialogHandler.showError("Please select reason and enter value")
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF6C757D)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        BaseText(
+                            text = "Add Discount",
+                            color = Color.White,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    Button(
+                        onClick = {
+                            onApplyDiscount(orderDiscounts)
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        BaseText(
+                            text = "Apply All",
+                            color = Color.White,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
