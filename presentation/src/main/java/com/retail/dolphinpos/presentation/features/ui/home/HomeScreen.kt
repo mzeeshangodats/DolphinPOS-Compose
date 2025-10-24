@@ -1,7 +1,5 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,17 +75,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.HeaderAppBarAuth
+import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -154,13 +154,30 @@ fun HomeScreen(
         paymentAmount = viewModel.formatAmount(totalAmount)
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.light_grey))
     ) {
-        // Header App Bar
-        HeaderAppBarAuth()
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Home App Bar with search and logout
+            HomeAppBar(
+                searchQuery = searchQuery,
+                onSearchQueryChange = { query ->
+                    searchQuery = query
+                    viewModel.searchProducts(query)
+                },
+                onLogout = {
+                    // TODO: Implement logout functionality
+                },
+                searchResults = searchResults,
+                onProductClick = { product ->
+                    viewModel.addToCart(product)
+                    searchQuery = ""
+                }
+            )
 
         Row(
             modifier = Modifier.weight(1f)
@@ -278,6 +295,7 @@ fun HomeScreen(
             )
         }
 
+
         // Order Level Discount Dialog
         if (showOrderDiscountDialog) {
             OrderLevelDiscountDialog(
@@ -303,6 +321,7 @@ fun HomeScreen(
             )
         }
     }
+}
 }
 
 @Composable
