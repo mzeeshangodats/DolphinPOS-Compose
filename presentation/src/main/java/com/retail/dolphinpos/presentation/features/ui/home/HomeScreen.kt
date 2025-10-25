@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -95,6 +96,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -102,7 +104,8 @@ import kotlin.math.roundToInt
 @Composable
 fun HomeScreen(
     navController: NavController,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
     var showAddCustomerDialog by remember { mutableStateOf(false) }
@@ -120,6 +123,11 @@ fun HomeScreen(
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // Get username and clock-in status from preferences
+    val userName = preferenceManager.getName()
+    val isClockedIn = preferenceManager.isClockedIn()
+    val clockInTime = preferenceManager.getClockInTime()
 
     // Handle UI events
     LaunchedEffect(Unit) {
@@ -139,10 +147,6 @@ fun HomeScreen(
                         selectedCategory = event.categoryList[0]
                         viewModel.loadProducts(event.categoryList[0].id)
                     }
-                }
-
-                is HomeUiEvent.PopulateProductsList -> {
-                    // Products are already updated in ViewModel
                 }
             }
         }
@@ -183,7 +187,10 @@ fun HomeScreen(
                 onProductClick = { product ->
                     viewModel.addToCart(product)
                     searchQuery = ""
-                }
+                },
+                userName = userName,
+                isClockedIn = isClockedIn,
+                clockInTime = clockInTime
             )
 
             Row(
@@ -375,6 +382,7 @@ fun CartPanel(
             // Order Header
             CartHeader(
                 cartItemsCount = cartItems.size,
+                holdCartItemsCount = 0, // TODO: Implement hold cart functionality
                 onAddCustomer = onAddCustomer
             )
 
@@ -652,6 +660,7 @@ fun PricingSummary(
 @Composable
 fun CartHeader(
     cartItemsCount: Int,
+    holdCartItemsCount: Int = 0,
     onAddCustomer: () -> Unit
 ) {
     Row(
@@ -671,6 +680,55 @@ fun CartHeader(
             fontSize = 12f,
             fontFamily = GeneralSans
         )
+
+        // Hold Cart section
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BaseText(
+                text = "Hold Cart",
+                color = Color.White,
+                fontSize = 12f,
+                fontFamily = GeneralSans
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            
+            // Cart icon with counter badge
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.cart_icon),
+                    contentDescription = "Hold Cart",
+                    modifier = Modifier.size(16.dp),
+                    tint = Color.White
+                )
+                
+                // Counter badge
+                if (holdCartItemsCount == 0) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(
+                                color = Color.Red,
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (holdCartItemsCount > 9) "9+" else holdCartItemsCount.toString(),
+                            color = Color.White,
+                            fontSize = 8.sp,
+                            fontFamily = GeneralSans,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 8.sp
+                        )
+                    }
+                }
+            }
+        }
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -1252,67 +1310,6 @@ fun PaymentMethods(
                     fontFamily = GeneralSans
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun ActionBar(
-    userName: String,
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    onLogout: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(colorResource(id = R.color.primary))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        BaseText(
-            text = "Welcome ${userName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}!",
-            color = Color.White,
-            fontSize = 14f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.Medium
-        )
-
-        // Search Bar
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = onSearchQueryChange,
-            placeholder = {
-                BaseText(
-                    text = stringResource(id = R.string.search_items),
-                    color = Color.Gray,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans
-                )
-            },
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedBorderColor = Color.White,
-                unfocusedBorderColor = Color.White
-            ),
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontFamily = GeneralSans,
-                fontSize = 12.sp
-            )
-        )
-
-        TextButton(onClick = onLogout) {
-            BaseText(
-                text = "Logout",
-                color = Color.White,
-                fontSize = 12f,
-                fontFamily = GeneralSans
-            )
         }
     }
 }

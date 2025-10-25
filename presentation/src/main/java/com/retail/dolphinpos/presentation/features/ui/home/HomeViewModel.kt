@@ -125,7 +125,6 @@ class HomeViewModel @Inject constructor(
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 if (response.isNotEmpty()) {
                     _products.value = response
-                    _homeUiEvent.emit(HomeUiEvent.PopulateProductsList(response))
                 } else {
                     _homeUiEvent.emit(HomeUiEvent.ShowError("No Products Found"))
                 }

@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Card
@@ -36,6 +38,9 @@ import androidx.compose.ui.zIndex
 import com.retail.dolphinpos.common.R
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun HomeAppBar(
@@ -43,7 +48,10 @@ fun HomeAppBar(
     onSearchQueryChange: (String) -> Unit = {},
     onLogout: () -> Unit = {},
     searchResults: List<Products> = emptyList(),
-    onProductClick: (Products) -> Unit = {}
+    onProductClick: (Products) -> Unit = {},
+    userName: String = "",
+    isClockedIn: Boolean = false,
+    clockInTime: Long = 0L
 ) {
     Box(
         modifier = Modifier.fillMaxWidth()
@@ -123,19 +131,68 @@ fun HomeAppBar(
                 )
             }
 
-            // Logout icon on the right
-            IconButton(
-                onClick = onLogout,
-                modifier = Modifier
-                    .size(40.dp)
-                    .align(Alignment.CenterEnd)
+            // User info and logout on the right
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.logout_icon),
-                    contentDescription = "Logout",
-                    modifier = Modifier.size(24.dp),
-                    tint = Color.White
-                )
+                // User info box (username and clock-in time)
+                if (userName.isNotEmpty()) {
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Top
+                    ) {
+                        // Username
+                        Text(
+                            text = userName,
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontFamily = GeneralSans,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            lineHeight = 12.sp
+                        )
+                        
+                        // Clock-in status
+                        Text(
+                            text = if (isClockedIn && clockInTime > 0L) {
+                                val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
+                                "Clocked in: ${timeFormat.format(Date(clockInTime))}"
+                            } else {
+                                "No CheckIn"
+                            },
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontFamily = GeneralSans,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                            lineHeight = 10.sp
+                        )
+                    }
+                }
+                
+                // Logout icon in circular background with padding
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            color = Color.White,
+                            shape = CircleShape
+                        )
+                        .clickable { onLogout() }
+                        .padding(end = 10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logout_icon),
+                            contentDescription = "Logout",
+                            modifier = Modifier.size(20.dp),
+                            tint = colorResource(id = R.color.primary)
+                        )
+                    }
+                }
             }
 
             // Search Dropdown Overlay - positioned below the app bar

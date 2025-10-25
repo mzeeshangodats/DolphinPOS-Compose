@@ -19,6 +19,7 @@ import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.home.HomeScreen
 import com.retail.dolphinpos.presentation.features.ui.home.HomeViewModel
 import com.retail.dolphinpos.common.components.BottomNavigationBar
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.features.ui.inventory.InventoryScreen
 import com.retail.dolphinpos.presentation.features.ui.orders.OrdersScreen
 import com.retail.dolphinpos.presentation.features.ui.products.ProductsScreen
@@ -29,7 +30,8 @@ import com.retail.dolphinpos.presentation.features.ui.setup.HardwareSetupScreen
 @Composable
 fun MainLayout(
     navController: NavController,
-    homeViewModel: HomeViewModel = hiltViewModel()
+    homeViewModel: HomeViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     val bottomNavMenus by homeViewModel.menus.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -60,7 +62,7 @@ fun MainLayout(
         ) {
             // Navigation content based on current destination
             when (currentDestination?.route) {
-                "home" -> HomeScreen(navController = navController)
+                "home" -> HomeScreen(navController = navController, preferenceManager = preferenceManager)
                 "products" -> ProductsScreen(navController = navController)
                 "orders" -> OrdersScreen(navController = navController)
                 "inventory" -> InventoryScreen(navController = navController)

@@ -124,6 +124,12 @@ class CashDenominationViewModel @Inject constructor(
                 totalAmount.value
             )
             repository.insertBatchIntoLocalDB(batch)
+            
+            // Set clock-in time and status
+            val currentTime = System.currentTimeMillis()
+            preferenceManager.setClockInTime(currentTime)
+            preferenceManager.setClockInStatus(true)
+            
             Log.e("Batch", "Started")
         }
     }

@@ -16,4 +16,8 @@ object Constants {
     const val ORDER_DISCOUNT_VALUE = "order_discount_value"
     const val ORDER_DISCOUNT_TYPE = "order_discount_type"
     const val ORDER_DISCOUNT_REASON = "order_discount_reason"
+    
+    // Clock-in/Check-in persistence
+    const val CLOCK_IN_TIME = "clock_in_time"
+    const val IS_CLOCKED_IN = "is_clocked_in"
 }
