@@ -2,9 +2,12 @@ package com.retail.dolphinpos.data.di
 
 import android.content.Context
 import androidx.room.Room
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.CustomerDao
+import com.retail.dolphinpos.data.dao.HoldCartDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
+import com.retail.dolphinpos.data.repository.HoldCartRepository
 import com.retail.dolphinpos.data.room.DolphinDatabase
 import dagger.Module
 import dagger.Provides
@@ -40,5 +43,25 @@ object RoomDatabaseModule {
     @Provides
     fun provideCustomersDao(database: DolphinDatabase): CustomerDao {
         return database.customerDao()
+    }
+
+    @Provides
+    fun provideHoldCartDao(database: DolphinDatabase): HoldCartDao {
+        return database.holdCartDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideGson(): Gson {
+        return Gson()
+    }
+
+    @Provides
+    @Singleton
+    fun provideHoldCartRepository(
+        holdCartDao: HoldCartDao,
+        gson: Gson
+    ): HoldCartRepository {
+        return HoldCartRepository(holdCartDao, gson)
     }
 }

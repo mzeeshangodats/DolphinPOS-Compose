@@ -109,6 +109,7 @@ fun HomeScreen(
 ) {
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
     var showAddCustomerDialog by remember { mutableStateOf(false) }
+    var showHoldCartDialog by remember { mutableStateOf(false) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
@@ -119,6 +120,7 @@ fun HomeScreen(
     val orderDiscountTotal by viewModel.orderDiscountTotal.collectAsStateWithLifecycle()
     val orderLevelDiscounts by viewModel.orderLevelDiscounts.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchProductResults.collectAsStateWithLifecycle()
+    val holdCartCount by viewModel.holdCartCount.collectAsStateWithLifecycle()
 
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
@@ -139,6 +141,14 @@ fun HomeScreen(
                     DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK"
+                    ) {}
+                }
+
+                is HomeUiEvent.HoldCartSuccess -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK",
+                        iconRes = R.drawable.cart_icon_blue
                     ) {}
                 }
 
@@ -163,6 +173,11 @@ fun HomeScreen(
     // Update payment amount when total changes
     LaunchedEffect(totalAmount) {
         paymentAmount = viewModel.formatAmount(totalAmount)
+    }
+
+    // Load hold carts when screen loads
+    LaunchedEffect(Unit) {
+        viewModel.loadHoldCarts()
     }
 
     Box(
@@ -200,6 +215,7 @@ fun HomeScreen(
                 CartPanel(
                     modifier = Modifier.weight(0.3f),
                     cartItems = cartItems,
+                    holdCartCount = holdCartCount,
                     onRemoveFromCart = { productId ->
                         val success = viewModel.removeFromCart(productId)
                         if (!success) {
@@ -210,7 +226,7 @@ fun HomeScreen(
                     onAddCustomer = {
                         showAddCustomerDialog = true
                     },
-
+                    onHoldCartClick = { showHoldCartDialog = true },
                     canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
                     canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() }
                 )
@@ -235,7 +251,15 @@ fun HomeScreen(
 
                     // Cart Action Buttons
                     CartActionButtons(
-                        onClearCart = { viewModel.clearCart() }
+                        cartItems = cartItems,
+                        onClearCart = { viewModel.clearCart() },
+                        onHoldCartClick = { 
+                            if (cartItems.isEmpty()) {
+                                showHoldCartDialog = true
+                            } else {
+                                viewModel.saveHoldCart("Guest Cart")
+                            }
+                        }
                     )
 
                     // Payment Input
@@ -355,6 +379,20 @@ fun HomeScreen(
                     }
                 )
             }
+
+            // Hold Cart List Dialog
+            if (showHoldCartDialog) {
+                HoldCartListDialog(
+                    onDismiss = { showHoldCartDialog = false },
+                    onRestoreCart = { holdCartId ->
+                        viewModel.restoreHoldCart(holdCartId)
+                        showHoldCartDialog = false
+                    },
+                    onDeleteCart = { holdCartId ->
+                        viewModel.deleteHoldCart(holdCartId)
+                    }
+                )
+            }
         }
     }
 }
@@ -363,9 +401,11 @@ fun HomeScreen(
 fun CartPanel(
     modifier: Modifier = Modifier,
     cartItems: List<CartItem>,
+    holdCartCount: Int,
     onRemoveFromCart: (Int) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
     onAddCustomer: () -> Unit,
+    onHoldCartClick: () -> Unit,
     canApplyProductDiscount: () -> Boolean,
     canRemoveItemFromCart: () -> Boolean
 ) {
@@ -382,8 +422,9 @@ fun CartPanel(
             // Order Header
             CartHeader(
                 cartItemsCount = cartItems.size,
-                holdCartItemsCount = 0, // TODO: Implement hold cart functionality
-                onAddCustomer = onAddCustomer
+                holdCartItemsCount = holdCartCount,
+                onAddCustomer = onAddCustomer,
+                onHoldCartClick = onHoldCartClick
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -428,7 +469,9 @@ fun CartPanel(
 
 @Composable
 fun CartActionButtons(
-    onClearCart: () -> Unit
+    cartItems: List<CartItem>,
+    onClearCart: () -> Unit,
+    onHoldCartClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -458,7 +501,7 @@ fun CartActionButtons(
 
         // Hold Cart
         Card(
-            onClick = { /* TODO */ },
+            onClick = onHoldCartClick,
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),
@@ -661,7 +704,8 @@ fun PricingSummary(
 fun CartHeader(
     cartItemsCount: Int,
     holdCartItemsCount: Int = 0,
-    onAddCustomer: () -> Unit
+    onAddCustomer: () -> Unit,
+    onHoldCartClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -683,7 +727,8 @@ fun CartHeader(
 
         // Hold Cart section
         Row(
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable { onHoldCartClick() }
         ) {
             BaseText(
                 text = "Hold Cart",
@@ -705,7 +750,7 @@ fun CartHeader(
                 )
                 
                 // Counter badge
-                if (holdCartItemsCount == 0) {
+                if (holdCartItemsCount > 0) {
                     Spacer(modifier = Modifier.width(4.dp))
                     Box(
                         modifier = Modifier
@@ -721,7 +766,7 @@ fun CartHeader(
                             color = Color.White,
                             fontSize = 8.sp,
                             fontFamily = GeneralSans,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            fontWeight = FontWeight.Bold,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             lineHeight = 8.sp
                         )

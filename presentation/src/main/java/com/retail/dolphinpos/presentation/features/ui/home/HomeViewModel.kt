@@ -3,6 +3,8 @@ package com.retail.dolphinpos.presentation.features.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
+import com.retail.dolphinpos.data.repository.HoldCartRepository
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
@@ -29,7 +31,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val homeRepository: HomeRepository, private val preferenceManager: PreferenceManager
+    private val homeRepository: HomeRepository, 
+    private val preferenceManager: PreferenceManager,
+    private val holdCartRepository: HoldCartRepository
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -73,6 +77,13 @@ class HomeViewModel @Inject constructor(
 
     private val _menus = MutableStateFlow<List<BottomMenu>>(emptyList())
     val menus: StateFlow<List<BottomMenu>> = _menus.asStateFlow()
+
+    // Hold Cart related state
+    private val _holdCarts = MutableStateFlow<List<HoldCartEntity>>(emptyList())
+    val holdCarts: StateFlow<List<HoldCartEntity>> = _holdCarts.asStateFlow()
+
+    private val _holdCartCount = MutableStateFlow(0)
+    val holdCartCount: StateFlow<Int> = _holdCartCount.asStateFlow()
 
     init {
         loadCategories()
@@ -418,5 +429,113 @@ class HomeViewModel @Inject constructor(
 
     fun formatAmount(amount: Double): String {
         return String.format(Locale.US, "%.2f", amount)
+    }
+
+    // Hold Cart functionality
+    fun loadHoldCarts() {
+        viewModelScope.launch {
+            try {
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+                
+                val holdCartsList = holdCartRepository.getHoldCarts(userId, storeId, registerId)
+                _holdCarts.value = holdCartsList
+                _holdCartCount.value = holdCartsList.size
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to load hold carts: ${e.message}"))
+            }
+        }
+    }
+
+    fun saveHoldCart(cartName: String) {
+        viewModelScope.launch {
+            try {
+                if (_cartItems.value.isEmpty()) {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Cart is empty. Cannot save hold cart."))
+                    return@launch
+                }
+
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+
+                val holdCartId = holdCartRepository.saveHoldCart(
+                    cartName = cartName,
+                    cartItems = _cartItems.value,
+                    subtotal = _subtotal.value,
+                    tax = _tax.value,
+                    totalAmount = _totalAmount.value,
+                    cashDiscountTotal = _cashDiscountTotal.value,
+                    orderDiscountTotal = _orderDiscountTotal.value,
+                    isCashSelected = isCashSelected,
+                    userId = userId,
+                    storeId = storeId,
+                    registerId = registerId
+                )
+
+                // Clear current cart after saving
+                clearCart()
+                
+                // Reload hold carts to update count
+                loadHoldCarts()
+                
+                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Cart saved successfully!"))
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to save hold cart: ${e.message}"))
+            }
+        }
+    }
+
+    fun restoreHoldCart(holdCartId: Long) {
+        viewModelScope.launch {
+            try {
+                val holdCart = holdCartRepository.getHoldCartById(holdCartId)
+                if (holdCart != null) {
+                    val cartItems = holdCartRepository.parseCartItemsFromJson(holdCart.cartItems)
+                    
+                    // Clear current cart first (discard any existing items)
+                    _cartItems.value = emptyList()
+                    
+                    // Set cart items from hold cart
+                    _cartItems.value = cartItems
+                    
+                    // Set pricing and discount states
+                    isCashSelected = holdCart.isCashSelected
+                    _subtotal.value = holdCart.subtotal
+                    _tax.value = holdCart.tax
+                    _totalAmount.value = holdCart.totalAmount
+                    _cashDiscountTotal.value = holdCart.cashDiscountTotal
+                    _orderDiscountTotal.value = holdCart.orderDiscountTotal
+                    
+                    // Recalculate subtotal to ensure consistency
+                    calculateSubtotal(cartItems)
+                    
+                    // Delete the hold cart after successful restoration
+                    holdCartRepository.deleteHoldCart(holdCartId)
+                    
+                    // Reload hold carts to update count
+                    loadHoldCarts()
+                    
+                    // Don't show success message for restore
+                } else {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Hold cart not found."))
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to restore hold cart: ${e.message}"))
+            }
+        }
+    }
+
+    fun deleteHoldCart(holdCartId: Long) {
+        viewModelScope.launch {
+            try {
+                holdCartRepository.deleteHoldCart(holdCartId)
+                loadHoldCarts() // Reload to update count
+                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to delete hold cart: ${e.message}"))
+            }
+        }
     }
 }
