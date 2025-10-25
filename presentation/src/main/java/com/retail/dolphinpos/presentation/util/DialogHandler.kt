@@ -7,21 +7,21 @@ import androidx.compose.runtime.setValue
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Utils.CustomErrorDialog
 
-object ErrorDialogHandler {
+object DialogHandler {
 
-    var showErrorDialog by mutableStateOf<ErrorDialogData?>(null)
+    var showDialog by mutableStateOf<DialogData?>(null)
 
-    fun showError(
+    fun showDialog(
         message: String,
         buttonText: String = "OK",
         iconRes: Int = R.drawable.cross_red,
         cancellable: Boolean = false,
         onActionClick: (() -> Unit)? = null
     ) {
-        showErrorDialog = ErrorDialogData(message, buttonText, iconRes, cancellable, onActionClick)
+        showDialog = DialogData(message, buttonText, iconRes, cancellable, onActionClick)
     }
 
-    data class ErrorDialogData(
+    data class DialogData(
         val message: String,
         val buttonText: String,
         val iconRes: Int,
@@ -29,19 +29,19 @@ object ErrorDialogHandler {
         val onActionClick: (() -> Unit)?
     )
 
-    fun hideError() {
-        showErrorDialog = null
+    fun hideDialog() {
+        showDialog = null
     }
 
     @Composable
-    fun GlobalErrorDialogHost() {
-        showErrorDialog?.let { data ->
+    fun GlobalDialogHost() {
+        showDialog?.let { data ->
             CustomErrorDialog(
                 message = data.message,
                 buttonText = data.buttonText,
                 iconRes = data.iconRes,
                 cancellable = data.cancellable,
-                onDismiss = { hideError() },
+                onDismiss = { hideDialog() },
                 onActionClick = data.onActionClick
             )
         }

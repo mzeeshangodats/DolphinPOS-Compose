@@ -43,7 +43,7 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarAuth
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.presentation.R
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import kotlinx.coroutines.flow.collectLatest
 
@@ -77,7 +77,7 @@ fun PinCodeScreen(
                 }
 
                 is VerifyPinUiEvent.ShowError -> {
-                    ErrorDialogHandler.showError(
+                    DialogHandler.showDialog(
                         message = pinCodeError,
                         buttonText = tryAgain
                     ) {

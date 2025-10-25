@@ -45,7 +45,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 
 @Composable
 fun SelectRegisterScreen(
@@ -81,7 +81,7 @@ fun SelectRegisterScreen(
                 }
 
                 is SelectRegisterUiEvent.ShowError -> {
-                    ErrorDialogHandler.showError(
+                    DialogHandler.showDialog(
                         message = event.message,
                         buttonText = tryAgain
                     ) {}
@@ -98,7 +98,7 @@ fun SelectRegisterScreen(
                 is SelectRegisterUiEvent.PopulateLocationsList -> {
                     locations = event.locationsList
                     if (event.locationsList.isEmpty()) {
-                        ErrorDialogHandler.showError(
+                        DialogHandler.showDialog(
                             message = locationError,
                             buttonText = "OK",
                             iconRes = R.drawable.info_icon
@@ -111,7 +111,7 @@ fun SelectRegisterScreen(
                 is SelectRegisterUiEvent.PopulateRegistersList -> {
                     registers = event.registersList
                     if (event.registersList.isEmpty()) {
-                        ErrorDialogHandler.showError(
+                        DialogHandler.showDialog(
                             message = registerError,
                             buttonText = "OK",
                             iconRes = R.drawable.info_icon

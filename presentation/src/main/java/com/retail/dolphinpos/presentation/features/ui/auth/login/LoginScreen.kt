@@ -40,7 +40,7 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarAuth
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 
 @Composable
 fun LoginScreen(
@@ -59,13 +59,12 @@ fun LoginScreen(
             is LoginUiEvent.ShowLoading -> Loader.show(pleaseWait)
             is LoginUiEvent.HideLoading -> Loader.hide()
             is LoginUiEvent.ShowError -> {
-                ErrorDialogHandler.showError(message = event.message, buttonText = tryAgain) {}
+                DialogHandler.showDialog(message = event.message, buttonText = tryAgain) {}
             }
 
             is LoginUiEvent.NavigateToRegister -> {
                 navController.navigate("selectRegister")
             }
-
             null -> Unit
         }
     }

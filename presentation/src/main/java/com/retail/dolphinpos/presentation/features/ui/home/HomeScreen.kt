@@ -48,6 +48,11 @@ import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,11 +80,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
+import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -87,7 +93,7 @@ import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -99,6 +105,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
+    var showAddCustomerDialog by remember { mutableStateOf(false) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
@@ -121,7 +128,7 @@ fun HomeScreen(
                 is HomeUiEvent.ShowLoading -> Loader.show("Loading...")
                 is HomeUiEvent.HideLoading -> Loader.hide()
                 is HomeUiEvent.ShowError -> {
-                    ErrorDialogHandler.showError(
+                    DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK"
                     ) {}
@@ -179,149 +186,170 @@ fun HomeScreen(
                 }
             )
 
-        Row(
-            modifier = Modifier.weight(1f)
-        ) {
-            // Column 1 - Cart (25% width, full height)
-            CartPanel(
-                modifier = Modifier.weight(0.3f),
-                cartItems = cartItems,
-                onRemoveFromCart = { productId ->
-                    val success = viewModel.removeFromCart(productId)
-                    if (!success) {
-                        ErrorDialogHandler.showError("You can't remove item from cart after applying cash discount. If you want to remove click on card first")
-                    }
-                },
-                onUpdateCartItem = { viewModel.updateCartItem(it) },
-                onAddCustomer = {
-                    // TODO: Show add customer dialog
-                },
-
-                canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
-                canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() }
-            )
-
-            // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
-            Column(
-                modifier = Modifier
-                    .weight(0.25f)
-                    .background(colorResource(id = R.color.light_grey))
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.weight(1f)
             ) {
-                // Pricing Summary
-                PricingSummary(
-                    subtotal = subtotal,
-                    cashDiscountTotal = cashDiscountTotal,
-                    orderDiscountTotal = orderDiscountTotal,
-                    tax = tax,
-                    totalAmount = totalAmount,
-                    isCashSelected = viewModel.isCashSelected
+                // Column 1 - Cart (25% width, full height)
+                CartPanel(
+                    modifier = Modifier.weight(0.3f),
+                    cartItems = cartItems,
+                    onRemoveFromCart = { productId ->
+                        val success = viewModel.removeFromCart(productId)
+                        if (!success) {
+                            DialogHandler.showDialog("You can't remove item from cart after applying cash discount. If you want to remove click on card first")
+                        }
+                    },
+                    onUpdateCartItem = { viewModel.updateCartItem(it) },
+                    onAddCustomer = {
+                        showAddCustomerDialog = true
+                    },
+
+                    canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
+                    canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() }
                 )
 
-                // Cart Action Buttons
-                CartActionButtons(
-                    onClearCart = { viewModel.clearCart() }
-                )
+                // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
+                Column(
+                    modifier = Modifier
+                        .weight(0.25f)
+                        .background(colorResource(id = R.color.light_grey))
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Pricing Summary
+                    PricingSummary(
+                        subtotal = subtotal,
+                        cashDiscountTotal = cashDiscountTotal,
+                        orderDiscountTotal = orderDiscountTotal,
+                        tax = tax,
+                        totalAmount = totalAmount,
+                        isCashSelected = viewModel.isCashSelected
+                    )
 
-                // Payment Input
-                PaymentInput(
-                    paymentAmount = paymentAmount,
-                    onPaymentAmountChange = { paymentAmount = it },
-                    onRemoveDigit = {
-                        val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                        val newAmount = viewModel.removeLastDigit(current)
-                        paymentAmount = viewModel.formatAmount(newAmount)
+                    // Cart Action Buttons
+                    CartActionButtons(
+                        onClearCart = { viewModel.clearCart() }
+                    )
+
+                    // Payment Input
+                    PaymentInput(
+                        paymentAmount = paymentAmount,
+                        onPaymentAmountChange = { paymentAmount = it },
+                        onRemoveDigit = {
+                            val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                            val newAmount = viewModel.removeLastDigit(current)
+                            paymentAmount = viewModel.formatAmount(newAmount)
+                        }
+                    )
+
+                    // Keypad
+                    Keypad(
+                        onDigitClick = { digit ->
+                            val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                            val newAmount = viewModel.appendDigitToAmount(current, digit)
+                            paymentAmount = viewModel.formatAmount(newAmount)
+                        },
+                        onAmountSet = { amount ->
+                            paymentAmount = viewModel.formatAmount(amount)
+                        },
+                        onExactAmount = {
+                            paymentAmount = viewModel.formatAmount(totalAmount)
+                        },
+                        onCashSelected = {
+                            viewModel.isCashSelected = true
+                            viewModel.updateCartPrices()
+                        },
+                        onCardSelected = {
+                            viewModel.isCashSelected = false
+                            viewModel.updateCartPrices()
+                        },
+                        onClear = {
+                            paymentAmount = "0.00"
+                        }
+                    )
+
+
+                }
+
+                // Column 3 - Categories (25% width, full height)
+                CategoriesPanel(
+                    modifier = Modifier.weight(0.15f),
+                    categories = categories,
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { category ->
+                        selectedCategory = category
+                        viewModel.loadProducts(category.id)
                     }
                 )
 
-                // Keypad
-                Keypad(
-                    onDigitClick = { digit ->
-                        val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                        val newAmount = viewModel.appendDigitToAmount(current, digit)
-                        paymentAmount = viewModel.formatAmount(newAmount)
+                // Column 4 - Products (25% width)
+                ProductsPanel(
+                    modifier = Modifier.weight(0.3f),
+                    products = if (searchQuery.isNotEmpty()) searchResults else products,
+                    cartItems = cartItems,
+                    onProductClick = { product ->
+                        viewModel.addToCart(product)
                     },
-                    onAmountSet = { amount ->
-                        paymentAmount = viewModel.formatAmount(amount)
-                    },
-                    onExactAmount = {
-                        paymentAmount = viewModel.formatAmount(totalAmount)
-                    },
-                    onCashSelected = {
-                        viewModel.isCashSelected = true
-                        viewModel.updateCartPrices()
-                    },
-                    onCardSelected = {
-                        viewModel.isCashSelected = false
-                        viewModel.updateCartPrices()
-                    },
-                    onClear = {
-                        paymentAmount = "0.00"
+                    onShowOrderDiscountDialog = {
+                        if (cartItems.isEmpty()) {
+                            DialogHandler.showDialog("There are no items in cart")
+                        } else if (!viewModel.canApplyOrderLevelDiscount()) {
+                            DialogHandler.showDialog("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
+                        } else {
+                            showOrderDiscountDialog = true
+                        }
                     }
                 )
-
-
             }
 
-            // Column 3 - Categories (25% width, full height)
-            CategoriesPanel(
-                modifier = Modifier.weight(0.15f),
-                categories = categories,
-                selectedCategory = selectedCategory,
-                onCategorySelected = { category ->
-                    selectedCategory = category
-                    viewModel.loadProducts(category.id)
-                }
-            )
 
-            // Column 4 - Products (25% width)
-            ProductsPanel(
-                modifier = Modifier.weight(0.3f),
-                products = if (searchQuery.isNotEmpty()) searchResults else products,
-                cartItems = cartItems,
-                onProductClick = { product ->
-                    viewModel.addToCart(product)
-                },
-                onShowOrderDiscountDialog = { 
-                    if (cartItems.isEmpty()) {
-                        ErrorDialogHandler.showError("There are no items in cart")
-                    } else if (!viewModel.canApplyOrderLevelDiscount()) {
-                        ErrorDialogHandler.showError("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
-                    } else {
-                        showOrderDiscountDialog = true
+            // Order Level Discount Dialog
+            if (showOrderDiscountDialog) {
+                OrderLevelDiscountDialog(
+                    onDismiss = { showOrderDiscountDialog = false },
+                    onApplyDiscount = { discounts ->
+                        viewModel.setOrderLevelDiscounts(discounts)
+                        viewModel.updateCartPrices()
+                        showOrderDiscountDialog = false
+                    },
+                    onSaveDiscountValues = { discountValue, discountType, discountReason ->
+                        viewModel.saveOrderDiscountValues(
+                            discountValue,
+                            discountType,
+                            discountReason
+                        )
+                    },
+                    onRemoveAllDiscounts = {
+                        viewModel.removeAllOrderDiscounts()
+                    },
+                    onResetDiscountValues = {
+                        viewModel.resetOrderDiscountValues()
+                    },
+                    preFilledDiscountValue = viewModel.getOrderDiscountValue(),
+                    preFilledDiscountType = viewModel.getOrderDiscountType(),
+                    preFilledDiscountReason = viewModel.getOrderDiscountReason(),
+                    existingOrderDiscounts = orderLevelDiscounts
+                )
+            }
+
+            // Add Customer Dialog
+            if (showAddCustomerDialog) {
+                AddCustomerDialog(
+                    onDismiss = { showAddCustomerDialog = false },
+                    onSaveCustomer = { firstName, lastName, email, birthday ->
+                        viewModel.saveCustomer(firstName, lastName, email, birthday)
+                        showAddCustomerDialog = false
+                        DialogHandler.showDialog(
+                            message = "Customer Added Successfully",
+                            buttonText = "OK",
+                            iconRes = R.drawable.add_customer_icon_blue,
+                            cancellable = true
+                        )
                     }
-                }
-            )
-        }
-
-
-        // Order Level Discount Dialog
-        if (showOrderDiscountDialog) {
-            OrderLevelDiscountDialog(
-                onDismiss = { showOrderDiscountDialog = false },
-                onApplyDiscount = { discounts ->
-                    viewModel.setOrderLevelDiscounts(discounts)
-                    viewModel.updateCartPrices()
-                    showOrderDiscountDialog = false
-                },
-                onSaveDiscountValues = { discountValue, discountType, discountReason ->
-                    viewModel.saveOrderDiscountValues(discountValue, discountType, discountReason)
-                },
-                onRemoveAllDiscounts = {
-                    viewModel.removeAllOrderDiscounts()
-                },
-                onResetDiscountValues = {
-                    viewModel.resetOrderDiscountValues()
-                },
-                preFilledDiscountValue = viewModel.getOrderDiscountValue(),
-                preFilledDiscountType = viewModel.getOrderDiscountType(),
-                preFilledDiscountReason = viewModel.getOrderDiscountReason(),
-                existingOrderDiscounts = orderLevelDiscounts
-            )
+                )
+            }
         }
     }
-}
 }
 
 @Composable
@@ -363,7 +391,7 @@ fun CartPanel(
                         if (canApplyProductDiscount()) {
                             selectedCartItem = cartItem
                         } else {
-                            ErrorDialogHandler.showError("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
+                            DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
                         }
                     },
                     canApplyProductDiscount = canApplyProductDiscount,
@@ -654,6 +682,13 @@ fun CartHeader(
                 fontSize = 12f,
                 fontFamily = GeneralSans
             )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                painter = painterResource(id = R.drawable.add_customer_icon),
+                contentDescription = "Add Customer",
+                modifier = Modifier.size(16.dp),
+                tint = Color.White
+            )
         }
     }
 }
@@ -683,7 +718,7 @@ fun EmptyCartState() {
 
         BaseText(
             text = stringResource(id = R.string.empty),
-            color = Color.Black,
+            color = Color.DarkGray,
             fontSize = 14f,
             fontFamily = GeneralSans,
             fontWeight = FontWeight.SemiBold
@@ -921,7 +956,7 @@ fun PaymentInput(
                     // Prevent deletion below 0.00
                     val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
                     val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
-                    
+
                     // Only allow changes if the new amount is not less than 0.00
                     if (newAmount >= 0.0) {
                         onPaymentAmountChange(newValue)
@@ -964,7 +999,9 @@ fun PaymentInput(
                     painter = painterResource(id = R.drawable.clear_text_icon),
                     contentDescription = "Remove Digit",
                     modifier = Modifier.size(16.dp),
-                    tint = if ((paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0) > 0.0) Color.Gray else Color.LightGray
+                    tint = if ((paymentAmount.replace("$", "").toDoubleOrNull()
+                            ?: 0.0) > 0.0
+                    ) Color.Gray else Color.LightGray
                 )
             }
         }
@@ -1531,7 +1568,7 @@ fun ProductLevelDiscountDialog(
 ) {
     val context = LocalContext.current
     var quantity by remember { mutableStateOf(cartItem.quantity) }
-    var discountValue by remember { 
+    var discountValue by remember {
         mutableStateOf(
             if (cartItem.discountValue != null && cartItem.discountValue != 0.0) {
                 cartItem.discountValue.toString()
@@ -1803,22 +1840,22 @@ fun ProductLevelDiscountDialog(
                         // Validations (matching your Fragment logic exactly)
                         when {
                             quantity <= 0 -> {
-                                ErrorDialogHandler.showError("Quantity must be at least 1")
+                                DialogHandler.showDialog("Quantity must be at least 1")
                                 return@Button
                             }
                             // If discount value entered but no type selected
                             discountValueDouble > 0 && discountType == null -> {
-                                ErrorDialogHandler.showError("Select discount type")
+                                DialogHandler.showDialog("Select discount type")
                                 return@Button
                             }
                             // If percentage discount, must be <= 100
                             discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE && discountValueDouble > 100 -> {
-                                ErrorDialogHandler.showError("Percentage cannot be more than 100")
+                                DialogHandler.showDialog("Percentage cannot be more than 100")
                                 return@Button
                             }
                             // If discount applied, reason must not be empty
                             discountValueDouble > 0 && discountReason.isEmpty() -> {
-                                ErrorDialogHandler.showError("Please enter discount reason")
+                                DialogHandler.showDialog("Please enter discount reason")
                                 return@Button
                             }
                         }
@@ -1864,7 +1901,7 @@ fun OrderLevelDiscountDialog(
 ) {
     val context = LocalContext.current
     var discountValue by remember { mutableStateOf(preFilledDiscountValue) }
-    var discountType by remember { 
+    var discountType by remember {
         mutableStateOf(
             if (preFilledDiscountType == "PERCENTAGE") {
                 com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
@@ -2149,7 +2186,7 @@ fun OrderLevelDiscountDialog(
                             )
                         }
                     }
-                    
+
                     Button(
                         onClick = {
                             val value = discountValue.toDoubleOrNull()
@@ -2175,7 +2212,7 @@ fun OrderLevelDiscountDialog(
                                 discountType =
                                     com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
                             } else {
-                                ErrorDialogHandler.showError("Please select reason and enter value")
+                                DialogHandler.showDialog("Please select reason and enter value")
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
@@ -2191,7 +2228,7 @@ fun OrderLevelDiscountDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                     }
-                    
+
                     Button(
                         onClick = {
                             onApplyDiscount(orderDiscounts)
@@ -2214,4 +2251,342 @@ fun OrderLevelDiscountDialog(
             }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddCustomerDialog(
+    onDismiss: () -> Unit,
+    onSaveCustomer: (String, String, String, String) -> Unit
+) {
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var birthday by remember { mutableStateOf("Select Birthday") }
+    var showDatePicker by remember { mutableStateOf(false) }
+    var firstNameError by remember { mutableStateOf("") }
+    var lastNameError by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(8.dp),
+            elevation = CardDefaults.cardElevation(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Title
+                BaseText(
+                    text = "Add Customer",
+                    color = Color.Black,
+                    fontSize = 16f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // First Name and Last Name Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // First Name
+                    Column(modifier = Modifier.weight(1f)) {
+                        BaseText(
+                            text = "First Name",
+                            color = colorResource(id = R.color.primary),
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        OutlinedTextField(
+                            value = firstName,
+                            onValueChange = {
+                                firstName = it
+                                firstNameError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter First Name",
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans
+                                )
+                            },
+                            isError = firstNameError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp,
+                                fontFamily = GeneralSans
+                            )
+                        )
+                        if (firstNameError.isNotEmpty()) {
+                            BaseText(
+                                text = firstNameError,
+                                color = Color.Red,
+                                fontSize = 10f,
+                                fontFamily = GeneralSans
+                            )
+                        }
+                    }
+
+                    // Last Name
+                    Column(modifier = Modifier.weight(1f)) {
+                        BaseText(
+                            text = "Last Name",
+                            color = colorResource(id = R.color.primary),
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        OutlinedTextField(
+                            value = lastName,
+                            onValueChange = {
+                                lastName = it
+                                lastNameError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter Last Name",
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans
+                                )
+                            },
+                            isError = lastNameError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp,
+                                fontFamily = GeneralSans
+                            )
+                        )
+                        if (lastNameError.isNotEmpty()) {
+                            BaseText(
+                                text = lastNameError,
+                                color = Color.Red,
+                                fontSize = 10f,
+                                fontFamily = GeneralSans
+                            )
+                        }
+                    }
+                }
+
+                // Email and Birthday Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Email
+                    Column(modifier = Modifier.weight(1f)) {
+                        BaseText(
+                            text = "Email",
+                            color = colorResource(id = R.color.primary),
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = {
+                                email = it
+                                emailError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter Email",
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans
+                                )
+                            },
+                            isError = emailError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp,
+                                fontFamily = GeneralSans
+                            )
+                        )
+                        if (emailError.isNotEmpty()) {
+                            BaseText(
+                                text = emailError,
+                                color = Color.Red,
+                                fontSize = 10f,
+                                fontFamily = GeneralSans
+                            )
+                        }
+                    }
+
+                    // Birthday
+                    Column(modifier = Modifier.weight(1f)) {
+                        BaseText(
+                            text = "Birthday",
+                            color = colorResource(id = R.color.primary),
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .clickable { showDatePicker = true }
+                                .border(
+                                    width = 1.dp,
+                                    color = Color.Gray,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                BaseText(
+                                    text = birthday,
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans,
+                                    color = if (birthday == "Select Birthday") Color.Gray else Color.Black
+                                )
+                                Icon(
+                                    painter = painterResource(id = R.drawable.dropdown_icon),
+                                    contentDescription = "Dropdown",
+                                    modifier = Modifier.size(15.dp),
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Add Button
+                Button(
+                    onClick = {
+                        // Validation
+                        var hasError = false
+
+                        if (firstName.trim().isEmpty()) {
+                            firstNameError = "First name is required"
+                            hasError = true
+                        }
+
+                        if (lastName.trim().isEmpty()) {
+                            lastNameError = "Last name is required"
+                            hasError = true
+                        }
+
+                        if (email.trim().isEmpty()) {
+                            emailError = "Email is required"
+                            hasError = true
+                        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                            emailError = "Invalid email address"
+                            hasError = true
+                        }
+
+                        if (!hasError) {
+                            onSaveCustomer(
+                                firstName.trim(),
+                                lastName.trim(),
+                                email.trim(),
+                                if (birthday == "Select Birthday") "" else birthday
+                            )
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    BaseText(
+                        text = "Add",
+                        color = Color.White,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+
+    // Date Picker Dialog
+    if (showDatePicker) {
+        val calendar = Calendar.getInstance()
+        val today = calendar.timeInMillis
+
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = today,
+            initialDisplayedMonthMillis = today
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { dateMillis ->
+                            // Only allow dates up to today
+                            if (dateMillis <= today) {
+                                val selectedCalendar = Calendar.getInstance()
+                                selectedCalendar.timeInMillis = dateMillis
+                                val day = selectedCalendar.get(Calendar.DAY_OF_MONTH)
+                                val month = selectedCalendar.get(Calendar.MONTH) + 1
+                                val year = selectedCalendar.get(Calendar.YEAR)
+                                birthday = "$day/$month/$year"
+                                showDatePicker = false
+                            }
+                        }
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    selectedDayContainerColor = colorResource(id = R.color.primary),
+                    todayDateBorderColor = colorResource(id = R.color.primary)
+                )
+            )
+        }
+    }
 }

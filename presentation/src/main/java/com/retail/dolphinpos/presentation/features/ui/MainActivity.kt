@@ -11,7 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.theme.DolphinPosTheme
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import com.retail.dolphinpos.presentation.util.Utils
 import dagger.hilt.android.AndroidEntryPoint
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
                         AppNavigation(preferenceManager)
                         GlobalLoaderHandler()
-                        ErrorDialogHandler.GlobalErrorDialogHost()
+                        DialogHandler.GlobalDialogHost()
                     }
                 }
             }
