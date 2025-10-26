@@ -71,4 +71,7 @@ interface ProductsDao {
     @Query("SELECT * FROM variant_images WHERE variantId = :variantId")
     suspend fun getVariantImagesByVariantId(variantId: Int): List<VariantImagesEntity>
 
+    @Query("SELECT * FROM variants WHERE productId = :productId")
+    suspend fun getVariantsByProductId(productId: Int): List<VariantsEntity>
+
 }

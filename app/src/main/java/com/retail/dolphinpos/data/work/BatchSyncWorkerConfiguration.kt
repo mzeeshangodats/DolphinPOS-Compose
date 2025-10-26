@@ -30,6 +30,7 @@ object BatchSyncWorkerConfiguration {
         
         // Enqueue periodic sync work when internet is available
         enqueueBatchSyncWork(context)
+        enqueueOrderSyncWork(context)
     }
 
     private fun enqueueBatchSyncWork(context: Context) {
@@ -44,6 +45,23 @@ object BatchSyncWorkerConfiguration {
         )
             .setConstraints(constraints)
             .addTag("BATCH_SYNC")
+            .build()
+
+        WorkManager.getInstance(context).enqueue(syncRequest)
+    }
+
+    private fun enqueueOrderSyncWork(context: Context) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        // Use periodic work with shorter interval for faster sync
+        val syncRequest = PeriodicWorkRequestBuilder<OrderSyncWorker>(
+            15, TimeUnit.MINUTES, // Repeat every 15 minutes
+            5, TimeUnit.MINUTES // With a 5-minute flex interval
+        )
+            .setConstraints(constraints)
+            .addTag("ORDER_SYNC")
             .build()
 
         WorkManager.getInstance(context).enqueue(syncRequest)

@@ -71,9 +71,10 @@ object RepositoryModule {
     fun provideHomeRepository(
         productsDao: ProductsDao,
         customerDao: CustomerDao,
+        userDao: UserDao,
         storeRegistersRepository: StoreRegistersRepository
     ): HomeRepository {
-        return HomeRepositoryImpl(productsDao, customerDao, storeRegistersRepository)
+        return HomeRepositoryImpl(productsDao, customerDao, userDao, storeRegistersRepository)
     }
 
 }

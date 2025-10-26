@@ -60,7 +60,6 @@ fun PinCodeScreen(
     var pinValue by remember { mutableStateOf("") }
     var activeUserDetails by remember { mutableStateOf<ActiveUserDetails?>(null) }
 
-    val pinCodeError = stringResource(id = R.string.select_register_error)
     val pleaseWait = stringResource(id = R.string.plz_wait)
     val tryAgain = stringResource(id = R.string.try_again)
 
@@ -78,7 +77,7 @@ fun PinCodeScreen(
 
                 is VerifyPinUiEvent.ShowError -> {
                     DialogHandler.showDialog(
-                        message = pinCodeError,
+                        message = event.message,
                         buttonText = tryAgain
                     ) {
                         pinValue = ""

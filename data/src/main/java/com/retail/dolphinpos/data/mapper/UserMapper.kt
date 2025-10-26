@@ -349,6 +349,7 @@ object UserMapper {
 
     fun toBatchDetails(batchEntity: BatchEntity): Batch {
         return Batch(
+            batchId = batchEntity.batchId,
             batchNo = batchEntity.batchNo,
             storeId = batchEntity.storeId,
             userId = batchEntity.userId,

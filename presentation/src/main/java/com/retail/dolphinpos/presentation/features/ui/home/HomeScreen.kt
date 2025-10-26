@@ -97,6 +97,7 @@ import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -110,6 +111,7 @@ fun HomeScreen(
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
+    var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
@@ -158,6 +160,13 @@ fun HomeScreen(
                         viewModel.loadProducts(event.categoryList[0].id)
                     }
                 }
+
+                is HomeUiEvent.OrderCreatedSuccessfully -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
+                }
             }
         }
     }
@@ -200,8 +209,12 @@ fun HomeScreen(
                 },
                 searchResults = searchResults,
                 onProductClick = { product ->
-                    viewModel.addToCart(product)
-                    searchQuery = ""
+                    val success = viewModel.addToCart(product)
+                    if (success) {
+                        searchQuery = ""
+                    } else {
+                        DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                    }
                 },
                 userName = userName,
                 isClockedIn = isClockedIn,
@@ -287,12 +300,10 @@ fun HomeScreen(
                             paymentAmount = viewModel.formatAmount(totalAmount)
                         },
                         onCashSelected = {
-                            viewModel.isCashSelected = true
-                            viewModel.updateCartPrices()
+                            viewModel.createOrder("cash")
                         },
                         onCardSelected = {
-                            viewModel.isCashSelected = false
-                            viewModel.updateCartPrices()
+                            viewModel.createOrder("card")
                         },
                         onClear = {
                             paymentAmount = "0.00"
@@ -316,10 +327,21 @@ fun HomeScreen(
                 // Column 4 - Products (25% width)
                 ProductsPanel(
                     modifier = Modifier.weight(0.3f),
+                    navController = navController,
                     products = if (searchQuery.isNotEmpty()) searchResults else products,
                     cartItems = cartItems,
                     onProductClick = { product ->
-                        viewModel.addToCart(product)
+                        val variants = product.variants
+                        if (variants != null && variants.isNotEmpty()) {
+                            // Show variant selection dialog
+                            selectedProductForVariant = product
+                        } else {
+                            // Add directly to cart if no variants
+                            val success = viewModel.addToCart(product)
+                            if (!success) {
+                                DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                            }
+                        }
                     },
                     onShowOrderDiscountDialog = {
                         if (cartItems.isEmpty()) {
@@ -390,6 +412,23 @@ fun HomeScreen(
                     },
                     onDeleteCart = { holdCartId ->
                         viewModel.deleteHoldCart(holdCartId)
+                    }
+                )
+            }
+            
+            if (selectedProductForVariant != null) {
+                VariantSelectionDialog(
+                    product = selectedProductForVariant!!,
+                    onDismiss = { selectedProductForVariant = null },
+                    onVariantSelected = { variant ->
+                        // Add variant to cart
+                        val success = viewModel.addVariantToCart(selectedProductForVariant!!, variant)
+                        if (success) {
+                            selectedProductForVariant = null
+                        } else {
+                            DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                            selectedProductForVariant = null
+                        }
                     }
                 )
             }
@@ -1410,6 +1449,7 @@ fun CategoryItem(
 @Composable
 fun ProductsPanel(
     modifier: Modifier = Modifier,
+    navController: NavController,
     products: List<Products>,
     cartItems: List<CartItem>,
     onProductClick: (Products) -> Unit,
@@ -1440,6 +1480,7 @@ fun ProductsPanel(
         // Action Buttons - 40% of height
         ActionButtonsPanel(
             modifier = Modifier.weight(0.41f),
+            navController = navController,
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog
         )
@@ -1495,6 +1536,7 @@ fun ProductItem(
 @Composable
 fun ActionButtonsPanel(
     modifier: Modifier = Modifier,
+    navController: NavController,
     cartItems: List<CartItem>,
     onShowOrderDiscountDialog: () -> Unit
 ) {
@@ -1513,7 +1555,11 @@ fun ActionButtonsPanel(
                 ActionButton("Refund", R.drawable.refund_btn)
             ),
             onActionClick = { action ->
-                // TODO: Add action handlers for these buttons
+                when (action) {
+                    "Pending Orders" -> {
+                        navController.navigate("pending_orders")
+                    }
+                }
             }
         )
 
@@ -2631,4 +2677,102 @@ fun AddCustomerDialog(
             )
         }
     }
+}
+
+@Composable
+fun VariantSelectionDialog(
+    product: Products,
+    onDismiss: () -> Unit,
+    onVariantSelected: (Variant) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = product.name ?: "Select Variant",
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().height(400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(product.variants.orEmpty()) { variant ->
+                    Card(
+                        onClick = { onVariantSelected(variant) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            // Variant image (shown first)
+                            Box(
+                                modifier = Modifier.size(50.dp)
+                                    .background(Color.White, RoundedCornerShape(4.dp))
+                                    .clip(RoundedCornerShape(4.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = variant.images.first().fileURL,
+                                        contentDescription = variant.title,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.logo),
+                                        contentDescription = "Product Placeholder",
+                                        modifier = Modifier.size(40.dp),
+                                        contentScale = ContentScale.Fit
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = variant.title ?: "Variant",
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp,
+                                    color = Color.Black
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Price: $${variant.cardPrice?.toDoubleOrNull() ?: 0.0}",
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Qty: ${variant.quantity}",
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", fontFamily = GeneralSans)
+            }
+        }
+    )
 }

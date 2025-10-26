@@ -145,7 +145,7 @@ fun HomeAppBar(
                     ) {
                         // Username
                         Text(
-                            text = userName,
+                            text = userName.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() },
                             color = Color.White,
                             fontSize = 12.sp,
                             fontFamily = GeneralSans,

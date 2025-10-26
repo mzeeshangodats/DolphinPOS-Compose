@@ -7,11 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
+import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.category.CategoryEntity
 import com.retail.dolphinpos.data.entities.customer.CustomerEntity
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
+import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.data.entities.products.CachedImageEntity
 import com.retail.dolphinpos.data.entities.products.ProductImagesEntity
 import com.retail.dolphinpos.data.entities.products.ProductsEntity
@@ -31,8 +33,8 @@ import com.retail.dolphinpos.data.entities.user.UserEntity
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
-        CachedImageEntity::class, HoldCartEntity::class],
-    version = 5,
+        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class],
+    version = 7,
     exportSchema = false
 )
 abstract class DolphinDatabase : RoomDatabase() {
@@ -41,6 +43,7 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun productsDao(): ProductsDao
     abstract fun customerDao(): CustomerDao
     abstract fun holdCartDao(): HoldCartDao
+    abstract fun pendingOrderDao(): PendingOrderDao
 
     companion object {
         @Volatile

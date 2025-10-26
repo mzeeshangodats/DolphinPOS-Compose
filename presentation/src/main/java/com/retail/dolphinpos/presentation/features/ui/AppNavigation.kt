@@ -12,6 +12,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.login.LoginScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
+import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
 
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
@@ -81,6 +82,13 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Hardware Setup Screen (accessed through MainLayout)
         composable("setup") {
             MainLayout(navController = navController, preferenceManager = preferenceManager)
+        }
+
+        // Pending Orders Screen
+        composable("pending_orders") {
+            PendingOrdersScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

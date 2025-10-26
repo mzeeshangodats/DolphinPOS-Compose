@@ -11,7 +11,7 @@ import com.retail.dolphinpos.domain.model.home.customer.Customer
 interface CustomerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertCustomer(customerEntity: CustomerEntity)
+    suspend fun insertCustomer(customerEntity: CustomerEntity): Long
 
     @Query("SELECT * FROM customer")
     suspend fun getCustomers(): List<Customer>

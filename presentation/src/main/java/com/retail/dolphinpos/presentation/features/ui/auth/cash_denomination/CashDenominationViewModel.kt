@@ -124,7 +124,7 @@ class CashDenominationViewModel @Inject constructor(
                 userId = preferenceManager.getUserID(),
                 storeId = preferenceManager.getStoreID(),
                 registerId = preferenceManager.getOccupiedRegisterID(),
-                totalAmount.value
+                startingCashAmount = totalAmount.value
             )
             
             // Always save to local database first

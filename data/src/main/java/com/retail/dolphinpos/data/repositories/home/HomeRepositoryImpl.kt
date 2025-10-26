@@ -2,8 +2,10 @@ package com.retail.dolphinpos.data.repositories.home
 
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.ProductsDao
+import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.CustomerMapper
 import com.retail.dolphinpos.data.mapper.ProductMapper
+import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.customer.Customer
@@ -13,6 +15,7 @@ import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 class HomeRepositoryImpl(
     private val productsDao: ProductsDao,
     private val customerDao: CustomerDao,
+    private val userDao: UserDao,
     private val storeRegistersRepository: StoreRegistersRepository
 ) : HomeRepository {
 
@@ -27,7 +30,15 @@ class HomeRepositoryImpl(
             // Get product images with local paths
             val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
             
-            // Create Products object with cached images
+            // Get variants for this product
+            val variantEntities = productsDao.getVariantsByProductId(productEntity.id)
+            val variants = variantEntities.map { variantEntity ->
+                // Get variant images with local cached paths
+                val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(variantEntity.id)
+                ProductMapper.toVariant(variantEntity, variantImages)
+            }
+            
+            // Create Products object with cached images and variants
             Products(
                 id = productEntity.id,
                 categoryId = productEntity.categoryId,
@@ -42,7 +53,7 @@ class HomeRepositoryImpl(
                 locationId = productEntity.locationId,
                 chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
                 vendor = null,
-                variants = emptyList(),
+                variants = variants,
                 images = productImages,
                 secondaryBarcodes = null
             )
@@ -55,7 +66,15 @@ class HomeRepositoryImpl(
             // Get product images with local paths
             val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
             
-            // Create Products object with cached images
+            // Get variants for this product
+            val variantEntities = productsDao.getVariantsByProductId(productEntity.id)
+            val variants = variantEntities.map { variantEntity ->
+                // Get variant images with local cached paths
+                val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(variantEntity.id)
+                ProductMapper.toVariant(variantEntity, variantImages)
+            }
+            
+            // Create Products object with cached images and variants
             Products(
                 id = productEntity.id,
                 categoryId = productEntity.categoryId,
@@ -70,16 +89,16 @@ class HomeRepositoryImpl(
                 locationId = productEntity.locationId,
                 chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
                 vendor = null,
-                variants = emptyList(),
+                variants = variants,
                 images = productImages,
                 secondaryBarcodes = null
             )
         }
     }
 
-    override suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer) {
+    override suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long {
             try {
-                customerDao.insertCustomer(
+                return customerDao.insertCustomer(
                     CustomerMapper.toCustomerEntity(
                         customer
                     )
@@ -87,6 +106,11 @@ class HomeRepositoryImpl(
             } catch (e: Exception) {
                 throw e
             }
+    }
+
+    override suspend fun getBatchDetails(): com.retail.dolphinpos.domain.model.auth.batch.Batch {
+        val batchEntity = userDao.getBatchDetails()
+        return UserMapper.toBatchDetails(batchEntity)
     }
 
 }

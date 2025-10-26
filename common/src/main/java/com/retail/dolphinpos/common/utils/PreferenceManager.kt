@@ -167,4 +167,17 @@ class PreferenceManager @Inject constructor(
         }
     }
 
+    // Customer methods
+    fun setCustomerID(customerId: Int) {
+        prefs.edit { putInt(Constants.CUSTOMER_ID, customerId) }
+    }
+
+    fun getCustomerID(defaultValue: Int = 0): Int {
+        return prefs.getInt(Constants.CUSTOMER_ID, defaultValue)
+    }
+
+    fun clearCustomerID() {
+        prefs.edit { remove(Constants.CUSTOMER_ID) }
+    }
+
 }

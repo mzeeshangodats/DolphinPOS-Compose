@@ -20,4 +20,7 @@ object Constants {
     // Clock-in/Check-in persistence
     const val CLOCK_IN_TIME = "clock_in_time"
     const val IS_CLOCKED_IN = "is_clocked_in"
+    
+    // Customer persistence
+    const val CUSTOMER_ID = "customer_id"
 }
