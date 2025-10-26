@@ -60,9 +60,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideCashDenominationRepository(
-        userDao: UserDao
+        userDao: UserDao,
+        apiService: ApiService
     ): CashDenominationRepository {
-        return CashDenominationRepositoryImpl(userDao)
+        return CashDenominationRepositoryImpl(userDao, apiService)
     }
 
     @Provides

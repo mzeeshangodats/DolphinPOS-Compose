@@ -32,7 +32,7 @@ import com.retail.dolphinpos.data.entities.user.UserEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class DolphinDatabase : RoomDatabase() {

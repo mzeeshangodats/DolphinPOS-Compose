@@ -5,9 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.auth.batch.Batch
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.Denomination
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationType
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
+import com.retail.dolphinpos.common.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +20,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CashDenominationViewModel @Inject constructor(
     private val repository: CashDenominationRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _denominations = MutableStateFlow<List<Denomination>>(emptyList())
@@ -123,7 +126,35 @@ class CashDenominationViewModel @Inject constructor(
                 registerId = preferenceManager.getOccupiedRegisterID(),
                 totalAmount.value
             )
+            
+            // Always save to local database first
             repository.insertBatchIntoLocalDB(batch)
+            
+            // If internet is available, call the API
+            if (networkMonitor.isNetworkAvailable()) {
+                try {
+                    val batchOpenRequest = BatchOpenRequest(
+                        storeId = preferenceManager.getStoreID(),
+                        cashierId = preferenceManager.getUserID(),
+                        storeRegisterId = preferenceManager.getOccupiedRegisterID(),
+                        startingCashAmount = totalAmount.value
+                    )
+                    
+                    repository.batchOpen(batchOpenRequest).onSuccess {
+                        Log.e("Batch", "Batch successfully synced with server")
+                        // TODO: Mark batch as synced in database
+                    }.onFailure { e ->
+                        Log.e("Batch", "Failed to sync batch with server: ${e.message}")
+                        // Batch will be synced later via WorkManager
+                    }
+                } catch (e: Exception) {
+                    Log.e("Batch", "Failed to sync batch with server: ${e.message}")
+                    // Batch will be synced later via WorkManager
+                }
+            } else {
+                Log.e("Batch", "No internet connection. Batch will be synced later via WorkManager")
+                // Batch will be synced later via WorkManager
+            }
             
             // Set clock-in time and status
             val currentTime = System.currentTimeMillis()

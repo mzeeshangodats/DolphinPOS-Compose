@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.ui.theme.util
+package com.retail.dolphinpos.common.network
 
 import android.content.Context
 import android.net.ConnectivityManager
@@ -52,3 +52,4 @@ class NetworkMonitor @Inject constructor(@ApplicationContext context: Context) {
 
 class NoConnectivityException() :
     IOException("No Internet \nPlease Connect with an Active Internet")
+

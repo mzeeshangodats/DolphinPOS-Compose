@@ -14,5 +14,6 @@ data class BatchEntity(
     val startingCashAmount: Double,
     val startedAt: Long = System.currentTimeMillis(),
     val closedAt: Long? = null,
-    val closingCashAmount: Double? = null
+    val closingCashAmount: Double? = null,
+    val isSynced: Boolean = false
 )

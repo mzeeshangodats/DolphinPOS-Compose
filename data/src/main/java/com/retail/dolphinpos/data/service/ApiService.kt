@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.data.service
 
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseResponse
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
@@ -31,5 +33,8 @@ interface ApiService {
 
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse
+
+    @POST("batch/close")
+    suspend fun batchClose(@Body batchCloseRequest: BatchCloseRequest): BatchCloseResponse
 
 }
