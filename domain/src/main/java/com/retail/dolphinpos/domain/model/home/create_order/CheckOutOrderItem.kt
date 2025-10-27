@@ -11,6 +11,7 @@ data class CheckOutOrderItem(
     val reason: String?,
     val discountId: Int?,
     val discountedPrice: Double?,
+    val discountedAmount: Double?,
     val fixedDiscount: Double?,
     val discountReason: String?,
     val fixedPercentageDiscount: Double?,

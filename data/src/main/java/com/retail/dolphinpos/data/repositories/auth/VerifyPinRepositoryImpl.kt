@@ -13,8 +13,8 @@ class VerifyPinRepositoryImpl(
     private val userDao: UserDao
 ) : VerifyPinRepository {
 
-    override suspend fun getUser(pin: String): AllStoreUsers? {
-        val userEntity = userDao.getUserByPin(pin)
+    override suspend fun getUser(pin: String, locationId: Int): AllStoreUsers? {
+        val userEntity = userDao.getUserByPin(pin, locationId)
         return if (userEntity != null) {
             UserMapper.toUsers(userEntity)
         } else {

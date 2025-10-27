@@ -6,5 +6,6 @@ data class Batch(
     val userId: Int?,
     val storeId: Int?,
     val registerId: Int?,
+    val locationId: Int?,
     val startingCashAmount: Double
 )

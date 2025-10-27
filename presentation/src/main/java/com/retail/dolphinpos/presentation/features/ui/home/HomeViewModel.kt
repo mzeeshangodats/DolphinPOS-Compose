@@ -13,6 +13,7 @@ import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
+import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountAmount
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.customer.Customer
@@ -628,17 +629,22 @@ class HomeViewModel @Inject constructor(
                 val orderItems = _cartItems.value.map { cartItem ->
                     val selectedPrice =
                         if (paymentMethod == "cash") cartItem.cashPrice else cartItem.cardPrice
+                    val hasProductDiscount = cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                    val discountedPrice = if (hasProductDiscount) cartItem.getProductDiscountedPrice() else selectedPrice
+                    val discountAmount = if (hasProductDiscount) cartItem.getProductDiscountAmount() else 0.0
+                    
                     CheckOutOrderItem(
                         productId = cartItem.productId,
                         quantity = cartItem.quantity,
                         productVariantId = cartItem.productVariantId,
                         name = cartItem.name,
                         isCustom = false,
-                        price = cartItem.getProductDiscountedPrice(),
+                        price = selectedPrice,
                         barCode = null,
                         reason = cartItem.discountReason,
                         discountId = cartItem.discountId,
-                        discountedPrice = cartItem.getProductDiscountedPrice(),
+                        discountedPrice = discountedPrice,
+                        discountedAmount = if (hasProductDiscount) discountAmount else null,
                         fixedDiscount = when (cartItem.discountType) {
                             DiscountType.AMOUNT -> cartItem.discountValue ?: 0.0
                             else -> 0.0

@@ -32,8 +32,8 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRegisters(registerEntity: RegisterEntity): Long
 
-    @Query("SELECT * FROM user WHERE pin = :pin")
-    suspend fun getUserByPin(pin: String): UserEntity?
+    @Query("SELECT * FROM user WHERE pin = :pin AND locationId = :locationId")
+    suspend fun getUserByPin(pin: String, locationId: Int): UserEntity?
 
     @Query("SELECT * FROM store")
     suspend fun getStore(): StoreEntity

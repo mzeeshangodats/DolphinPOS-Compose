@@ -94,6 +94,7 @@ object UserMapper {
             batchNo = batch.batchNo,
             storeId = batch.storeId,
             userId = batch.userId,
+            locationId = batch.locationId,
             registerId = batch.registerId,
             startingCashAmount = batch.startingCashAmount
         )
@@ -354,6 +355,7 @@ object UserMapper {
             storeId = batchEntity.storeId,
             userId = batchEntity.userId,
             registerId = batchEntity.registerId,
+            locationId = batchEntity.locationId,
             startingCashAmount = batchEntity.startingCashAmount
         )
     }

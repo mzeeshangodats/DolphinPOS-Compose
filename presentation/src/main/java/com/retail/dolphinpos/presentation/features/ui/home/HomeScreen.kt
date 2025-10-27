@@ -127,7 +127,7 @@ fun HomeScreen(
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
     var searchQuery by remember { mutableStateOf("") }
-    
+
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
     val isClockedIn = preferenceManager.isClockedIn()
@@ -266,7 +266,7 @@ fun HomeScreen(
                     CartActionButtons(
                         cartItems = cartItems,
                         onClearCart = { viewModel.clearCart() },
-                        onHoldCartClick = { 
+                        onHoldCartClick = {
                             if (cartItems.isEmpty()) {
                                 showHoldCartDialog = true
                             } else {
@@ -300,17 +300,23 @@ fun HomeScreen(
                             paymentAmount = viewModel.formatAmount(totalAmount)
                         },
                         onCashSelected = {
-                            viewModel.createOrder("cash")
+                            viewModel.isCashSelected = true
+                            viewModel.updateCartPrices()
                         },
                         onCardSelected = {
-                            viewModel.createOrder("card")
+                            viewModel.isCashSelected = false
+                            viewModel.updateCartPrices()
                         },
                         onClear = {
                             paymentAmount = "0.00"
+                        },
+                        onNext = {
+                            when {
+                                viewModel.isCashSelected -> viewModel.createOrder("cash")
+                                else -> viewModel.createOrder("card")
+                            }
                         }
                     )
-
-
                 }
 
                 // Column 3 - Categories (25% width, full height)
@@ -415,14 +421,15 @@ fun HomeScreen(
                     }
                 )
             }
-            
+
             if (selectedProductForVariant != null) {
                 VariantSelectionDialog(
                     product = selectedProductForVariant!!,
                     onDismiss = { selectedProductForVariant = null },
                     onVariantSelected = { variant ->
                         // Add variant to cart
-                        val success = viewModel.addVariantToCart(selectedProductForVariant!!, variant)
+                        val success =
+                            viewModel.addVariantToCart(selectedProductForVariant!!, variant)
                         if (success) {
                             selectedProductForVariant = null
                         } else {
@@ -776,7 +783,7 @@ fun CartHeader(
                 fontFamily = GeneralSans
             )
             Spacer(modifier = Modifier.width(4.dp))
-            
+
             // Cart icon with counter badge
             Row(
                 verticalAlignment = Alignment.CenterVertically
@@ -787,7 +794,7 @@ fun CartHeader(
                     modifier = Modifier.size(16.dp),
                     tint = Color.White
                 )
-                
+
                 // Counter badge
                 if (holdCartItemsCount > 0) {
                     Spacer(modifier = Modifier.width(4.dp))
@@ -1157,7 +1164,8 @@ fun Keypad(
     onExactAmount: () -> Unit,
     onCashSelected: () -> Unit,
     onCardSelected: () -> Unit,
-    onClear: () -> Unit
+    onClear: () -> Unit,
+    onNext: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1172,7 +1180,8 @@ fun Keypad(
             onAmountSet = onAmountSet,
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
-            onClear = onClear
+            onClear = onClear,
+            onNext = onNext
         )
 
         // Row 2: 4, 5, 6, $10, $20
@@ -1182,7 +1191,8 @@ fun Keypad(
             onAmountSet = onAmountSet,
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
-            onClear = onClear
+            onClear = onClear,
+            onNext = onNext
         )
 
         // Row 3: 1, 2, 3, $50, $100
@@ -1192,7 +1202,8 @@ fun Keypad(
             onAmountSet = onAmountSet,
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
-            onClear = onClear
+            onClear = onClear,
+            onNext = onNext
         )
 
         // Row 4: Exact, 0, Next, Cash
@@ -1208,7 +1219,8 @@ fun Keypad(
             onExactAmount = onExactAmount,
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
-            onClear = onClear
+            onClear = onClear,
+            onNext = onNext
         )
 
         // Row 5: Empty, 00, Clear, Card
@@ -1223,7 +1235,8 @@ fun Keypad(
             onAmountSet = onAmountSet,
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
-            onClear = onClear
+            onClear = onClear,
+            onNext = onNext
         )
     }
 }
@@ -1237,12 +1250,14 @@ fun KeypadRow(
     onCashSelected: (() -> Unit)? = null,
     onCardSelected: (() -> Unit)? = null,
     onClear: (() -> Unit)? = null,
+    onNext: (() -> Unit)? = null,
     isLastRow: Boolean = false
 ) {
     val strExact = stringResource(id = R.string.exact)
     val cash = stringResource(id = R.string.cash)
     val card = stringResource(id = R.string.card)
     val clear = stringResource(id = R.string.clear)
+    val next = stringResource(id = R.string.next)
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1278,6 +1293,10 @@ fun KeypadRow(
 
                         button == clear -> {
                             onClear?.invoke()
+                        }
+
+                        button == next -> {
+                            onNext?.invoke()
                         }
 
                         button.isNotEmpty() -> {
@@ -2696,7 +2715,9 @@ fun VariantSelectionDialog(
         },
         text = {
             LazyColumn(
-                modifier = Modifier.fillMaxWidth().height(400.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(400.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(product.variants.orEmpty()) { variant ->
@@ -2716,7 +2737,8 @@ fun VariantSelectionDialog(
                         ) {
                             // Variant image (shown first)
                             Box(
-                                modifier = Modifier.size(50.dp)
+                                modifier = Modifier
+                                    .size(50.dp)
                                     .background(Color.White, RoundedCornerShape(4.dp))
                                     .clip(RoundedCornerShape(4.dp)),
                                 contentAlignment = Alignment.Center
@@ -2738,7 +2760,7 @@ fun VariantSelectionDialog(
                                 }
                             }
                             Spacer(modifier = Modifier.width(12.dp))
-                            
+
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = variant.title ?: "Variant",

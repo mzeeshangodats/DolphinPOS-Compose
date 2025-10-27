@@ -39,7 +39,8 @@ class BatchSyncWorker @AssistedInject constructor(
                 try {
                     val batchOpenRequest = BatchOpenRequest(
                         storeId = batchEntity.storeId ?: 0,
-                        cashierId = batchEntity.userId ?: 0,
+                        userId = batchEntity.userId ?: 0,
+                        locationId = batchEntity.locationId ?: 0,
                         storeRegisterId = batchEntity.registerId,
                         startingCashAmount = batchEntity.startingCashAmount
                     )

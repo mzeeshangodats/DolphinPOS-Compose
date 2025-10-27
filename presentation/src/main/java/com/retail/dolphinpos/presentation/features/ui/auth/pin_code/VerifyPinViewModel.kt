@@ -45,7 +45,8 @@ class VerifyPinViewModel @Inject constructor(
         viewModelScope.launch {
             _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowLoading)
             try {
-                val response = repository.getUser(pin)
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val response = repository.getUser(pin, locationId)
                 if (response == null) {
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                     _verifyPinUiEvent.emit(

@@ -124,22 +124,24 @@ class CashDenominationViewModel @Inject constructor(
                 userId = preferenceManager.getUserID(),
                 storeId = preferenceManager.getStoreID(),
                 registerId = preferenceManager.getOccupiedRegisterID(),
+                locationId = preferenceManager.getOccupiedLocationID(),
                 startingCashAmount = totalAmount.value
             )
-            
+
             // Always save to local database first
             repository.insertBatchIntoLocalDB(batch)
-            
+
             // If internet is available, call the API
             if (networkMonitor.isNetworkAvailable()) {
                 try {
                     val batchOpenRequest = BatchOpenRequest(
                         storeId = preferenceManager.getStoreID(),
-                        cashierId = preferenceManager.getUserID(),
+                        userId = preferenceManager.getUserID(),
+                        locationId = preferenceManager.getOccupiedLocationID(),
                         storeRegisterId = preferenceManager.getOccupiedRegisterID(),
                         startingCashAmount = totalAmount.value
                     )
-                    
+
                     repository.batchOpen(batchOpenRequest).onSuccess {
                         Log.e("Batch", "Batch successfully synced with server")
                         // TODO: Mark batch as synced in database
@@ -155,12 +157,12 @@ class CashDenominationViewModel @Inject constructor(
                 Log.e("Batch", "No internet connection. Batch will be synced later via WorkManager")
                 // Batch will be synced later via WorkManager
             }
-            
+
             // Set clock-in time and status
             val currentTime = System.currentTimeMillis()
             preferenceManager.setClockInTime(currentTime)
             preferenceManager.setClockInStatus(true)
-            
+
             Log.e("Batch", "Started")
         }
     }
