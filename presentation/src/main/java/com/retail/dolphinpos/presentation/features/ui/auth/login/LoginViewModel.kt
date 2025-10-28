@@ -37,6 +37,16 @@ open class LoginViewModel @Inject constructor(
                 isLoading = false
                 loginUiEvent = LoginUiEvent.HideLoading
 
+                // Check if there are validation errors
+                response.errors?.let { errors ->
+                    val errorMessages = buildString {
+                        errors.getUsernameError()?.let { append("Username: $it\n") }
+                        errors.getPasswordError()?.let { append("Password: $it\n") }
+                    }.trim().ifEmpty { "Please check your credentials" }
+                    loginUiEvent = LoginUiEvent.ShowError(errorMessages)
+                    return@launch
+                }
+
                 response.loginData?.let { loginData ->
                     preferenceManager.saveLoginData(loginData, password)
                     loginData.storeInfo.logoUrl?.let {

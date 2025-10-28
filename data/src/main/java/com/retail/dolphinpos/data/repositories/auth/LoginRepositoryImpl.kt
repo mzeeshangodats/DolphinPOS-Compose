@@ -1,15 +1,18 @@
 package com.retail.dolphinpos.data.repositories.auth
 
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
+import com.retail.dolphinpos.domain.model.auth.login.response.Errors
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.LoginResponse
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
 import com.retail.dolphinpos.domain.model.auth.login.response.StoreLogoUrl
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
+import retrofit2.HttpException
 
 class LoginRepositoryImpl(
     private val api: ApiService, private val userDao: UserDao
@@ -18,6 +21,26 @@ class LoginRepositoryImpl(
     override suspend fun login(request: LoginRequest): LoginResponse {
         return try {
             api.login(request)
+        } catch (e: HttpException) {
+            // Try to parse the error response body
+            val errorBody = e.response()?.errorBody()?.string()
+            if (errorBody != null) {
+                try {
+                    val gson = Gson()
+                    val response: LoginResponse = gson.fromJson(errorBody, LoginResponse::class.java)
+                    // Return the error response instead of throwing it
+                    return response
+                } catch (parseException: Exception) {
+                    // If parsing fails, create a default error response
+                    return LoginResponse(
+                        loginData = null,
+                        message = "Login failed",
+                        errors = null
+                    )
+                }
+            } else {
+                throw e
+            }
         } catch (e: Exception) {
             throw e
         }

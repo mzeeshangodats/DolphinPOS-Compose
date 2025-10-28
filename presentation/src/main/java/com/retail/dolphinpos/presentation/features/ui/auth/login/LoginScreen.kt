@@ -59,12 +59,17 @@ fun LoginScreen(
             is LoginUiEvent.ShowLoading -> Loader.show(pleaseWait)
             is LoginUiEvent.HideLoading -> Loader.hide()
             is LoginUiEvent.ShowError -> {
-                DialogHandler.showDialog(message = event.message, buttonText = tryAgain) {}
+                Loader.hide()
+                DialogHandler.showDialog(message = event.message, buttonText = tryAgain) {
+                    viewModel.login(username = username, password = password)
+                }
             }
 
             is LoginUiEvent.NavigateToRegister -> {
+                Loader.hide()
                 navController.navigate("selectRegister")
             }
+
             null -> Unit
         }
     }
@@ -195,7 +200,7 @@ fun LoginScreen(
                             enabled = isButtonEnabled,
                             onClick = {
                                 if (isButtonEnabled) {
-                                    viewModel.login("imran_123", "1234")
+                                    viewModel.login(username, password)
                                 }
                             }
                         )

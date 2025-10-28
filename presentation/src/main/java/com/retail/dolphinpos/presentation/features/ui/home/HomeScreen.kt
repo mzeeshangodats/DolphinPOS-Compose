@@ -89,6 +89,7 @@ import coil3.compose.AsyncImage
 import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HomeAppBar
+import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
@@ -111,6 +112,7 @@ fun HomeScreen(
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -167,6 +169,12 @@ fun HomeScreen(
                         buttonText = "OK"
                     ) {}
                 }
+
+                is HomeUiEvent.NavigateToLogin -> {
+                    navController.navigate("pinCode") {
+                        popUpTo(0) { inclusive = false }
+                    }
+                }
             }
         }
     }
@@ -205,7 +213,7 @@ fun HomeScreen(
                     viewModel.searchProducts(query)
                 },
                 onLogout = {
-                    // TODO: Implement logout functionality
+                    showLogoutDialog = true
                 },
                 searchResults = searchResults,
                 onProductClick = { product ->
@@ -419,6 +427,14 @@ fun HomeScreen(
                     onDeleteCart = { holdCartId ->
                         viewModel.deleteHoldCart(holdCartId)
                     }
+                )
+            }
+
+            // Logout Confirmation Dialog
+            if (showLogoutDialog) {
+                LogoutConfirmationDialog(
+                    onDismiss = { showLogoutDialog = false },
+                    onConfirm = { viewModel.logout() }
                 )
             }
 

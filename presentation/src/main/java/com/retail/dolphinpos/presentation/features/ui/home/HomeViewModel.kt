@@ -18,6 +18,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.customer.Customer
 import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
+import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,7 +42,8 @@ class HomeViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
     private val pendingOrderRepository: PendingOrderRepository,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val storeRegistersRepository: StoreRegistersRepository
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -428,7 +430,7 @@ class HomeViewModel @Inject constructor(
                 taxableBase * (finalSubtotal / productDiscountedSubtotal)
             } else 0.0
 
-            val taxValue = taxableAfterOrderDiscounts * 8.25 / 100.0
+            val taxValue = taxableAfterOrderDiscounts * 10 / 100.0
 
             // 6️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
@@ -720,6 +722,26 @@ class HomeViewModel @Inject constructor(
             } catch (e: Exception) {
                 android.util.Log.e("Order", "Failed to create order: ${e.message}")
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val response = storeRegistersRepository.logout()
+                response.message.let {
+                    preferenceManager.setLogin(false)
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.NavigateToLogin)
+                }
+
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Something went wrong")
+                )
             }
         }
     }

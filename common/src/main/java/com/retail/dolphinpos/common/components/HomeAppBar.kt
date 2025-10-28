@@ -173,13 +173,12 @@ fun HomeAppBar(
                 // Logout icon in circular background with padding
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(30.dp)
                         .background(
                             color = Color.White,
                             shape = CircleShape
                         )
                         .clickable { onLogout() }
-                        .padding(end = 10.dp)
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -188,11 +187,14 @@ fun HomeAppBar(
                         Icon(
                             painter = painterResource(id = R.drawable.logout_icon),
                             contentDescription = "Logout",
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(15.dp),
                             tint = colorResource(id = R.color.primary)
                         )
                     }
                 }
+                
+                // Add spacing after the logout button
+                Spacer(modifier = Modifier.width(0.dp))
             }
 
             // Search Dropdown Overlay - positioned below the app bar
