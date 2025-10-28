@@ -4,6 +4,7 @@ data class CreateOrderRequest(
     val orderNo: String?,
     val customerId: Int?,
     val storeId: Int,
+    val locationId: Int,
     val storeRegisterId: Int? = null,
     val paymentMethod: String,
     val isRedeemed: Boolean = false,

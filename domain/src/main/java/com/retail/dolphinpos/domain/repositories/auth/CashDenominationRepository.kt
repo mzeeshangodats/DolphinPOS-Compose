@@ -12,4 +12,6 @@ interface CashDenominationRepository {
 
     suspend fun batchOpen(batchOpenRequest: BatchOpenRequest): Result<BatchOpenResponse>
 
+    suspend fun markBatchAsSynced(batchNo: String)
+
 }

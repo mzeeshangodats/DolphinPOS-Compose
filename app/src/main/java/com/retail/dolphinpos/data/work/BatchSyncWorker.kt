@@ -38,6 +38,7 @@ class BatchSyncWorker @AssistedInject constructor(
             for (batchEntity in unsyncedBatches) {
                 try {
                     val batchOpenRequest = BatchOpenRequest(
+                        batchNo = batchEntity.batchNo,
                         storeId = batchEntity.storeId ?: 0,
                         userId = batchEntity.userId ?: 0,
                         locationId = batchEntity.locationId ?: 0,

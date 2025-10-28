@@ -16,13 +16,10 @@ class PendingOrderRepository(
 
     suspend fun saveOrderToLocal(orderRequest: CreateOrderRequest): Long {
         val orderEntity = PendingOrderEntity(
-            orderNo = orderRequest.orderNo ?: generateOrderNo(
-                orderRequest.storeId,
-                orderRequest.storeRegisterId ?: 0,
-                orderRequest.cashierId
-            ),
+            orderNo = orderRequest.orderNo ?: "",
             customerId = orderRequest.customerId,
             storeId = orderRequest.storeId,
+            locationId = orderRequest.locationId,
             storeRegisterId = orderRequest.storeRegisterId,
             paymentMethod = orderRequest.paymentMethod,
             isRedeemed = orderRequest.isRedeemed,
@@ -87,6 +84,7 @@ class PendingOrderRepository(
             orderNo = entity.orderNo,
             customerId = entity.customerId,
             storeId = entity.storeId,
+            locationId = entity.locationId,
             storeRegisterId = entity.storeRegisterId,
             paymentMethod = entity.paymentMethod,
             isRedeemed = entity.isRedeemed,
@@ -111,9 +109,12 @@ class PendingOrderRepository(
         )
     }
 
-    private fun generateOrderNo(storeId: Int, registerId: Int, userId: Int): String {
+    // DEPRECATED: Order numbers should be generated in HomeViewModel.generateOrderNumber()
+    // This function is kept for reference but should not be used
+    @Deprecated("Use HomeViewModel.generateOrderNumber() instead")
+    private fun generateOrderNo(storeId: Int, locationId:Int, registerId: Int, userId: Int): String {
         val epochMillis = System.currentTimeMillis()
-        return "S${storeId}L03R${registerId}U${userId}-$epochMillis"
+        return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 
     fun parseOrderItemsFromJson(json: String): List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem> {

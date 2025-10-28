@@ -624,8 +624,7 @@ class HomeViewModel @Inject constructor(
                 val batchId = batch.batchId
 
                 // Generate order number
-                val epochMillis = System.currentTimeMillis()
-                val orderNo = "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
+                val orderNo = generateOrderNumber()
 
                 // Convert cart items to CheckOutOrderItem list
                 val orderItems = _cartItems.value.map { cartItem ->
@@ -670,6 +669,7 @@ class HomeViewModel @Inject constructor(
                     orderNo = orderNo,
                     customerId = if (customerId > 0) customerId else null,
                     storeId = storeId,
+                    locationId = locationId,
                     storeRegisterId = registerId,
                     paymentMethod = paymentMethod,
                     isRedeemed = false,
@@ -744,5 +744,20 @@ class HomeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    /**
+     * Generates a unique order number based on store, location, register, user IDs and timestamp
+     * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
+     * @return Unique order number string
+     */
+    fun generateOrderNumber(): String {
+        val storeId = preferenceManager.getStoreID()
+        val locationId = preferenceManager.getOccupiedLocationID()
+        val registerId = preferenceManager.getOccupiedRegisterID()
+        val userId = preferenceManager.getUserID()
+        val epochMillis = System.currentTimeMillis()
+        
+        return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 }

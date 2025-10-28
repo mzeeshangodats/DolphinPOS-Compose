@@ -11,6 +11,7 @@ data class PendingOrderEntity(
     @ColumnInfo(name = "order_no") val orderNo: String,
     @ColumnInfo(name = "customer_id") val customerId: Int? = null,
     @ColumnInfo(name = "store_id") val storeId: Int,
+    @ColumnInfo(name = "location_id") val locationId: Int,
     @ColumnInfo(name = "store_register_id") val storeRegisterId: Int? = null,
     @ColumnInfo(name = "payment_method") val paymentMethod: String,
     @ColumnInfo(name = "is_redeemed") val isRedeemed: Boolean = false,

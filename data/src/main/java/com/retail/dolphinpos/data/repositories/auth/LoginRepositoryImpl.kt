@@ -1,9 +1,9 @@
 package com.retail.dolphinpos.data.repositories.auth
 
-import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.parseErrorResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.model.auth.login.response.Errors
@@ -22,24 +22,18 @@ class LoginRepositoryImpl(
         return try {
             api.login(request)
         } catch (e: HttpException) {
-            // Try to parse the error response body
-            val errorBody = e.response()?.errorBody()?.string()
-            if (errorBody != null) {
-                try {
-                    val gson = Gson()
-                    val response: LoginResponse = gson.fromJson(errorBody, LoginResponse::class.java)
-                    // Return the error response instead of throwing it
-                    return response
-                } catch (parseException: Exception) {
-                    // If parsing fails, create a default error response
-                    return LoginResponse(
-                        loginData = null,
-                        message = "Login failed",
-                        errors = null
-                    )
-                }
+            // Try to parse the error response body as LoginResponse (for validation errors)
+            val errorResponse: LoginResponse? = e.parseErrorResponse<LoginResponse>()
+            if (errorResponse != null) {
+                // Return the error response instead of throwing it
+                return errorResponse
             } else {
-                throw e
+                // If parsing fails, create a default error response
+                return LoginResponse(
+                    loginData = null,
+                    message = "Login failed",
+                    errors = null
+                )
             }
         } catch (e: Exception) {
             throw e

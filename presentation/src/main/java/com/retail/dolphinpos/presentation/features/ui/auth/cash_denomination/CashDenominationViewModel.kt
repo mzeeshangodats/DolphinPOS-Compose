@@ -11,8 +11,11 @@ import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationTyp
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -35,6 +38,9 @@ class CashDenominationViewModel @Inject constructor(
 
     private val _currentCount = MutableStateFlow("0")
     val currentCount: StateFlow<String> = _currentCount.asStateFlow()
+
+    private val _cashDenominationUiEvent = MutableSharedFlow<CashDenominationUiEvent>()
+    val cashDenominationUiEvent: SharedFlow<CashDenominationUiEvent> = _cashDenominationUiEvent.asSharedFlow()
 
     init {
         initializeDenominations()
@@ -131,10 +137,13 @@ class CashDenominationViewModel @Inject constructor(
             // Always save to local database first
             repository.insertBatchIntoLocalDB(batch)
 
+            Log.e("Batch", "Started")
+
             // If internet is available, call the API
             if (networkMonitor.isNetworkAvailable()) {
                 try {
                     val batchOpenRequest = BatchOpenRequest(
+                        batchNo = batchNo,
                         storeId = preferenceManager.getStoreID(),
                         userId = preferenceManager.getUserID(),
                         locationId = preferenceManager.getOccupiedLocationID(),
@@ -144,27 +153,40 @@ class CashDenominationViewModel @Inject constructor(
 
                     repository.batchOpen(batchOpenRequest).onSuccess {
                         Log.e("Batch", "Batch successfully synced with server")
-                        // TODO: Mark batch as synced in database
+                        // Mark batch as synced in database
+                        repository.markBatchAsSynced(batchNo)
+                        // Emit success event to navigate to home
+                        _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
                     }.onFailure { e ->
                         Log.e("Batch", "Failed to sync batch with server: ${e.message}")
-                        // Batch will be synced later via WorkManager
+                        // Show error message from server in dialog
+                        _cashDenominationUiEvent.emit(
+                            CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
+                        )
                     }
                 } catch (e: Exception) {
                     Log.e("Batch", "Failed to sync batch with server: ${e.message}")
-                    // Batch will be synced later via WorkManager
+                    // Emit error event with server error message
+                    _cashDenominationUiEvent.emit(
+                        CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
+                    )
                 }
             } else {
                 Log.e("Batch", "No internet connection. Batch will be synced later via WorkManager")
-                // Batch will be synced later via WorkManager
+                // No internet - proceed to home
+                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
             }
-
-            // Set clock-in time and status
-            val currentTime = System.currentTimeMillis()
-            preferenceManager.setClockInTime(currentTime)
-            preferenceManager.setClockInStatus(true)
-
-            Log.e("Batch", "Started")
         }
+    }
+
+    fun generateBatchNo(): String {
+        val storeId = preferenceManager.getStoreID()
+        val locationId = preferenceManager.getOccupiedLocationID()
+        val registerId = preferenceManager.getOccupiedRegisterID()
+        val userId = preferenceManager.getUserID()
+        val epochMillis = System.currentTimeMillis()
+        
+        return "BATCH_S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 }
 
