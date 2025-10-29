@@ -63,9 +63,9 @@ fun MainLayout(
             // Navigation content based on current destination
             when (currentDestination?.route) {
                 "home" -> HomeScreen(navController = navController, preferenceManager = preferenceManager)
-                "products" -> ProductsScreen(navController = navController)
+                "products" -> ProductsScreen(navController = navController, preferenceManager = preferenceManager)
                 "orders" -> OrdersScreen(navController = navController)
-                "inventory" -> InventoryScreen(navController = navController)
+                "inventory" -> InventoryScreen(navController = navController, preferenceManager = preferenceManager)
                 "reports" -> ReportsScreen(navController = navController)
                 "setup" -> HardwareSetupScreen(navController = navController)
             }

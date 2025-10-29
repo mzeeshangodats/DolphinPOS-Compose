@@ -24,6 +24,42 @@ class HomeRepositoryImpl(
         return ProductMapper.toCategory(categoryEntities)
     }
 
+    override suspend fun getAllProducts(): List<Products> {
+        val productEntities = productsDao.getAllProducts()
+        return productEntities.map { productEntity ->
+            // Get product images with local paths
+            val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
+            
+            // Get variants for this product
+            val variantEntities = productsDao.getVariantsByProductId(productEntity.id)
+            val variants = variantEntities.map { variantEntity ->
+                // Get variant images with local cached paths
+                val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(variantEntity.id)
+                ProductMapper.toVariant(variantEntity, variantImages)
+            }
+            
+            // Create Products object with cached images and variants
+            Products(
+                id = productEntity.id,
+                categoryId = productEntity.categoryId,
+                storeId = productEntity.storeId,
+                name = productEntity.name,
+                description = productEntity.description,
+                quantity = productEntity.quantity,
+                status = productEntity.status,
+                cashPrice = productEntity.cashPrice,
+                cardPrice = productEntity.cardPrice,
+                barCode = productEntity.barCode,
+                locationId = productEntity.locationId,
+                chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
+                vendor = null,
+                variants = variants,
+                images = productImages,
+                secondaryBarcodes = null
+            )
+        }
+    }
+
     override suspend fun getProductsByCategoryID(categoryID: Int): List<Products> {
         val productEntities = productsDao.getProductsByCategoryID(categoryID)
         return productEntities.map { productEntity ->

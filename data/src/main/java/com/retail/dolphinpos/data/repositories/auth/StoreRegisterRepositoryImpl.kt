@@ -13,6 +13,7 @@ import kotlinx.coroutines.coroutineScope
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
+import com.retail.dolphinpos.data.util.parseErrorResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterData
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
@@ -24,6 +25,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.catrgories_products.VariantImage
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Vendor
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
+import retrofit2.HttpException
 
 class StoreRegisterRepositoryImpl(
     private val api: ApiService,
@@ -35,6 +37,25 @@ class StoreRegisterRepositoryImpl(
     override suspend fun updateStoreRegister(updateStoreRegisterRequest: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse {
         return try {
             api.updateStoreRegister(updateStoreRegisterRequest)
+        } catch (e: HttpException) {
+            // Try to parse the error response body as UpdateStoreRegisterResponse (for validation errors)
+            val errorResponse: UpdateStoreRegisterResponse? = e.parseErrorResponse<UpdateStoreRegisterResponse>()
+            if (errorResponse != null) {
+                // Return the error response instead of throwing it
+                return errorResponse
+            } else {
+                // If parsing fails, create a default error response
+                return UpdateStoreRegisterResponse(
+                    message = "Failed to assign register",
+                    data = UpdateStoreRegisterData(
+                        storeId = 0,
+                        locationId = 0,
+                        storeRegisterId = 0,
+                        status = "",
+                        updatedAt = ""
+                    )
+                )
+            }
         } catch (e: Exception) {
             throw e
         }

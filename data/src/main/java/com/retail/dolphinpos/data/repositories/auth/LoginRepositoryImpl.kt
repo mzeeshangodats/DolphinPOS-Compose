@@ -6,7 +6,6 @@ import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.parseErrorResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
-import com.retail.dolphinpos.domain.model.auth.login.response.Errors
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.LoginResponse
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
