@@ -2,6 +2,7 @@ package com.retail.dolphinpos.presentation.features.ui.setup
 
 import androidx.lifecycle.ViewModel
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
+import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +11,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HardwareSetupViewModel @Inject constructor() : ViewModel() {
-    
+
     private val _menus = MutableStateFlow<List<BottomMenu>>(emptyList())
     val menus: StateFlow<List<BottomMenu>> = _menus.asStateFlow()
 
@@ -24,10 +25,12 @@ class HardwareSetupViewModel @Inject constructor() : ViewModel() {
     private fun loadMenus() {
         // Setup screen navigation menus (Home + Setup types)
         _menus.value = listOf(
-            BottomMenu(menuName = "Home", destinationId = com.retail.dolphinpos.presentation.R.id.homeScreen),
-            BottomMenu(menuName = "Printer Setup", destinationId = com.retail.dolphinpos.presentation.R.id.setupScreen),
-            BottomMenu(menuName = "Cash Drawer", destinationId = com.retail.dolphinpos.presentation.R.id.setupScreen),
-            BottomMenu(menuName = "Scanner Setup", destinationId = com.retail.dolphinpos.presentation.R.id.setupScreen)
+            BottomMenu(menuName = "Home", destinationId = R.id.homeScreen),
+            BottomMenu(menuName = "Business Information", destinationId = R.id.setupScreen),
+            BottomMenu(menuName = "Credit Card Processing", destinationId = R.id.setupScreen),
+            BottomMenu(menuName = "Customer Display", destinationId = R.id.setupScreen),
+            BottomMenu(menuName = "Printer", destinationId = R.id.setupScreen),
+            BottomMenu(menuName = "Dual Pricing", destinationId = R.id.setupScreen)
         )
         // Set default selection to "Printer Setup" (index 1, since Home is index 0)
         _selectedMenuIndex.value = 1

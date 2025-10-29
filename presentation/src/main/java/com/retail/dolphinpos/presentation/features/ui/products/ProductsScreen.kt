@@ -160,7 +160,7 @@ fun ProductsScreen(
                                 Box {
                                     if (searchQuery.isEmpty()) {
                                         BaseText(
-                                            text = "Search by product name",
+                                            text = "Search by product name or barcode",
                                             fontSize = 14f,
                                             color = Color.Gray,
                                             fontFamily = GeneralSans
@@ -225,6 +225,14 @@ fun ProductsScreen(
                         modifier = Modifier.weight(1f)
                     )
                     BaseText(
+                        text = "Barcode",
+                        fontSize = 12f,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.width(200.dp)
+                    )
+                    BaseText(
                         text = "Price",
                         fontSize = 12f,
                         fontWeight = FontWeight.Bold,
@@ -271,6 +279,13 @@ fun ProductsScreen(
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.weight(1f)
+                            )
+                            BaseText(
+                                text = product.barCode ?: "-",
+                                fontSize = 12f,
+                                color = Color.Black,
+                                fontFamily = GeneralSans,
+                                modifier = Modifier.width(200.dp)
                             )
                             BaseText(
                                 text = "$${String.format(Locale.US, "%.2f", product.cashPrice.toDoubleOrNull() ?: 0.0)}",
@@ -353,32 +368,29 @@ fun ProductDetailsDialog(
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
+                        fontFamily = GeneralSans
+                    )
+                }
+
+                // Description on the right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Description:",
+                        fontSize = 14f,
+                        color = Color.Gray,
+                        fontFamily = GeneralSans
+                    )
+                    BaseText(
+                        text = product.description ?: "-",
+                        fontSize = 14f,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black,
                 fontFamily = GeneralSans
             )
         }
-
-                // Description
-                if (!product.description.isNullOrEmpty()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        BaseText(
-                            text = "Description:",
-                            fontSize = 14f,
-                            color = Color.Gray,
-                            fontFamily = GeneralSans
-                        )
-                        BaseText(
-                            text = product.description!!,
-                            fontSize = 14f,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            fontFamily = GeneralSans,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
 
                 // Barcode
                 if (!product.barCode.isNullOrEmpty()) {
@@ -496,43 +508,49 @@ fun ProductDetailsDialog(
                         color = Color.Black,
                         fontFamily = GeneralSans
                     )
-                    product.variants!!.forEach { variant ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = Color(0xFFF5F5F5),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            BaseText(
-                                text = variant.title ?: "Unknown Variant",
-                                fontSize = 13f,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black,
-                                fontFamily = GeneralSans
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((product.variants!!.size * 80).coerceAtMost(300).dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(product.variants!!) { variant ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = Color(0xFFF5F5F5),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 BaseText(
-                                    text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
-                                    fontSize = 12f,
-                                    color = Color.Gray,
+                                    text = variant.title ?: "Unknown Variant",
+                                    fontSize = 13f,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black,
                                     fontFamily = GeneralSans
                                 )
-                                BaseText(
-                                    text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
-                                    fontSize = 12f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }

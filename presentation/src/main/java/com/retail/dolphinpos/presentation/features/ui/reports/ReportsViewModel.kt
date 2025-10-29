@@ -2,6 +2,7 @@ package com.retail.dolphinpos.presentation.features.ui.reports
 
 import androidx.lifecycle.ViewModel
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
+import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -10,7 +11,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ReportsViewModel @Inject constructor() : ViewModel() {
-    
+
     private val _menus = MutableStateFlow<List<BottomMenu>>(emptyList())
     val menus: StateFlow<List<BottomMenu>> = _menus.asStateFlow()
 
@@ -24,10 +25,22 @@ class ReportsViewModel @Inject constructor() : ViewModel() {
     private fun loadMenus() {
         // Reports screen navigation menus (Home + Report types)
         _menus.value = listOf(
-            BottomMenu(menuName = "Home", destinationId = com.retail.dolphinpos.presentation.R.id.homeScreen),
-            BottomMenu(menuName = "Sales Report", destinationId = com.retail.dolphinpos.presentation.R.id.reportsScreen),
-            BottomMenu(menuName = "Inventory Report", destinationId = com.retail.dolphinpos.presentation.R.id.reportsScreen),
-            BottomMenu(menuName = "Transaction Report", destinationId = com.retail.dolphinpos.presentation.R.id.reportsScreen)
+            BottomMenu(
+                menuName = "Home",
+                destinationId = R.id.homeScreen
+            ),
+            BottomMenu(
+                menuName = "Batch Report",
+                destinationId = R.id.reportsScreen
+            ),
+            BottomMenu(
+                menuName = "Batch History",
+                destinationId = R.id.reportsScreen
+            ),
+            BottomMenu(
+                menuName = "Transaction Activity",
+                destinationId = R.id.reportsScreen
+            )
         )
         // Set default selection to "Sales Report" (index 1, since Home is index 0)
         _selectedMenuIndex.value = 1
