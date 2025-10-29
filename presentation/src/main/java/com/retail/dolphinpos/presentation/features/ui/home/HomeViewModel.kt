@@ -19,6 +19,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.customer.Customer
 import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
+import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,7 +44,8 @@ class HomeViewModel @Inject constructor(
     private val holdCartRepository: HoldCartRepository,
     private val pendingOrderRepository: PendingOrderRepository,
     private val networkMonitor: NetworkMonitor,
-    private val storeRegistersRepository: StoreRegistersRepository
+    private val storeRegistersRepository: StoreRegistersRepository,
+    private val verifyPinRepository: VerifyPinRepository
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -759,5 +761,69 @@ class HomeViewModel @Inject constructor(
         val epochMillis = System.currentTimeMillis()
         
         return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
+    }
+
+    /**
+     * Clock In - Verifies PIN and sets clock in status
+     */
+    fun clockIn(pin: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = verifyPinRepository.getUser(pin, locationId)
+                
+                if (user == null) {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Invalid PIN"))
+                    return@launch
+                }
+                
+                // Set clock in time and status
+                val currentTime = System.currentTimeMillis()
+                preferenceManager.setClockInTime(currentTime)
+                preferenceManager.setClockInStatus(true)
+                
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked In Successfully"))
+                
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Failed to clock in")
+                )
+            }
+        }
+    }
+
+    /**
+     * Clock Out - Verifies PIN and clears clock in status
+     */
+    fun clockOut(pin: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = verifyPinRepository.getUser(pin, locationId)
+                
+                if (user == null) {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No user found with this PIN"))
+                    return@launch
+                }
+                
+                // Clear clock in time and set status to false
+                preferenceManager.clockOut()
+                
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked Out Successfully"))
+                
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Failed to clock out")
+                )
+            }
+        }
     }
 }

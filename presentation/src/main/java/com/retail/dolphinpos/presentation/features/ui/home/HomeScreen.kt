@@ -88,6 +88,7 @@ import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
+import com.retail.dolphinpos.common.components.ClockInOutDialog
 import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -113,6 +114,8 @@ fun HomeScreen(
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showClockInOutDialog by remember { mutableStateOf(false) }
+    var clockInOutPin by remember { mutableStateOf("") }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -145,6 +148,14 @@ fun HomeScreen(
                     DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK"
+                    ) {}
+                }
+
+                is HomeUiEvent.ShowSuccess -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK",
+                        iconRes = R.drawable.add_customer_icon_blue
                     ) {}
                 }
 
@@ -344,6 +355,16 @@ fun HomeScreen(
                     navController = navController,
                     products = if (searchQuery.isNotEmpty()) searchResults else products,
                     cartItems = cartItems,
+                    onShowOrderDiscountDialog = {
+                        if (cartItems.isEmpty()) {
+                            DialogHandler.showDialog("There are no items in cart")
+                        } else if (!viewModel.canApplyOrderLevelDiscount()) {
+                            DialogHandler.showDialog("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
+                        } else {
+                            showOrderDiscountDialog = true
+                        }
+                    },
+                    onShowClockInOutDialog = { showClockInOutDialog = true },
                     onProductClick = { product ->
                         val variants = product.variants
                         if (variants != null && variants.isNotEmpty()) {
@@ -355,15 +376,6 @@ fun HomeScreen(
                             if (!success) {
                                 DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
                             }
-                        }
-                    },
-                    onShowOrderDiscountDialog = {
-                        if (cartItems.isEmpty()) {
-                            DialogHandler.showDialog("There are no items in cart")
-                        } else if (!viewModel.canApplyOrderLevelDiscount()) {
-                            DialogHandler.showDialog("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
-                        } else {
-                            showOrderDiscountDialog = true
                         }
                     }
                 )
@@ -435,6 +447,31 @@ fun HomeScreen(
                 LogoutConfirmationDialog(
                     onDismiss = { showLogoutDialog = false },
                     onConfirm = { viewModel.logout() }
+                )
+            }
+
+            // Clock In/Out Dialog
+            if (showClockInOutDialog) {
+                ClockInOutDialog(
+                    pinValue = clockInOutPin,
+                    onPinChange = { clockInOutPin = it },
+                    onClockOut = {
+                        viewModel.clockOut(clockInOutPin)
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onClockIn = {
+                        viewModel.clockIn(clockInOutPin)
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onDismiss = {
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onViewHistory = {
+                        // TODO: Navigate to clock in/out history screen
+                    }
                 )
             }
 
@@ -1488,7 +1525,8 @@ fun ProductsPanel(
     products: List<Products>,
     cartItems: List<CartItem>,
     onProductClick: (Products) -> Unit,
-    onShowOrderDiscountDialog: () -> Unit
+    onShowOrderDiscountDialog: () -> Unit,
+    onShowClockInOutDialog: () -> Unit = {}
 ) {
     Column(
         modifier = modifier
@@ -1517,7 +1555,8 @@ fun ProductsPanel(
             modifier = Modifier.weight(0.41f),
             navController = navController,
             cartItems = cartItems,
-            onShowOrderDiscountDialog = onShowOrderDiscountDialog
+            onShowOrderDiscountDialog = onShowOrderDiscountDialog,
+            onShowClockInOutDialog = onShowClockInOutDialog
         )
     }
 }
@@ -1573,7 +1612,8 @@ fun ActionButtonsPanel(
     modifier: Modifier = Modifier,
     navController: NavController,
     cartItems: List<CartItem>,
-    onShowOrderDiscountDialog: () -> Unit
+    onShowOrderDiscountDialog: () -> Unit,
+    onShowClockInOutDialog: () -> Unit = {}
 ) {
     val context = LocalContext.current
     Column(
@@ -1637,7 +1677,9 @@ fun ActionButtonsPanel(
                     "Order Discount" -> {
                         onShowOrderDiscountDialog()
                     }
-                    // TODO: Add other action handlers
+                    "Clock In/Out" -> {
+                        onShowClockInOutDialog()
+                    }
                 }
             }
         )
