@@ -71,36 +71,41 @@ fun MainLayout(
             }
         }
 
-        // Persistent Bottom Navigation
-        BottomNavigationBar(
-            menus = bottomNavMenus,
-            selectedIndex = selectedIndex,
-            onMenuClick = { menu ->
-                // Map resource IDs to navigation routes
-                val route = when (menu.destinationId) {
-                    R.id.homeScreen -> "home"
-                    R.id.productsScreen -> "products"
-                    R.id.ordersScreen -> "orders"
-                    R.id.inventoryScreen -> "inventory"
-                    R.id.reportsScreen -> "reports"
-                    R.id.setupScreen -> "setup"
-                    else -> null
-                }
-                route?.let {
-                    navController.navigate(it) {
-                        // Pop up to the start destination of the graph to
-                        // avoid building up a large stack of destinations
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+        // Persistent Bottom Navigation (hide on Orders, Reports, Setup screens as they have their own nav)
+        val currentRoute = currentDestination?.route
+        val shouldShowMainNav = currentRoute !in listOf("orders", "reports", "setup")
+        
+        if (shouldShowMainNav) {
+            BottomNavigationBar(
+                menus = bottomNavMenus,
+                selectedIndex = selectedIndex,
+                onMenuClick = { menu ->
+                    // Map resource IDs to navigation routes
+                    val route = when (menu.destinationId) {
+                        R.id.homeScreen -> "home"
+                        R.id.productsScreen -> "products"
+                        R.id.ordersScreen -> "orders"
+                        R.id.inventoryScreen -> "inventory"
+                        R.id.reportsScreen -> "reports"
+                        R.id.setupScreen -> "setup"
+                        else -> null
+                    }
+                    route?.let {
+                        navController.navigate(it) {
+                            // Pop up to the start destination of the graph to
+                            // avoid building up a large stack of destinations
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            // Avoid multiple copies of the same destination when
+                            // reselecting the same item
+                            launchSingleTop = true
+                            // Restore state when reselecting a previously selected item
+                            restoreState = true
                         }
-                        // Avoid multiple copies of the same destination when
-                        // reselecting the same item
-                        launchSingleTop = true
-                        // Restore state when reselecting a previously selected item
-                        restoreState = true
                     }
                 }
-            }
-        )
+            )
+        }
     }
 }

@@ -486,9 +486,9 @@ fun ProductDetailsDialog(
 
                 // Variants
                 if (product.variants != null && product.variants!!.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     BaseText(
                         text = "Variants:",
                         fontSize = 14f,
