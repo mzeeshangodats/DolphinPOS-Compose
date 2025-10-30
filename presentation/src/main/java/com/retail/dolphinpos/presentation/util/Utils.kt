@@ -169,7 +169,7 @@ object Utils {
                     overflow = TextOverflow.Visible
                 )
 
-                // Button
+                // Action button
                 Button(
                     onClick = {
                         onDismiss()

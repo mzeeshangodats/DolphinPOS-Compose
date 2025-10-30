@@ -52,9 +52,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideVerifyPinRepository(
-        userDao: UserDao
+        userDao: UserDao,
+        api: ApiService
     ): VerifyPinRepository {
-        return VerifyPinRepositoryImpl(userDao)
+        return VerifyPinRepositoryImpl(userDao, api)
     }
 
     @Provides

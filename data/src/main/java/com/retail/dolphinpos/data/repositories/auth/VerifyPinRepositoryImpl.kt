@@ -1,16 +1,25 @@
 package com.retail.dolphinpos.data.repositories.auth
 
 import com.retail.dolphinpos.data.dao.UserDao
+import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.mapper.UserMapper
+import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.getErrorMessage
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutResponse
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
+import retrofit2.HttpException
+import java.io.IOException
 
 class VerifyPinRepositoryImpl(
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val apiService: ApiService
 ) : VerifyPinRepository {
 
     override suspend fun getUser(pin: String, locationId: Int): AllStoreUsers? {
@@ -62,4 +71,46 @@ class VerifyPinRepositoryImpl(
         return userDao.hasOpenBatch(userId, storeId, registerId)
     }
 
+    override suspend fun clockInOut(request: ClockInOutRequest): Result<ClockInOutResponse> {
+        return try {
+            val response = apiService.clockInOut(request)
+            Result.success(response)
+        } catch (e: HttpException) {
+            // Parse API error message like login
+            val message = e.getErrorMessage() ?: "Clock In/Out failed"
+            Result.failure(Throwable(message))
+        } catch (e: IOException) {
+            // Offline queue
+            try {
+                userDao.insertTimeSlot(
+                    TimeSlotEntity(
+                        slug = request.slug,
+                        storeId = request.storeId,
+                        time = request.time,
+                        userId = request.userId,
+                        isSynced = false
+                    )
+                )
+            } catch (_: Exception) {
+            }
+            Result.failure(Throwable("OFFLINE_QUEUED"))
+        } catch (e: Exception) {
+            Result.failure(Throwable(e.message ?: "Clock In/Out failed"))
+        }
+    }
+
+    override suspend fun getLastTimeSlotSlug(userId: Int): String? {
+        return userDao.getLastTimeSlot(userId)?.slug
+    }
+
+    override suspend fun getClockInOutHistory(userId: Int): Result<List<ClockInOutHistoryData>> {
+        return try {
+            val resp = apiService.getClockInOutHistory(userId)
+            Result.success(resp.data)
+        } catch (e: HttpException) {
+            Result.failure(Throwable(e.getErrorMessage() ?: "Failed to load history"))
+        } catch (e: Exception) {
+            Result.failure(Throwable(e.message ?: "Failed to load history"))
+        }
+    }
 }

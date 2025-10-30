@@ -100,8 +100,8 @@ fun SelectRegisterScreen(
                     if (event.locationsList.isEmpty()) {
                         DialogHandler.showDialog(
                             message = locationError,
-                            buttonText = "OK",
-                            iconRes = R.drawable.info_icon
+                        buttonText = "OK",
+                        iconRes = R.drawable.info_icon
                         ) {}
                     } else {
                         selectedLocation = event.locationsList[0]

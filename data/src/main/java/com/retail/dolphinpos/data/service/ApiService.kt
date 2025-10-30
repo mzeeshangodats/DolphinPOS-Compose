@@ -4,6 +4,9 @@ import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseReque
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseResponse
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenResponse
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryResponse
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.LoginResponse
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
@@ -12,6 +15,7 @@ import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateSt
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -24,6 +28,16 @@ interface ApiService {
 
     @POST("auth/logout")
     suspend fun logout(): LogoutResponse
+
+    @POST("time-slot")
+    suspend fun clockInOut(
+        @Body clockInOutRequest: ClockInOutRequest
+    ): ClockInOutResponse
+
+    @GET("time-slot")
+    suspend fun getClockInOutHistory(
+        @Query("userId") userId: Int,
+    ): ClockInOutHistoryResponse
 
     @POST("offline-registers/occupy")
     suspend fun updateStoreRegister(@Body request: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse
