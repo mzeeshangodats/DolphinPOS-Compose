@@ -94,6 +94,7 @@ object UserMapper {
             batchNo = batch.batchNo,
             storeId = batch.storeId,
             userId = batch.userId,
+            locationId = batch.locationId,
             registerId = batch.registerId,
             startingCashAmount = batch.startingCashAmount
         )
@@ -349,10 +350,12 @@ object UserMapper {
 
     fun toBatchDetails(batchEntity: BatchEntity): Batch {
         return Batch(
+            batchId = batchEntity.batchId,
             batchNo = batchEntity.batchNo,
             storeId = batchEntity.storeId,
             userId = batchEntity.userId,
             registerId = batchEntity.registerId,
+            locationId = batchEntity.locationId,
             startingCashAmount = batchEntity.startingCashAmount
         )
     }

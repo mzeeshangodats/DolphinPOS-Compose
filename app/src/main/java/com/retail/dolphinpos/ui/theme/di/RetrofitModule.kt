@@ -1,9 +1,10 @@
 package com.retail.dolphinpos.ui.theme.di
 
+import com.retail.dolphinpos.BuildConfig
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.service.ApiService
-import com.retail.dolphinpos.ui.theme.util.NetworkMonitor
-import com.retail.dolphinpos.ui.theme.util.NoConnectivityException
+import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.common.network.NoConnectivityException
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -70,7 +71,7 @@ object RetrofitModule {
     @Singleton
     fun provideRetrofit(okHttpClient: OkHttpClient): Retrofit {
         return Retrofit.Builder()
-            .baseUrl("https://www.dev-retail.gotmsolutions.com/api/")
+            .baseUrl(BuildConfig.BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

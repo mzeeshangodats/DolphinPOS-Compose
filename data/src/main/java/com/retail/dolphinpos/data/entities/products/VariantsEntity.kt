@@ -8,7 +8,8 @@ data class VariantsEntity(
     @PrimaryKey
     val id: Int,
     val productId: Int,
-    val price: String?,
+    val cardPrice: String?,
+    val cashPrice: String?,
     val quantity: Int,
     val sku: String?,
     val title: String?

@@ -52,3 +52,11 @@ fun CartItem.getProductDiscountedPrice(): Double {
         else -> selectedPrice
     }
 }
+
+fun CartItem.getProductDiscountAmount(): Double {
+    return when (discountType) {
+        DiscountType.PERCENTAGE -> ((selectedPrice * (discountValue ?: 0.0)) / 100.0)
+        DiscountType.AMOUNT -> discountValue ?: 0.0
+        else -> 0.0
+    }
+}

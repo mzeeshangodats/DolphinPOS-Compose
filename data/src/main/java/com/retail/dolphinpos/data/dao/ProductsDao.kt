@@ -36,6 +36,9 @@ interface ProductsDao {
     @Query("SELECT * FROM category")
     suspend fun getCategories(): List<CategoryEntity>
 
+    @Query("SELECT * FROM products")
+    suspend fun getAllProducts(): List<ProductsEntity>
+
     @Query("SELECT * FROM products WHERE categoryId = :categoryId")
     suspend fun getProductsByCategoryID(categoryId: Int?): List<ProductsEntity>
 
@@ -70,5 +73,8 @@ interface ProductsDao {
 
     @Query("SELECT * FROM variant_images WHERE variantId = :variantId")
     suspend fun getVariantImagesByVariantId(variantId: Int): List<VariantImagesEntity>
+
+    @Query("SELECT * FROM variants WHERE productId = :productId")
+    suspend fun getVariantsByProductId(productId: Int): List<VariantsEntity>
 
 }

@@ -3,6 +3,7 @@ package com.retail.dolphinpos.data.repositories.auth
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.parseErrorResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
@@ -10,6 +11,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.LoginResponse
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
 import com.retail.dolphinpos.domain.model.auth.login.response.StoreLogoUrl
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
+import retrofit2.HttpException
 
 class LoginRepositoryImpl(
     private val api: ApiService, private val userDao: UserDao
@@ -18,6 +20,20 @@ class LoginRepositoryImpl(
     override suspend fun login(request: LoginRequest): LoginResponse {
         return try {
             api.login(request)
+        } catch (e: HttpException) {
+            // Try to parse the error response body as LoginResponse (for validation errors)
+            val errorResponse: LoginResponse? = e.parseErrorResponse<LoginResponse>()
+            if (errorResponse != null) {
+                // Return the error response instead of throwing it
+                return errorResponse
+            } else {
+                // If parsing fails, create a default error response
+                return LoginResponse(
+                    loginData = null,
+                    message = "Login failed",
+                    errors = null
+                )
+            }
         } catch (e: Exception) {
             throw e
         }

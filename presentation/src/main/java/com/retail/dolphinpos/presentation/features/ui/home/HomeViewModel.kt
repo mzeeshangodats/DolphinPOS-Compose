@@ -3,13 +3,23 @@ package com.retail.dolphinpos.presentation.features.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
+import com.retail.dolphinpos.data.repository.HoldCartRepository
+import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
+import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
+import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
+import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountAmount
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.customer.Customer
 import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
+import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
+import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,7 +39,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val homeRepository: HomeRepository, private val preferenceManager: PreferenceManager
+    private val homeRepository: HomeRepository,
+    private val preferenceManager: PreferenceManager,
+    private val holdCartRepository: HoldCartRepository,
+    private val pendingOrderRepository: PendingOrderRepository,
+    private val networkMonitor: NetworkMonitor,
+    private val storeRegistersRepository: StoreRegistersRepository,
+    private val verifyPinRepository: VerifyPinRepository
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -73,6 +89,13 @@ class HomeViewModel @Inject constructor(
 
     private val _menus = MutableStateFlow<List<BottomMenu>>(emptyList())
     val menus: StateFlow<List<BottomMenu>> = _menus.asStateFlow()
+
+    // Hold Cart related state
+    private val _holdCarts = MutableStateFlow<List<HoldCartEntity>>(emptyList())
+    val holdCarts: StateFlow<List<HoldCartEntity>> = _holdCarts.asStateFlow()
+
+    private val _holdCartCount = MutableStateFlow(0)
+    val holdCartCount: StateFlow<Int> = _holdCartCount.asStateFlow()
 
     init {
         loadCategories()
@@ -125,7 +148,6 @@ class HomeViewModel @Inject constructor(
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 if (response.isNotEmpty()) {
                     _products.value = response
-                    _homeUiEvent.emit(HomeUiEvent.PopulateProductsList(response))
                 } else {
                     _homeUiEvent.emit(HomeUiEvent.ShowError("No Products Found"))
                 }
@@ -154,7 +176,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun addToCart(product: Products) {
+    fun addToCart(product: Products): Boolean {
+        if (hasCashDiscountApplied()) {
+            return false  // Cannot add products after cash discount is applied
+        }
+
         val cartItemList = _cartItems.value.toMutableList()
         val existingProduct = cartItemList.indexOfFirst { it.productId == product.id }
         if (existingProduct >= 0) {
@@ -181,6 +207,48 @@ class HomeViewModel @Inject constructor(
         }
         _cartItems.value = cartItemList
         calculateSubtotal(cartItemList)
+        return true
+    }
+
+    fun addVariantToCart(product: Products, variant: Variant): Boolean {
+        if (hasCashDiscountApplied()) {
+            return false  // Cannot add products after cash discount is applied
+        }
+
+        val cartItemList = _cartItems.value.toMutableList()
+        val existingVariant = cartItemList.indexOfFirst { it.productVariantId == variant.id }
+
+        if (existingVariant >= 0) {
+            // Increment quantity if variant already in cart
+            val updatedQuantity = cartItemList[existingVariant].copy(
+                quantity = cartItemList[existingVariant].quantity + 1
+            )
+            cartItemList[existingVariant] = updatedQuantity
+        } else {
+            // Add new variant
+            val variantCardPrice =
+                variant.cardPrice?.toDoubleOrNull() ?: product.cardPrice.toDouble()
+            val variantCashPrice =
+                variant.cashPrice?.toDoubleOrNull() ?: product.cashPrice.toDouble()
+
+            cartItemList.add(
+                CartItem(
+                    productId = product.id,
+                    name = "${product.name} - ${variant.title}",
+                    quantity = 1,
+                    imageUrl = variant.images.firstOrNull()?.fileURL
+                        ?: product.images?.firstOrNull()?.fileURL,
+                    productVariantId = variant.id,
+                    cardPrice = variantCardPrice,
+                    cashPrice = variantCashPrice,
+                    chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
+                    selectedPrice = variantCardPrice  // Always add new products at card price
+                )
+            )
+        }
+        _cartItems.value = cartItemList
+        calculateSubtotal(cartItemList)
+        return true
     }
 
     fun updateCartPrices() {
@@ -197,7 +265,7 @@ class HomeViewModel @Inject constructor(
         if (!canRemoveItemFromCart()) {
             return false  // Cannot remove item after cash discount applied
         }
-        
+
         val updatedCart = _cartItems.value.filter { it.productId != productId }
         _cartItems.value = updatedCart
         if (updatedCart.isEmpty()) {
@@ -242,28 +310,32 @@ class HomeViewModel @Inject constructor(
                     DiscountType.PERCENTAGE -> {
                         cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
                     }
+
                     DiscountType.AMOUNT -> {
                         cardPrice - (cartItem.discountValue ?: 0.0)
                     }
+
                     else -> cardPrice
                 }
                 discountedCardPrice * cartItem.quantity
             }
-            
+
             val cashBasedSubtotal = cartItems.sumOf { cartItem ->
                 val cashPrice = cartItem.cashPrice
                 val discountedCashPrice = when (cartItem.discountType) {
                     DiscountType.PERCENTAGE -> {
                         cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
                     }
+
                     DiscountType.AMOUNT -> {
                         cashPrice - (cartItem.discountValue ?: 0.0)
                     }
+
                     else -> cashPrice
                 }
                 discountedCashPrice * cartItem.quantity
             }
-            
+
             _cashDiscountTotal.value = cardBasedSubtotal - cashBasedSubtotal
         } else {
             _cashDiscountTotal.value = 0.0
@@ -274,7 +346,11 @@ class HomeViewModel @Inject constructor(
         _orderLevelDiscounts.value = discounts
     }
 
-    fun saveOrderDiscountValues(discountValue: String, discountType: String, discountReason: String) {
+    fun saveOrderDiscountValues(
+        discountValue: String,
+        discountType: String,
+        discountReason: String
+    ) {
         preferenceManager.setOrderDiscountValue(discountValue)
         preferenceManager.setOrderDiscountType(discountType)
         preferenceManager.setOrderDiscountReason(discountReason)
@@ -305,7 +381,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.Default) {
             // 1️⃣ Base subtotal (card prices minus product-level discounts only)
             val baseSubtotal = cartItems.sumOf { it.cardPrice * it.quantity }
-            
+
             // Calculate product-level discounts using card prices (subtotal always shows card prices)
             val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
                 val cardPrice = cartItem.cardPrice
@@ -313,14 +389,17 @@ class HomeViewModel @Inject constructor(
                     DiscountType.PERCENTAGE -> {
                         cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
                     }
+
                     DiscountType.AMOUNT -> {
                         cardPrice - (cartItem.discountValue ?: 0.0)
                     }
+
                     else -> cardPrice
                 }
                 discountedPrice * cartItem.quantity
             }
-            val subtotal = productDiscountedSubtotal  // Subtotal shows card prices minus product discounts
+            val subtotal =
+                productDiscountedSubtotal  // Subtotal shows card prices minus product discounts
 
             // 3️⃣ Apply all order-level discounts sequentially
             var discountedSubtotal = productDiscountedSubtotal
@@ -353,17 +432,18 @@ class HomeViewModel @Inject constructor(
                 taxableBase * (finalSubtotal / productDiscountedSubtotal)
             } else 0.0
 
-            val taxValue = taxableAfterOrderDiscounts * 8.25 / 100.0
+            val taxValue = taxableAfterOrderDiscounts * 10 / 100.0
 
             // 6️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
 
             withContext(Dispatchers.Main) {
-                _subtotal.value = subtotal   // subtotal shows card prices minus product-level discounts only
+                _subtotal.value =
+                    subtotal   // subtotal shows card prices minus product-level discounts only
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
-                
+
                 // Recalculate cash discount when cart changes
                 calculateCashDiscount(cartItems)
             }
@@ -381,7 +461,10 @@ class HomeViewModel @Inject constructor(
                 email = email,
                 birthday = birthday
             )
-            homeRepository.insertCustomerDetailsIntoLocalDB(customer)
+            val customerId = homeRepository.insertCustomerDetailsIntoLocalDB(customer)
+            // Save customer ID to preferences for later use in orders
+            preferenceManager.setCustomerID(customerId.toInt())
+            _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Customer Added: $firstName $lastName"))
         }
     }
 
@@ -419,5 +502,328 @@ class HomeViewModel @Inject constructor(
 
     fun formatAmount(amount: Double): String {
         return String.format(Locale.US, "%.2f", amount)
+    }
+
+    // Hold Cart functionality
+    fun loadHoldCarts() {
+        viewModelScope.launch {
+            try {
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+
+                val holdCartsList = holdCartRepository.getHoldCarts(userId, storeId, registerId)
+                _holdCarts.value = holdCartsList
+                _holdCartCount.value = holdCartsList.size
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to load hold carts: ${e.message}"))
+            }
+        }
+    }
+
+    fun saveHoldCart(cartName: String) {
+        viewModelScope.launch {
+            try {
+                if (_cartItems.value.isEmpty()) {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Cart is empty. Cannot save hold cart."))
+                    return@launch
+                }
+
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+
+                val holdCartId = holdCartRepository.saveHoldCart(
+                    cartName = cartName,
+                    cartItems = _cartItems.value,
+                    subtotal = _subtotal.value,
+                    tax = _tax.value,
+                    totalAmount = _totalAmount.value,
+                    cashDiscountTotal = _cashDiscountTotal.value,
+                    orderDiscountTotal = _orderDiscountTotal.value,
+                    isCashSelected = isCashSelected,
+                    userId = userId,
+                    storeId = storeId,
+                    registerId = registerId
+                )
+
+                // Clear current cart after saving
+                clearCart()
+
+                // Reload hold carts to update count
+                loadHoldCarts()
+
+                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Cart saved successfully!"))
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to save hold cart: ${e.message}"))
+            }
+        }
+    }
+
+    fun restoreHoldCart(holdCartId: Long) {
+        viewModelScope.launch {
+            try {
+                val holdCart = holdCartRepository.getHoldCartById(holdCartId)
+                if (holdCart != null) {
+                    val cartItems = holdCartRepository.parseCartItemsFromJson(holdCart.cartItems)
+
+                    // Clear current cart first (discard any existing items)
+                    _cartItems.value = emptyList()
+
+                    // Set cart items from hold cart
+                    _cartItems.value = cartItems
+
+                    // Set pricing and discount states
+                    isCashSelected = holdCart.isCashSelected
+                    _subtotal.value = holdCart.subtotal
+                    _tax.value = holdCart.tax
+                    _totalAmount.value = holdCart.totalAmount
+                    _cashDiscountTotal.value = holdCart.cashDiscountTotal
+                    _orderDiscountTotal.value = holdCart.orderDiscountTotal
+
+                    // Recalculate subtotal to ensure consistency
+                    calculateSubtotal(cartItems)
+
+                    // Delete the hold cart after successful restoration
+                    holdCartRepository.deleteHoldCart(holdCartId)
+
+                    // Reload hold carts to update count
+                    loadHoldCarts()
+
+                    // Don't show success message for restore
+                } else {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Hold cart not found."))
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to restore hold cart: ${e.message}"))
+            }
+        }
+    }
+
+    fun deleteHoldCart(holdCartId: Long) {
+        viewModelScope.launch {
+            try {
+                holdCartRepository.deleteHoldCart(holdCartId)
+                loadHoldCarts() // Reload to update count
+                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to delete hold cart: ${e.message}"))
+            }
+        }
+    }
+
+    fun createOrder(paymentMethod: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val storeId = preferenceManager.getStoreID()
+                val userId = preferenceManager.getUserID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val customerId = preferenceManager.getCustomerID()
+
+                // Get batch details from database
+                val batch = homeRepository.getBatchDetails()
+                val batchId = batch.batchId
+
+                // Generate order number
+                val orderNo = generateOrderNumber()
+
+                // Convert cart items to CheckOutOrderItem list
+                val orderItems = _cartItems.value.map { cartItem ->
+                    val selectedPrice =
+                        if (paymentMethod == "cash") cartItem.cashPrice else cartItem.cardPrice
+                    val hasProductDiscount = cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                    val discountedPrice = if (hasProductDiscount) cartItem.getProductDiscountedPrice() else selectedPrice
+                    val discountAmount = if (hasProductDiscount) cartItem.getProductDiscountAmount() else 0.0
+                    
+                    CheckOutOrderItem(
+                        productId = cartItem.productId,
+                        quantity = cartItem.quantity,
+                        productVariantId = cartItem.productVariantId,
+                        name = cartItem.name,
+                        isCustom = false,
+                        price = selectedPrice,
+                        barCode = null,
+                        reason = cartItem.discountReason,
+                        discountId = cartItem.discountId,
+                        discountedPrice = discountedPrice,
+                        discountedAmount = if (hasProductDiscount) discountAmount else null,
+                        fixedDiscount = when (cartItem.discountType) {
+                            DiscountType.AMOUNT -> cartItem.discountValue ?: 0.0
+                            else -> 0.0
+                        },
+                        discountReason = cartItem.discountReason,
+                        fixedPercentageDiscount = when (cartItem.discountType) {
+                            DiscountType.PERCENTAGE -> cartItem.discountValue ?: 0.0
+                            else -> 0.0
+                        },
+                        discountType = when (cartItem.discountType) {
+                            DiscountType.AMOUNT -> "amount"
+                            DiscountType.PERCENTAGE -> "percentage"
+                            else -> ""
+                        },
+                        cardPrice = cartItem.cardPrice
+                    )
+                }
+
+                // Create order request
+                val orderRequest = CreateOrderRequest(
+                    orderNo = orderNo,
+                    customerId = if (customerId > 0) customerId else null,
+                    storeId = storeId,
+                    locationId = locationId,
+                    storeRegisterId = registerId,
+                    paymentMethod = paymentMethod,
+                    isRedeemed = false,
+                    source = "point-of-sale",
+                    items = orderItems,
+                    subTotal = _subtotal.value,
+                    total = _totalAmount.value,
+                    applyTax = true,
+                    taxValue = _tax.value,
+                    discountAmount = _orderDiscountTotal.value,
+                    cashDiscountAmount = _cashDiscountTotal.value,
+                    rewardDiscount = 0.0,
+                    batchId = batchId,
+                    cashierId = userId,
+                    cardDetails = null
+                )
+
+                // Always save to local database first
+                pendingOrderRepository.saveOrderToLocal(orderRequest)
+
+                // Try to sync with server if internet is available
+                if (networkMonitor.isNetworkAvailable()) {
+                    try {
+                        val unsyncedOrders = pendingOrderRepository.getUnsyncedOrders()
+                        if (unsyncedOrders.isNotEmpty()) {
+                            val lastOrder = unsyncedOrders.last()
+                            pendingOrderRepository.syncOrderToServer(lastOrder).onSuccess {
+                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
+                            }.onFailure { e ->
+                                android.util.Log.e(
+                                    "Order",
+                                    "Failed to sync order: ${e.message}\n Your order has been saved in pending orders"
+                                )
+                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
+                            }
+                        } else {
+                            _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("No Orders Found"))
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("Order", "Failed to sync order: ${e.message}")
+                        _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
+                    }
+                } else {
+                    _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved offline and will sync when internet is available"))
+                }
+
+                // Clear cart after successful order creation
+                clearCart()
+
+            } catch (e: Exception) {
+                android.util.Log.e("Order", "Failed to create order: ${e.message}")
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val response = storeRegistersRepository.logout()
+                response.message.let {
+                    preferenceManager.setLogin(false)
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.NavigateToLogin)
+                }
+
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Something went wrong")
+                )
+            }
+        }
+    }
+
+    /**
+     * Generates a unique order number based on store, location, register, user IDs and timestamp
+     * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
+     * @return Unique order number string
+     */
+    fun generateOrderNumber(): String {
+        val storeId = preferenceManager.getStoreID()
+        val locationId = preferenceManager.getOccupiedLocationID()
+        val registerId = preferenceManager.getOccupiedRegisterID()
+        val userId = preferenceManager.getUserID()
+        val epochMillis = System.currentTimeMillis()
+        
+        return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
+    }
+
+    /**
+     * Clock In - Verifies PIN and sets clock in status
+     */
+    fun clockIn(pin: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = verifyPinRepository.getUser(pin, locationId)
+                
+                if (user == null) {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Invalid PIN"))
+                    return@launch
+                }
+                
+                // Set clock in time and status
+                val currentTime = System.currentTimeMillis()
+                preferenceManager.setClockInTime(currentTime)
+                preferenceManager.setClockInStatus(true)
+                
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked In Successfully"))
+                
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Failed to clock in")
+                )
+            }
+        }
+    }
+
+    /**
+     * Clock Out - Verifies PIN and clears clock in status
+     */
+    fun clockOut(pin: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = verifyPinRepository.getUser(pin, locationId)
+                
+                if (user == null) {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No user found with this PIN"))
+                    return@launch
+                }
+                
+                // Clear clock in time and set status to false
+                preferenceManager.clockOut()
+                
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked Out Successfully"))
+                
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Failed to clock out")
+                )
+            }
+        }
     }
 }

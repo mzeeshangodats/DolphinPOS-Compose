@@ -1,19 +1,26 @@
 package com.retail.dolphinpos.presentation.features.ui.reports
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseText
+import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 
@@ -22,45 +29,64 @@ fun ReportsScreen(
     navController: NavController,
     viewModel: ReportsViewModel = hiltViewModel()
 ) {
+    val menus by viewModel.menus.collectAsState()
+    val selectedIndex by viewModel.selectedMenuIndex.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.light_grey))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
     ) {
-        BaseText(
-            text = "Reports Screen",
-            color = Color.Black,
-            fontSize = 24f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.Bold
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        BaseText(
-            text = "This is the Reports screen where you can view various business reports.",
-            color = Color.Gray,
-            fontSize = 16f,
-            fontFamily = GeneralSans
-        )
-        
-        Spacer(modifier = Modifier.height(32.dp))
-        
-        Button(
-            onClick = { navController.popBackStack() },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = colorResource(id = R.color.primary)
-            )
+        // Content area
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            BaseText(
-                text = "Back to Home",
-                color = Color.White,
-                fontSize = 16f,
-                fontFamily = GeneralSans
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                BaseText(
+                    text = "Reports Screen",
+                    color = Color.Black,
+                    fontSize = 24f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                BaseText(
+                    text = "This is the Reports screen where you can view various business reports.",
+                    color = Color.Gray,
+                    fontSize = 16f,
+                    fontFamily = GeneralSans
+                )
+            }
         }
+
+        // Bottom Navigation Bar (nested within ReportsScreen)
+        BottomNavigationBar(
+            menus = menus,
+            selectedIndex = selectedIndex,
+            onMenuClick = { menu ->
+                val index = menus.indexOf(menu)
+                if (index >= 0) {
+                    // If Home button is clicked (index 0), navigate to home
+                    if (index == 0) {
+                        navController.navigate("home") {
+                            popUpTo("home") { inclusive = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    } else {
+                        // Handle sub-navigation for Reports (Sales/Inventory/Transaction reports)
+                        viewModel.selectMenu(index)
+                    }
+                }
+            }
+        )
     }
 }

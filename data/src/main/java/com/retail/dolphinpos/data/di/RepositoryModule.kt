@@ -60,9 +60,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideCashDenominationRepository(
-        userDao: UserDao
+        userDao: UserDao,
+        apiService: ApiService
     ): CashDenominationRepository {
-        return CashDenominationRepositoryImpl(userDao)
+        return CashDenominationRepositoryImpl(userDao, apiService)
     }
 
     @Provides
@@ -70,9 +71,10 @@ object RepositoryModule {
     fun provideHomeRepository(
         productsDao: ProductsDao,
         customerDao: CustomerDao,
+        userDao: UserDao,
         storeRegistersRepository: StoreRegistersRepository
     ): HomeRepository {
-        return HomeRepositoryImpl(productsDao, customerDao, storeRegistersRepository)
+        return HomeRepositoryImpl(productsDao, customerDao, userDao, storeRegistersRepository)
     }
 
 }

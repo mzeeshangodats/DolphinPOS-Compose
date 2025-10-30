@@ -57,7 +57,8 @@ object ProductMapper {
         return VariantsEntity(
             id = variants.id,
             productId = productId,
-            price = variants.price,
+            cardPrice = variants.cardPrice,
+            cashPrice = variants.cashPrice,
             quantity = variants.quantity,
             title = variants.title,
             sku = variants.sku
@@ -135,11 +136,29 @@ object ProductMapper {
         return Variant(
             id = variantsEntity.id,
             title = variantsEntity.title,
-            price = variantsEntity.price,
+            price = null,
             quantity = variantsEntity.quantity,
             sku = variantsEntity.sku,
+            cardPrice = variantsEntity.cardPrice,
+            cashPrice = variantsEntity.cashPrice,
+            barCode = null,
             attributes = null,
             images = emptyList()
+        )
+    }
+
+    fun toVariant(variantsEntity: VariantsEntity, variantImages: List<VariantImage>): Variant {
+        return Variant(
+            id = variantsEntity.id,
+            title = variantsEntity.title,
+            price = null,
+            quantity = variantsEntity.quantity,
+            sku = variantsEntity.sku,
+            cardPrice = variantsEntity.cardPrice,
+            cashPrice = variantsEntity.cashPrice,
+            barCode = null,
+            attributes = null,
+            images = variantImages
         )
     }
 

@@ -8,7 +8,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.Store
 
 interface VerifyPinRepository {
 
-    suspend fun getUser(pin: String): AllStoreUsers?
+    suspend fun getUser(pin: String, locationId: Int): AllStoreUsers?
 
     suspend fun getStore(): Store
 

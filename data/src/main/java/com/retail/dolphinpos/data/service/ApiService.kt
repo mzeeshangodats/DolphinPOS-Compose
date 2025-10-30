@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.data.service
 
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseResponse
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
@@ -8,6 +10,8 @@ import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
+import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
+import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -31,5 +35,11 @@ interface ApiService {
 
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse
+
+    @POST("batch/close")
+    suspend fun batchClose(@Body batchCloseRequest: BatchCloseRequest): BatchCloseResponse
+
+    @POST("order")
+    suspend fun createOrder(@Body createOrderRequest: CreateOrderRequest): CreateOrderResponse
 
 }

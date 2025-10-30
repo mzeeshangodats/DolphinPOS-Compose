@@ -141,6 +141,8 @@ dependencies {
     implementation(libs.camera.lifecycle)
     implementation(libs.mlkit.barcode)
     implementation(libs.workManager)
+    implementation(libs.hilt.workManager)
+    kapt(libs.hilt.compiler.workManager)
     implementation(libs.gson)
     implementation(libs.zxing)
     implementation(libs.timber)

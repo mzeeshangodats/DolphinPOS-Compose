@@ -12,6 +12,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.login.LoginScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
+import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
 
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
@@ -55,32 +56,39 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
 
         // Main Layout with Bottom Navigation (Home, Products, Orders, Reports, Setup)
         composable("home") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Products Screen (accessed through MainLayout)
         composable("products") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Orders Screen (accessed through MainLayout)
         composable("orders") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Inventory Screen (accessed through MainLayout)
         composable("inventory") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Reports Screen (accessed through MainLayout)
         composable("reports") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Hardware Setup Screen (accessed through MainLayout)
         composable("setup") {
-            MainLayout(navController = navController)
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
+        }
+
+        // Pending Orders Screen
+        composable("pending_orders") {
+            PendingOrdersScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

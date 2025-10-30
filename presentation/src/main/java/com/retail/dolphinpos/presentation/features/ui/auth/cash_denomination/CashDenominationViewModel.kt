@@ -5,12 +5,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.auth.batch.Batch
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.Denomination
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationType
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
+import com.retail.dolphinpos.common.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,7 +23,8 @@ import javax.inject.Inject
 @HiltViewModel
 class CashDenominationViewModel @Inject constructor(
     private val repository: CashDenominationRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _denominations = MutableStateFlow<List<Denomination>>(emptyList())
@@ -32,6 +38,9 @@ class CashDenominationViewModel @Inject constructor(
 
     private val _currentCount = MutableStateFlow("0")
     val currentCount: StateFlow<String> = _currentCount.asStateFlow()
+
+    private val _cashDenominationUiEvent = MutableSharedFlow<CashDenominationUiEvent>()
+    val cashDenominationUiEvent: SharedFlow<CashDenominationUiEvent> = _cashDenominationUiEvent.asSharedFlow()
 
     init {
         initializeDenominations()
@@ -121,11 +130,63 @@ class CashDenominationViewModel @Inject constructor(
                 userId = preferenceManager.getUserID(),
                 storeId = preferenceManager.getStoreID(),
                 registerId = preferenceManager.getOccupiedRegisterID(),
-                totalAmount.value
+                locationId = preferenceManager.getOccupiedLocationID(),
+                startingCashAmount = totalAmount.value
             )
+
+            // Always save to local database first
             repository.insertBatchIntoLocalDB(batch)
+
             Log.e("Batch", "Started")
+
+            // If internet is available, call the API
+            if (networkMonitor.isNetworkAvailable()) {
+                try {
+                    val batchOpenRequest = BatchOpenRequest(
+                        batchNo = batchNo,
+                        storeId = preferenceManager.getStoreID(),
+                        userId = preferenceManager.getUserID(),
+                        locationId = preferenceManager.getOccupiedLocationID(),
+                        storeRegisterId = preferenceManager.getOccupiedRegisterID(),
+                        startingCashAmount = totalAmount.value
+                    )
+
+                    repository.batchOpen(batchOpenRequest).onSuccess {
+                        Log.e("Batch", "Batch successfully synced with server")
+                        // Mark batch as synced in database
+                        repository.markBatchAsSynced(batchNo)
+                        // Emit success event to navigate to home
+                        _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                    }.onFailure { e ->
+                        Log.e("Batch", "Failed to sync batch with server: ${e.message}")
+                        // Show error message from server in dialog
+                        _cashDenominationUiEvent.emit(
+                            CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
+                        )
+                    }
+                } catch (e: Exception) {
+                    Log.e("Batch", "Failed to sync batch with server: ${e.message}")
+                    // Emit error event with server error message
+                    _cashDenominationUiEvent.emit(
+                        CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
+                    )
+                }
+            } else {
+                Log.e("Batch", "No internet connection. Batch will be synced later via WorkManager")
+                // No internet - proceed to home
+                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+            }
         }
+    }
+
+    fun generateBatchNo(): String {
+        val storeId = preferenceManager.getStoreID()
+        val locationId = preferenceManager.getOccupiedLocationID()
+        val registerId = preferenceManager.getOccupiedRegisterID()
+        val userId = preferenceManager.getUserID()
+        val epochMillis = System.currentTimeMillis()
+        
+        return "BATCH_S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 }
 

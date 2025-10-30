@@ -30,6 +30,8 @@ import com.retail.dolphinpos.common.components.HeaderAppBarAuth
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.Denomination
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationType
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.util.DialogHandler
+import kotlinx.coroutines.flow.collectLatest
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,6 +48,26 @@ fun CashDenominationScreen(
     val currentCount by viewModel.currentCount.collectAsState()
 
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.US) }
+
+    // Handle UI events
+    LaunchedEffect(Unit) {
+        viewModel.cashDenominationUiEvent.collectLatest { event ->
+            when (event) {
+                is CashDenominationUiEvent.NavigateToHome -> {
+                    navController.navigate("home")
+                }
+                is CashDenominationUiEvent.ShowError -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
+                }
+            }
+        }
+    }
+
+    // Show global dialog
+    DialogHandler.GlobalDialogHost()
 
     Box(modifier = Modifier.fillMaxSize()) {
         HeaderAppBarAuth()
@@ -195,11 +217,8 @@ fun CashDenominationScreen(
                         .height(48.dp),
                     backgroundColor = colorResource(id = R.color.green_success)
                 ) {
-                    val batchNo = generateBatchNo()
+                    val batchNo = viewModel.generateBatchNo()
                     viewModel.startBatch(batchNo)
-                    navController.navigate(
-                        "home"
-                    )
                 }
 
 //                Spacer(modifier = Modifier.height(16.dp))
@@ -442,10 +461,3 @@ fun CashKeypadButton(
         )
     }
 }
-
-fun generateBatchNo(): String {
-    val sdf = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault())
-    val timestamp = sdf.format(Date())
-    return "BATCH_$timestamp"
-}
-

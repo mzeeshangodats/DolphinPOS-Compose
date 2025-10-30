@@ -43,7 +43,7 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarAuth
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.presentation.R
-import com.retail.dolphinpos.presentation.util.ErrorDialogHandler
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import kotlinx.coroutines.flow.collectLatest
 
@@ -60,7 +60,6 @@ fun PinCodeScreen(
     var pinValue by remember { mutableStateOf("") }
     var activeUserDetails by remember { mutableStateOf<ActiveUserDetails?>(null) }
 
-    val pinCodeError = stringResource(id = R.string.select_register_error)
     val pleaseWait = stringResource(id = R.string.plz_wait)
     val tryAgain = stringResource(id = R.string.try_again)
 
@@ -77,8 +76,8 @@ fun PinCodeScreen(
                 }
 
                 is VerifyPinUiEvent.ShowError -> {
-                    ErrorDialogHandler.showError(
-                        message = pinCodeError,
+                    DialogHandler.showDialog(
+                        message = event.message,
                         buttonText = tryAgain
                     ) {
                         pinValue = ""

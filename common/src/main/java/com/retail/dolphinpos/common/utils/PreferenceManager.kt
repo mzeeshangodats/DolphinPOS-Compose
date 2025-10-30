@@ -119,6 +119,38 @@ class PreferenceManager @Inject constructor(
         return prefs.getString(Constants.ORDER_DISCOUNT_TYPE, defaultValue) ?: defaultValue
     }
 
+//    fun setOrderDiscountReason(reason: String) {
+//        prefs.edit { putString(Constants.ORDER_DISCOUNT_REASON, reason) }
+//    }
+//
+//    fun getOrderDiscountReason(defaultValue: String = ""): String {
+//        return prefs.getString(Constants.ORDER_DISCOUNT_REASON, defaultValue) ?: defaultValue
+//    }
+
+    // Clock-in/Check-in methods
+    fun setClockInTime(timeInMillis: Long) {
+        prefs.edit { putLong(Constants.CLOCK_IN_TIME, timeInMillis) }
+    }
+
+    fun getClockInTime(defaultValue: Long = 0L): Long {
+        return prefs.getLong(Constants.CLOCK_IN_TIME, defaultValue)
+    }
+
+    fun setClockInStatus(isClockedIn: Boolean) {
+        prefs.edit { putBoolean(Constants.IS_CLOCKED_IN, isClockedIn) }
+    }
+
+    fun isClockedIn(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.IS_CLOCKED_IN, defaultValue)
+    }
+
+    fun clockOut() {
+        prefs.edit {
+            remove(Constants.CLOCK_IN_TIME)
+            putBoolean(Constants.IS_CLOCKED_IN, false)
+        }
+    }
+
     fun setOrderDiscountReason(reason: String) {
         prefs.edit { putString(Constants.ORDER_DISCOUNT_REASON, reason) }
     }
@@ -133,6 +165,19 @@ class PreferenceManager @Inject constructor(
             remove(Constants.ORDER_DISCOUNT_TYPE)
             remove(Constants.ORDER_DISCOUNT_REASON)
         }
+    }
+
+    // Customer methods
+    fun setCustomerID(customerId: Int) {
+        prefs.edit { putInt(Constants.CUSTOMER_ID, customerId) }
+    }
+
+    fun getCustomerID(defaultValue: Int = 0): Int {
+        return prefs.getInt(Constants.CUSTOMER_ID, defaultValue)
+    }
+
+    fun clearCustomerID() {
+        prefs.edit { remove(Constants.CUSTOMER_ID) }
     }
 
 }

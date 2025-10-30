@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.retail.dolphinpos.data.entities.user.ActiveUserDetailsEntity
 import com.retail.dolphinpos.data.entities.user.BatchEntity
 import com.retail.dolphinpos.data.entities.user.LocationEntity
@@ -31,8 +32,8 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRegisters(registerEntity: RegisterEntity): Long
 
-    @Query("SELECT * FROM user WHERE pin = :pin")
-    suspend fun getUserByPin(pin: String): UserEntity?
+    @Query("SELECT * FROM user WHERE pin = :pin AND locationId = :locationId")
+    suspend fun getUserByPin(pin: String, locationId: Int): UserEntity?
 
     @Query("SELECT * FROM store")
     suspend fun getStore(): StoreEntity
@@ -64,6 +65,9 @@ interface UserDao {
     @Query("SELECT * FROM batch")
     suspend fun getBatchDetails(): BatchEntity
 
+    @Query("SELECT * FROM batch WHERE batchNo = :batchNo LIMIT 1")
+    suspend fun getBatchByBatchNo(batchNo: String): BatchEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRegisterStatusDetails(registerStatusEntity: RegisterStatusEntity)
 
@@ -75,5 +79,11 @@ interface UserDao {
 
     @Query(" SELECT EXISTS(SELECT 1 FROM batch WHERE userId = :userId AND storeId = :storeId AND registerId = :registerId AND closedAt IS NULL)")
     suspend fun hasOpenBatch(userId: Int, storeId: Int, registerId: Int): Boolean
+
+    @Query("SELECT * FROM batch WHERE isSynced = 0")
+    suspend fun getUnsyncedBatches(): List<BatchEntity>
+
+    @Update
+    suspend fun updateBatch(batchEntity: BatchEntity)
 
 }

@@ -43,6 +43,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.hilt)
     kapt(libs.hilt.compiler)
+    implementation(libs.workManager)
     
     // Compose
     implementation(platform(libs.compose.bom))
