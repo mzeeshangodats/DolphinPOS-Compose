@@ -905,34 +905,38 @@ fun CartHeader(
 
 @Composable
 fun EmptyCartState() {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .fillMaxHeight(),
+        shape = RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.cart_icon),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = colorResource(id = R.color.cart_screen_btn_clr)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.cart_icon),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = colorResource(id = R.color.cart_screen_btn_clr)
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        BaseText(
-            text = stringResource(id = R.string.empty),
-            color = Color.DarkGray,
-            fontSize = 14f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.SemiBold
-        )
+            BaseText(
+                text = stringResource(id = R.string.empty),
+                color = Color.DarkGray,
+                fontSize = 14f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 
@@ -944,25 +948,29 @@ fun CartItemsList(
     canApplyProductDiscount: () -> Boolean,
     canRemoveItemFromCart: () -> Boolean
 ) {
-    LazyColumn(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(top = 5.dp, bottom = 5.dp, start = 8.dp, end = 8.dp),
+            .fillMaxHeight(),
+        shape = RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        items(
-            items = cartItems,
-            key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }
-        ) { item ->
-            CartItemRow(
-                item = item,
-                onRemove = { onRemoveFromCart(item) },
-                onUpdate = onUpdateCartItem
-            )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 5.dp, bottom = 5.dp, start = 8.dp, end = 8.dp),
+        ) {
+            items(
+                items = cartItems,
+                key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }
+            ) { item ->
+                CartItemRow(
+                    item = item,
+                    onRemove = { onRemoveFromCart(item) },
+                    onUpdate = onUpdateCartItem
+                )
+            }
         }
     }
 }
