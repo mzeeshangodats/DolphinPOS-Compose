@@ -616,7 +616,7 @@ class HomeViewModel @Inject constructor(
             try {
                 holdCartRepository.deleteHoldCart(holdCartId)
                 loadHoldCarts() // Reload to update count
-                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
+//                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
             } catch (e: Exception) {
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to delete hold cart: ${e.message}"))
             }

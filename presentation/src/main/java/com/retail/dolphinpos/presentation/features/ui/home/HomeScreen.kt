@@ -1508,21 +1508,29 @@ fun CategoryItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Button(
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
+        colors = CardDefaults.cardColors(
             containerColor = if (isSelected) colorResource(id = R.color.primary) else Color.White
         ),
-        shape = RoundedCornerShape(4.dp)
+        shape = RoundedCornerShape(4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        BaseText(
-            text = category.title,
-            color = if (isSelected) Color.White else Color.Black,
-            fontSize = 12f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.Medium
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = category.title,
+                color = if (isSelected) Color.White else Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -1580,7 +1588,8 @@ fun ProductItem(
             .fillMaxWidth()
             .aspectRatio(1f),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
