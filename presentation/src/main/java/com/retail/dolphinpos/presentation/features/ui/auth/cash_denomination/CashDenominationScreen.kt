@@ -89,7 +89,7 @@ fun CashDenominationScreen(
                 // Total Cash Card
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth(0.25f)
+                        .fillMaxWidth(0.4f)
                         .padding(start = 5.dp, bottom = 10.dp),
                     shape = RoundedCornerShape(5.dp),
                     colors = CardDefaults.cardColors(

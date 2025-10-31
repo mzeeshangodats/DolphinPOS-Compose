@@ -88,11 +88,17 @@ class CashDenominationViewModel @Inject constructor(
     fun addDigit(digit: String) {
         val currentCountValue = _currentCount.value
         val newCount = if (currentCountValue == "0") digit else currentCountValue + digit
-        _currentCount.value = newCount
-
-        // Update the selected denomination count
-        val count = newCount.toIntOrNull() ?: 0
-        updateCount(count)
+        
+        // Restrict to maximum 10 digits
+        if (newCount.length <= 10) {
+            // Convert to Long first to handle large numbers, then cap at Int.MAX_VALUE
+            val longValue = newCount.toLongOrNull()
+            if (longValue != null && longValue <= Int.MAX_VALUE) {
+                _currentCount.value = newCount
+                updateCount(longValue.toInt())
+            }
+            // If the value exceeds Int.MAX_VALUE, keep the previous count and don't update
+        }
     }
 
     fun clearCount() {
@@ -103,11 +109,17 @@ class CashDenominationViewModel @Inject constructor(
     fun addDoubleZero() {
         val currentCountValue = _currentCount.value
         val newCount = if (currentCountValue == "0") "00" else currentCountValue + "00"
-        _currentCount.value = newCount
-
-        // Update the selected denomination count
-        val count = newCount.toIntOrNull() ?: 0
-        updateCount(count)
+        
+        // Restrict to maximum 10 digits
+        if (newCount.length <= 10) {
+            // Convert to Long first to handle large numbers, then cap at Int.MAX_VALUE
+            val longValue = newCount.toLongOrNull()
+            if (longValue != null && longValue <= Int.MAX_VALUE) {
+                _currentCount.value = newCount
+                updateCount(longValue.toInt())
+            }
+            // If the value exceeds Int.MAX_VALUE, keep the previous count and don't update
+        }
     }
 
     private fun calculateTotal() {
