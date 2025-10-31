@@ -248,8 +248,8 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.3f),
                     cartItems = cartItems,
                     holdCartCount = holdCartCount,
-                    onRemoveFromCart = { productId ->
-                        val success = viewModel.removeFromCart(productId)
+                    onRemoveFromCart = { productId, variantId ->
+                        val success = viewModel.removeFromCart(productId, variantId)
                         if (!success) {
                             DialogHandler.showDialog("You can't remove item from cart after applying cash discount. If you want to remove click on card first")
                         }
@@ -501,7 +501,7 @@ fun CartPanel(
     modifier: Modifier = Modifier,
     cartItems: List<CartItem>,
     holdCartCount: Int,
-    onRemoveFromCart: (Int) -> Unit,
+    onRemoveFromCart: (Int, Int?) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
     onAddCustomer: () -> Unit,
     onHoldCartClick: () -> Unit,
@@ -532,12 +532,20 @@ fun CartPanel(
             if (cartItems.isEmpty()) {
                 EmptyCartState()
             } else {
-                CartItemsList(
-                    cartItems = cartItems,
-                    onRemoveFromCart = onRemoveFromCart,
-                    onUpdateCartItem = { cartItem ->
-                        if (canApplyProductDiscount()) {
-                            selectedCartItem = cartItem
+            CartItemsList(
+                cartItems = cartItems,
+                onRemoveFromCart = { cartItem ->
+                    cartItem.productId?.let { productId ->
+                        if (cartItem.productVariantId != null) {
+                            onRemoveFromCart(productId, cartItem.productVariantId)
+                        } else {
+                            onRemoveFromCart(productId, null)
+                        }
+                    }
+                },
+                onUpdateCartItem = { cartItem ->
+                    if (canApplyProductDiscount()) {
+                        selectedCartItem = cartItem
                         } else {
                             DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
                         }
@@ -558,7 +566,7 @@ fun CartPanel(
                     selectedCartItem = null
                 },
                 onRemoveItem = {
-                    onRemoveFromCart(cartItem.productId ?: 0)
+                    onRemoveFromCart(cartItem.productId ?: 0, cartItem.productVariantId)
                     selectedCartItem = null
                 }
             )
@@ -931,7 +939,7 @@ fun EmptyCartState() {
 @Composable
 fun CartItemsList(
     cartItems: List<CartItem>,
-    onRemoveFromCart: (Int) -> Unit,
+    onRemoveFromCart: (CartItem) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
     canApplyProductDiscount: () -> Boolean,
     canRemoveItemFromCart: () -> Boolean
@@ -948,11 +956,11 @@ fun CartItemsList(
     ) {
         items(
             items = cartItems,
-            key = { item -> item.productId ?: 0 }
+            key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }
         ) { item ->
             CartItemRow(
                 item = item,
-                onRemove = { item.productId?.let { id -> onRemoveFromCart(id) } },
+                onRemove = { onRemoveFromCart(item) },
                 onUpdate = onUpdateCartItem
             )
         }
@@ -2381,7 +2389,7 @@ fun OrderLevelDiscountDialog(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6C757D)
+                            containerColor = colorResource(id = R.color.primary)
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -2446,14 +2454,27 @@ fun AddCustomerDialog(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Title
-                BaseText(
-                    text = "Add Customer",
-                    color = Color.Black,
-                    fontSize = 16f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.Medium
-                )
+                // Title with Close Icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BaseText(
+                        text = "Add Customer",
+                        color = Color.Black,
+                        fontSize = 16f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.close_icon),
+                            contentDescription = "Close",
+                            tint = Color.Gray
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 

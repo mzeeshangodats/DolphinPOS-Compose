@@ -261,12 +261,20 @@ class HomeViewModel @Inject constructor(
         calculateSubtotal(updatedCart)
     }
 
-    fun removeFromCart(productId: Int): Boolean {
+    fun removeFromCart(productId: Int, variantId: Int?): Boolean {
         if (!canRemoveItemFromCart()) {
             return false  // Cannot remove item after cash discount applied
         }
 
-        val updatedCart = _cartItems.value.filter { it.productId != productId }
+        val updatedCart = _cartItems.value.filter { cartItem ->
+            // If variantId is provided, remove only that specific variant
+            // Otherwise, remove all items with that productId (non-variant products)
+            if (variantId != null) {
+                cartItem.productId != productId || cartItem.productVariantId != variantId
+            } else {
+                cartItem.productId != productId
+            }
+        }
         _cartItems.value = updatedCart
         if (updatedCart.isEmpty()) {
             isCashSelected = false  // Set default to card when cart becomes empty
@@ -278,7 +286,10 @@ class HomeViewModel @Inject constructor(
 
     fun updateCartItem(updatedItem: CartItem) {
         val currentList = _cartItems.value.toMutableList()
-        val index = currentList.indexOfFirst { it.productId == updatedItem.productId }
+        // Find index based on both productId and variantId
+        val index = currentList.indexOfFirst { item ->
+            item.productId == updatedItem.productId && item.productVariantId == updatedItem.productVariantId
+        }
         if (index >= 0) {
             if (updatedItem.quantity <= 0) {
                 currentList.removeAt(index)
