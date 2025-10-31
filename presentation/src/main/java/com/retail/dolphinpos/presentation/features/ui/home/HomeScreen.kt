@@ -4,7 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1023,7 +1023,7 @@ fun CartItemRow(
                     shape = RoundedCornerShape(4.dp)
                 )
                 .pointerInput(item.productId) {
-                    detectDragGestures(
+                    detectHorizontalDragGestures(
                         onDragEnd = {
                             // Similar to ItemTouchHelper onSwiped behavior
                             if (offsetX < -swipeThreshold) {
@@ -1037,7 +1037,7 @@ fun CartItemRow(
                     ) { _, dragAmount ->
                         // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
                         // Allow more aggressive swiping for better detection
-                        val newOffset = (offsetX + dragAmount.x).coerceAtLeast(-swipeThreshold * 2f)
+                        val newOffset = (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f)
                             .coerceAtMost(0f)
                         offsetX = newOffset
                     }
