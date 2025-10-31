@@ -144,7 +144,7 @@ fun PendingOrdersScreen(
                                 color = Color.Black
                             ),
                             decorationBox = { innerTextField ->
-                                Box {
+                                Box(modifier = Modifier.fillMaxWidth()) {
                                     if (searchQuery.isEmpty()) {
                                         BaseText(
                                             text = "Search by order number",
@@ -155,7 +155,8 @@ fun PendingOrdersScreen(
                                     }
                                     innerTextField()
                                 }
-                            }
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
