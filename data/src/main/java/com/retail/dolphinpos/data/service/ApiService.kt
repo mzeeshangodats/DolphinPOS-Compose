@@ -15,6 +15,7 @@ import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateSt
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
+import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -55,5 +56,18 @@ interface ApiService {
 
     @POST("order")
     suspend fun createOrder(@Body createOrderRequest: CreateOrderRequest): CreateOrderResponse
+
+    @GET("order")
+    suspend fun getOrdersDetails(
+        @Query("orderBy") orderBy: String = "createdAt",
+        @Query("order") order: String = "desc",
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String,
+        @Query("limit") limit: Int,
+        @Query("page") page: Int,
+        @Query("paginate") paginate: Boolean = true,
+        @Query("storeId") storeId: Int,
+        @Query("keyword") keyword: String? = null
+    ): OrderDetailsResponse
 
 }
