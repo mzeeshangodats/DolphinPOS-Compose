@@ -64,7 +64,7 @@ fun PendingOrdersScreen(
     val filteredOrders = if (searchQuery.isEmpty()) {
         orders
     } else {
-        orders.filter { it.orderNo.contains(searchQuery, ignoreCase = true) }
+        orders.filter { it.orderNumber.contains(searchQuery, ignoreCase = true) }
     }
 
     LaunchedEffect(Unit) {
@@ -255,7 +255,7 @@ fun PendingOrdersScreen(
                                 modifier = Modifier.width(40.dp)
                             )
                             BaseText(
-                                text = order.orderNo,
+                                text = order.orderNumber,
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
@@ -334,7 +334,7 @@ fun PendingOrderDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = order.orderNo,
+                        text = order.orderNumber,
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,

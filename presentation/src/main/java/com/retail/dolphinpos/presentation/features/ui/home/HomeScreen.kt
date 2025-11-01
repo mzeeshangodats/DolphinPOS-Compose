@@ -142,7 +142,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         viewModel.homeUiEvent.collect { event ->
             when (event) {
-                is HomeUiEvent.ShowLoading -> Loader.show("Loading...")
+                is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
                 is HomeUiEvent.HideLoading -> Loader.hide()
                 is HomeUiEvent.ShowError -> {
                     DialogHandler.showDialog(
@@ -177,7 +177,8 @@ fun HomeScreen(
                 is HomeUiEvent.OrderCreatedSuccessfully -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = "OK"
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon
                     ) {}
                 }
 
