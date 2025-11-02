@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.auth.pin_code
 
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,11 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -29,10 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +52,7 @@ fun PinCodeScreen(
     val context = LocalContext.current
     val currentTime by viewModel.currentTime.collectAsState()
     val currentDate by viewModel.currentDate.collectAsState()
+    val clockHistory by viewModel.history.collectAsState()
 
     val pinLimit = 4
     var pinValue by remember { mutableStateOf("") }
@@ -75,12 +73,23 @@ fun PinCodeScreen(
                     Loader.hide()
                 }
 
-                is VerifyPinUiEvent.ShowError -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = tryAgain
-                    ) {
-                        pinValue = ""
+                is VerifyPinUiEvent.ShowDialog -> {
+                    if (event.success) {
+                        DialogHandler.showDialog(
+                            message = event.message,
+                            buttonText = "OK",
+                            iconRes = R.drawable.success_circle_icon
+                        ) {
+                            pinValue = ""
+                            viewModel.getClockInOutHistory()
+                        }
+                    } else {
+                        DialogHandler.showDialog(
+                            message = event.message,
+                            buttonText = tryAgain,
+                        ) {
+                            pinValue = ""
+                        }
                     }
                 }
 
@@ -106,14 +115,11 @@ fun PinCodeScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Background Image
-        Image(
-            painter = painterResource(id = R.drawable.splash_background_image),
-            contentDescription = "Background",
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
 
         HeaderAppBarAuth()
 
@@ -123,7 +129,7 @@ fun PinCodeScreen(
                 .padding(horizontal = 16.dp, vertical = 40.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left Side - Time and Date
+            // Left Side - Clock In/Out History (or Date/Time when empty)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -131,82 +137,222 @@ fun PinCodeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                BaseText(
-                    text = currentTime,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    fontSize = 48F
-                )
+                if (clockHistory.isEmpty()) {
+                    // Show current date and time like before
+                    BaseText(
+                        text = currentTime,
+                        style = MaterialTheme.typography.displayLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        fontSize = 48F
+                    )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                BaseText(
-                    text = currentDate,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    fontSize = 24F
-                )
+                    BaseText(
+                        text = currentDate,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        fontSize = 24F
+                    )
+                } else {
+                    // Show history list styled like Pending Orders (table header + rows)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth()
+                            .padding(vertical = 60.dp)
+                    ) {
+                        // Table Header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(colorResource(id = R.color.primary))
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            BaseText(text = "No", color = Color.White, modifier = Modifier.width(40.dp))
+                            BaseText(text = "Date", color = Color.White, modifier = Modifier.width(120.dp))
+                            BaseText(text = "Clock-In", color = Color.White, modifier = Modifier.width(100.dp))
+                            BaseText(text = "Clock-Out", color = Color.White, modifier = Modifier.width(100.dp))
+                            BaseText(text = "Total", color = Color.White, modifier = Modifier.width(100.dp))
+                        }
+
+                        // List
+                        LazyColumn {
+                            items(clockHistory.size) { index ->
+                                val entry = clockHistory[index]
+                                val rawIn = entry.check_in_time
+                                val rawOut = entry.check_out_time
+
+                                fun parseDateTime(raw: String?): Pair<String, String> {
+                                    return try {
+                                        if (raw.isNullOrBlank()) return "-" to "-"
+                                        val dt = java.time.OffsetDateTime.parse(raw)
+                                        val date = dt.toLocalDate().toString()
+                                        val time = dt.toLocalTime().withSecond(0).withNano(0).toString()
+                                        date to time
+                                    } catch (_: Exception) {
+                                        try {
+                                            val dt = java.time.LocalDateTime.parse(raw)
+                                            val date = dt.toLocalDate().toString()
+                                            val time = dt.toLocalTime().withSecond(0).withNano(0).toString()
+                                            date to time
+                                        } catch (_: Exception) {
+                                            "-" to "-"
+                                        }
+                                    }
+                                }
+
+                                val (dateIn, timeIn) = parseDateTime(rawIn)
+                                val (_, timeOut) = parseDateTime(rawOut)
+
+                                val total = try {
+                                    if (rawIn.isNullOrBlank() || rawOut.isNullOrBlank()) "-" else run {
+                                        val start = java.time.OffsetDateTime.parse(rawIn)
+                                        val end = java.time.OffsetDateTime.parse(rawOut)
+                                        val minutes = java.time.Duration.between(start, end).toMinutes()
+                                        val hrs = minutes / 60
+                                        val mins = minutes % 60
+                                        String.format("%02dh %02dm", hrs, mins)
+                                    }
+                                } catch (_: Exception) { "-" }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            if (index % 2 == 0) Color.White else Color(0xFFF5F5F5)
+                                        )
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    BaseText(text = "${index + 1}-", modifier = Modifier.width(40.dp), color = Color.Black)
+                                    BaseText(text = dateIn, modifier = Modifier.width(120.dp), color = Color.Black)
+                                    BaseText(text = timeIn, modifier = Modifier.width(100.dp), color = Color.Black)
+                                    BaseText(text = timeOut, modifier = Modifier.width(100.dp), color = Color.Black)
+                                    BaseText(text = total, modifier = Modifier.width(100.dp), color = Color.Black)
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
-            // Right Side - PIN Entry Card
-            Card(
+            // Right Side - PIN Entry (no card)
+            Column(
                 modifier = Modifier
                     .weight(0.8f)
                     .fillMaxHeight()
                     .padding(horizontal = 40.dp, vertical = 60.dp),
-                shape = RoundedCornerShape(5.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = colorResource(id = R.color.bgColorPrimary)
-                ),
-                elevation = CardDefaults.cardElevation(4.dp)
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Title
+                BaseText(
+                    text = stringResource(id = R.string.enter_pin_code),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = colorResource(id = R.color.bgColorTextView),
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 24F
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // PIN Display Field
+                PinDisplayField(
+                    pinValue = pinValue,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+
+                // Keypad
+                Keypad(
+                    pinValue = pinValue,
+                    pinLimit = pinLimit,
+                    onPinChange = { pinValue = it },
+                    onNextClick = {
+                        if (pinValue.length == pinLimit) {
+                            viewModel.verifyPin(pinValue)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Clock In / Clock Out Buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Title
-                    BaseText(
-                        text = stringResource(id = R.string.enter_pin_code),
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = colorResource(id = R.color.bgColorTextView),
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 24F
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // PIN Display Field
-                    PinDisplayField(
-                        pinValue = pinValue,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(40.dp))
-
-                    // Keypad
-                    Keypad(
-                        pinValue = pinValue,
-                        pinLimit = pinLimit,
-                        onPinChange = { pinValue = it },
-                        onNextClick = {
+                    // Clock In (green, left)
+                    Button(
+                        onClick = {
                             if (pinValue.length == pinLimit) {
-                                viewModel.verifyPin(pinValue)
+                                viewModel.clockInOut(pinValue, "check-in")
+                            } else {
+                                DialogHandler.showDialog(
+                                    message = "Please input pin first",
+                                    buttonText = "OK"
+                                ) {}
                             }
                         },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.green_success)
+                        ),
+                        shape = RoundedCornerShape(5.dp),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                    )
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        BaseText(
+                            text = "Clock-In",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 18F,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    // Clock Out (green, right)
+                    Button(
+                        onClick = {
+                            if (pinValue.length == pinLimit) {
+                                viewModel.clockInOut(pinValue, "check-out")
+                            } else {
+                                DialogHandler.showDialog(
+                                    message = "Please input pin first",
+                                    buttonText = "OK"
+                                ) {}
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.green_success)
+                        ),
+                        shape = RoundedCornerShape(5.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        BaseText(
+                            text = "Clock-Out",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 18F,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
             }
         }

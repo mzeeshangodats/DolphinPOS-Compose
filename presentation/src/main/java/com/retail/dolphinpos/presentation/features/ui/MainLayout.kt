@@ -100,7 +100,7 @@ fun MainLayout(
             when (currentDestination?.route) {
                 "home" -> HomeScreen(navController = navController, preferenceManager = preferenceManager)
                 "products" -> ProductsScreen(navController = navController, preferenceManager = preferenceManager)
-                "orders" -> OrdersScreen(navController = navController)
+                "orders" -> OrdersScreen(navController = navController, preferenceManager = preferenceManager)
                 "inventory" -> InventoryScreen(navController = navController, preferenceManager = preferenceManager)
                 "reports" -> ReportsScreen(navController = navController)
                 "setup" -> HardwareSetupScreen(navController = navController)

@@ -7,6 +7,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.retail.dolphinpos.data.entities.user.ActiveUserDetailsEntity
 import com.retail.dolphinpos.data.entities.user.BatchEntity
+import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.entities.user.LocationEntity
 import com.retail.dolphinpos.data.entities.user.RegisterEntity
 import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
@@ -85,5 +86,20 @@ interface UserDao {
 
     @Update
     suspend fun updateBatch(batchEntity: BatchEntity)
+
+    // -----------------------------
+    // Time Slot (Clock In/Out) DAO
+    // -----------------------------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTimeSlot(timeSlotEntity: TimeSlotEntity)
+
+    @Query("SELECT * FROM time_slots WHERE isSynced = 0")
+    suspend fun getPendingTimeSlots(): List<TimeSlotEntity>
+
+    @Query("UPDATE time_slots SET isSynced = 1 WHERE id = :id")
+    suspend fun markTimeSlotSynced(id: Int)
+
+    @Query("SELECT * FROM time_slots WHERE userId = :userId ORDER BY id DESC LIMIT 1")
+    suspend fun getLastTimeSlot(userId: Int): com.retail.dolphinpos.data.entities.user.TimeSlotEntity?
 
 }

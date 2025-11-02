@@ -4,7 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -142,7 +142,7 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         viewModel.homeUiEvent.collect { event ->
             when (event) {
-                is HomeUiEvent.ShowLoading -> Loader.show("Loading...")
+                is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
                 is HomeUiEvent.HideLoading -> Loader.hide()
                 is HomeUiEvent.ShowError -> {
                     DialogHandler.showDialog(
@@ -177,7 +177,8 @@ fun HomeScreen(
                 is HomeUiEvent.OrderCreatedSuccessfully -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = "OK"
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon
                     ) {}
                 }
 
@@ -248,8 +249,8 @@ fun HomeScreen(
                     modifier = Modifier.weight(0.3f),
                     cartItems = cartItems,
                     holdCartCount = holdCartCount,
-                    onRemoveFromCart = { productId ->
-                        val success = viewModel.removeFromCart(productId)
+                    onRemoveFromCart = { productId, variantId ->
+                        val success = viewModel.removeFromCart(productId, variantId)
                         if (!success) {
                             DialogHandler.showDialog("You can't remove item from cart after applying cash discount. If you want to remove click on card first")
                         }
@@ -501,7 +502,7 @@ fun CartPanel(
     modifier: Modifier = Modifier,
     cartItems: List<CartItem>,
     holdCartCount: Int,
-    onRemoveFromCart: (Int) -> Unit,
+    onRemoveFromCart: (Int, Int?) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
     onAddCustomer: () -> Unit,
     onHoldCartClick: () -> Unit,
@@ -532,12 +533,20 @@ fun CartPanel(
             if (cartItems.isEmpty()) {
                 EmptyCartState()
             } else {
-                CartItemsList(
-                    cartItems = cartItems,
-                    onRemoveFromCart = onRemoveFromCart,
-                    onUpdateCartItem = { cartItem ->
-                        if (canApplyProductDiscount()) {
-                            selectedCartItem = cartItem
+            CartItemsList(
+                cartItems = cartItems,
+                onRemoveFromCart = { cartItem ->
+                    cartItem.productId?.let { productId ->
+                        if (cartItem.productVariantId != null) {
+                            onRemoveFromCart(productId, cartItem.productVariantId)
+                        } else {
+                            onRemoveFromCart(productId, null)
+                        }
+                    }
+                },
+                onUpdateCartItem = { cartItem ->
+                    if (canApplyProductDiscount()) {
+                        selectedCartItem = cartItem
                         } else {
                             DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
                         }
@@ -558,7 +567,7 @@ fun CartPanel(
                     selectedCartItem = null
                 },
                 onRemoveItem = {
-                    onRemoveFromCart(cartItem.productId ?: 0)
+                    onRemoveFromCart(cartItem.productId ?: 0, cartItem.productVariantId)
                     selectedCartItem = null
                 }
             )
@@ -897,64 +906,72 @@ fun CartHeader(
 
 @Composable
 fun EmptyCartState() {
-    Column(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .fillMaxHeight(),
+        shape = RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.cart_icon),
-            contentDescription = null,
-            modifier = Modifier.size(48.dp),
-            tint = colorResource(id = R.color.cart_screen_btn_clr)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.cart_icon),
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = colorResource(id = R.color.cart_screen_btn_clr)
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        BaseText(
-            text = stringResource(id = R.string.empty),
-            color = Color.DarkGray,
-            fontSize = 14f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.SemiBold
-        )
+            BaseText(
+                text = stringResource(id = R.string.empty),
+                color = Color.DarkGray,
+                fontSize = 14f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 
 @Composable
 fun CartItemsList(
     cartItems: List<CartItem>,
-    onRemoveFromCart: (Int) -> Unit,
+    onRemoveFromCart: (CartItem) -> Unit,
     onUpdateCartItem: (CartItem) -> Unit,
     canApplyProductDiscount: () -> Boolean,
     canRemoveItemFromCart: () -> Boolean
 ) {
-    LazyColumn(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .fillMaxHeight()
-            .background(
-                color = Color.White,
-                shape = RoundedCornerShape(4.dp)
-            )
-            .padding(top = 5.dp, bottom = 5.dp, start = 8.dp, end = 8.dp),
+            .fillMaxHeight(),
+        shape = RoundedCornerShape(4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        items(
-            items = cartItems,
-            key = { item -> item.productId ?: 0 }
-        ) { item ->
-            CartItemRow(
-                item = item,
-                onRemove = { item.productId?.let { id -> onRemoveFromCart(id) } },
-                onUpdate = onUpdateCartItem
-            )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 5.dp, bottom = 5.dp, start = 8.dp, end = 8.dp),
+        ) {
+            items(
+                items = cartItems,
+                key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }
+            ) { item ->
+                CartItemRow(
+                    item = item,
+                    onRemove = { onRemoveFromCart(item) },
+                    onUpdate = onUpdateCartItem
+                )
+            }
         }
     }
 }
@@ -1015,7 +1032,7 @@ fun CartItemRow(
                     shape = RoundedCornerShape(4.dp)
                 )
                 .pointerInput(item.productId) {
-                    detectDragGestures(
+                    detectHorizontalDragGestures(
                         onDragEnd = {
                             // Similar to ItemTouchHelper onSwiped behavior
                             if (offsetX < -swipeThreshold) {
@@ -1029,7 +1046,7 @@ fun CartItemRow(
                     ) { _, dragAmount ->
                         // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
                         // Allow more aggressive swiping for better detection
-                        val newOffset = (offsetX + dragAmount.x).coerceAtLeast(-swipeThreshold * 2f)
+                        val newOffset = (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f)
                             .coerceAtMost(0f)
                         offsetX = newOffset
                     }
@@ -1500,21 +1517,29 @@ fun CategoryItem(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Button(
+    Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        colors = ButtonDefaults.buttonColors(
+        colors = CardDefaults.cardColors(
             containerColor = if (isSelected) colorResource(id = R.color.primary) else Color.White
         ),
-        shape = RoundedCornerShape(4.dp)
+        shape = RoundedCornerShape(4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        BaseText(
-            text = category.title,
-            color = if (isSelected) Color.White else Color.Black,
-            fontSize = 12f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.Medium
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = category.title,
+                color = if (isSelected) Color.White else Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -1572,7 +1597,8 @@ fun ProductItem(
             .fillMaxWidth()
             .aspectRatio(1f),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
@@ -2381,7 +2407,7 @@ fun OrderLevelDiscountDialog(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF6C757D)
+                            containerColor = colorResource(id = R.color.primary)
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -2446,14 +2472,27 @@ fun AddCustomerDialog(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Title
-                BaseText(
-                    text = "Add Customer",
-                    color = Color.Black,
-                    fontSize = 16f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.Medium
-                )
+                // Title with Close Icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BaseText(
+                        text = "Add Customer",
+                        color = Color.Black,
+                        fontSize = 16f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.close_icon),
+                            contentDescription = "Close",
+                            tint = Color.Gray
+                        )
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(10.dp))
 

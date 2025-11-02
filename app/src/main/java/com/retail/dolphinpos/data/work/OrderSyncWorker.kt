@@ -25,12 +25,12 @@ class OrderSyncWorker @AssistedInject constructor(
             for (order in unsyncedOrders) {
                 try {
                     pendingOrderRepository.syncOrderToServer(order).onSuccess {
-                        Log.d("OrderSyncWorker", "Successfully synced order ${order.orderNo}")
+                        Log.d("OrderSyncWorker", "Successfully synced order ${order.orderNumber}")
                     }.onFailure { e ->
-                        Log.e("OrderSyncWorker", "Failed to sync order ${order.orderNo}: ${e.message}")
+                        Log.e("OrderSyncWorker", "Failed to sync order ${order.orderNumber}: ${e.message}")
                     }
                 } catch (e: Exception) {
-                    Log.e("OrderSyncWorker", "Error syncing order ${order.orderNo}: ${e.message}")
+                    Log.e("OrderSyncWorker", "Error syncing order ${order.orderNumber}: ${e.message}")
                 }
             }
             

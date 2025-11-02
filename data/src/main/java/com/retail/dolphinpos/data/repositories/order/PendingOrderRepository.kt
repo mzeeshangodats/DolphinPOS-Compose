@@ -16,11 +16,13 @@ class PendingOrderRepository(
 
     suspend fun saveOrderToLocal(orderRequest: CreateOrderRequest): Long {
         val orderEntity = PendingOrderEntity(
-            orderNo = orderRequest.orderNo ?: "",
+            orderNumber = orderRequest.orderNumber ?: "",
+            invoiceNo = orderRequest.invoiceNo,
             customerId = orderRequest.customerId,
             storeId = orderRequest.storeId,
             locationId = orderRequest.locationId,
             storeRegisterId = orderRequest.storeRegisterId,
+            batchNo = orderRequest.batchNo,
             paymentMethod = orderRequest.paymentMethod,
             isRedeemed = orderRequest.isRedeemed,
             source = orderRequest.source,
@@ -35,8 +37,7 @@ class PendingOrderRepository(
             rewardDiscount = orderRequest.rewardDiscount,
             discountIds = orderRequest.discountIds?.let { gson.toJson(it) },
             transactionId = orderRequest.transactionId,
-            batchId = orderRequest.batchId,
-            cashierId = orderRequest.cashierId,
+            userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
             transactions = orderRequest.transactions?.let { gson.toJson(it) },
@@ -81,11 +82,13 @@ class PendingOrderRepository(
         val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
 
         return CreateOrderRequest(
-            orderNo = entity.orderNo,
+            orderNumber = entity.orderNumber,
+            invoiceNo = entity.invoiceNo,
             customerId = entity.customerId,
             storeId = entity.storeId,
             locationId = entity.locationId,
             storeRegisterId = entity.storeRegisterId,
+            batchNo = entity.batchNo,
             paymentMethod = entity.paymentMethod,
             isRedeemed = entity.isRedeemed,
             source = entity.source,
@@ -100,8 +103,7 @@ class PendingOrderRepository(
             rewardDiscount = entity.rewardDiscount,
             discountIds = entity.discountIds?.let { gson.fromJson(it, discountIdsType) },
             transactionId = entity.transactionId,
-            batchId = entity.batchId,
-            cashierId = entity.cashierId,
+            userId = entity.userId,
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
             transactions = entity.transactions?.let { gson.fromJson(it, transactionsType) },

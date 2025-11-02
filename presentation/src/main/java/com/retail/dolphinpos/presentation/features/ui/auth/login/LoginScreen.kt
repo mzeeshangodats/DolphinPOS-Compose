@@ -200,7 +200,7 @@ fun LoginScreen(
                             enabled = isButtonEnabled,
                             onClick = {
                                 if (isButtonEnabled) {
-                                    viewModel.login("imran_123", "1234")
+                                    viewModel.login(username, password)
                                 }
                             }
                         )
