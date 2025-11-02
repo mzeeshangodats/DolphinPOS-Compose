@@ -88,6 +88,13 @@ dependencies {
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
 
+    implementation(libs.camera)
+    implementation(libs.camera.core)
+    implementation(libs.camera.view)
+    implementation(libs.camera.extension)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.mlkit.barcode)
+
     implementation(project(":data"))
     implementation(project(":domain"))
     implementation(project(":common"))

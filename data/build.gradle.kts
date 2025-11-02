@@ -46,10 +46,17 @@ dependencies {
     implementation(libs.room.pagging)
     ksp(libs.room.compiler)
     kapt(libs.hilt.compiler)
+    implementation(libs.camera)
+    implementation(libs.camera.core)
+    implementation(libs.camera.view)
+    implementation(libs.camera.extension)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.mlkit.barcode)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
     implementation(project(":domain"))
+
 }

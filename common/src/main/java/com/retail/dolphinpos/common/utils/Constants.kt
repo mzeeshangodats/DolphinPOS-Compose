@@ -23,4 +23,8 @@ object Constants {
     
     // Customer persistence
     const val CUSTOMER_ID = "customer_id"
+    
+    // Barcode scanner constants
+    const val IS_QR_CODE_MODE = "is_qr_code_mode"
+    const val SCANNED_CODE = "scanned_code"
 }
