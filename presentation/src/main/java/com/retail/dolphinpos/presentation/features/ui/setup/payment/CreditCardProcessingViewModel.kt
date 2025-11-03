@@ -32,7 +32,21 @@ class CreditCardProcessingViewModel @Inject constructor() : ViewModel() {
     }
 
     fun updateTerminalType(terminalType: TerminalType) {
-        updateState { it.copy(config = it.config.copy(selectedTerminalType = terminalType)) }
+        updateState { currentState ->
+            val updatedConfig = if (terminalType == TerminalType.PAX_A35) {
+                currentState.config.copy(
+                    selectedTerminalType = terminalType,
+                    portNumber = "10009"
+                )
+            } else {
+                currentState.config.copy(selectedTerminalType = terminalType)
+            }
+            currentState.copy(config = updatedConfig)
+        }
+    }
+
+    fun updateCommunicationType(communicationType: CommunicationType) {
+        updateState { it.copy(config = it.config.copy(communicationType = communicationType)) }
     }
 
     fun updateBluetoothAddress(address: String) {

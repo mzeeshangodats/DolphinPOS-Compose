@@ -115,6 +115,23 @@ fun CreditCardProcessingScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                SettingRow(
+                    icon = R.drawable.card_icon,
+                    label = "Communication Type",
+                    content = {
+                        DropdownSelector(
+                            label = "",
+                            items = CommunicationType.entries.map { it.displayName },
+                            selectedText = configState.communicationType.displayName,
+                            onItemSelected = { index ->
+                                viewModel.updateCommunicationType(CommunicationType.entries[index])
+                            }
+                        )
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Show fields based on terminal type
                 when (configState.selectedTerminalType) {
 

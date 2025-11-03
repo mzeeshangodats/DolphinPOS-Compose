@@ -39,9 +39,15 @@ enum class TerminalType(val displayName: String) {
     D200("D200")
 }
 
+enum class CommunicationType(val displayName: String) {
+    TCP_IP("TCP/IP"),
+    HTTP_GET("HTTP/GET")
+}
+
 data class CreditCardConfigState(
     val isEnabled: Boolean = false,
     val selectedTerminalType: TerminalType = TerminalType.EMV,
+    val communicationType: CommunicationType = CommunicationType.TCP_IP,
     val bluetoothAddress: String = "",
     val ipAddress: String = "",
     val portNumber: String = "",
