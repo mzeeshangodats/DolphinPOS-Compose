@@ -8,6 +8,7 @@ import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.retail.dolphinpos.data.repository.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
@@ -696,6 +697,23 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
+                // Create dummy card details if card payment is selected
+                val cardDetails = if (paymentMethod != "cash") {
+                    CardDetails(
+                        terminalInvoiceNo = "Dummy${orderNumber}",
+                        transactionId = "TXN${System.currentTimeMillis()}",
+                        authCode = "AUTH${(1000..9999).random()}",
+                        rrn = "RRN${System.currentTimeMillis()}",
+                        brand = "VISA",
+                        last4 = "1234",
+                        entryMethod = "SWIPE",
+                        merchantId = "MERCH${storeId}",
+                        terminalId = "TERM${registerId}"
+                    )
+                } else {
+                    null
+                }
+
                 // Create order request using captured values
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
@@ -717,7 +735,7 @@ class HomeViewModel @Inject constructor(
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
                     userId = userId,
-                    cardDetails = null
+                    cardDetails = cardDetails
                 )
 
                 // Always save to local database first
