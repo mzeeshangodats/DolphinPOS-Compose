@@ -5,6 +5,7 @@ import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.getErrorMessage
 import com.retail.dolphinpos.domain.model.auth.batch.Batch
+import com.retail.dolphinpos.domain.model.auth.batch.BatchDetails
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenResponse
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository

@@ -63,6 +63,13 @@ class VerifyPinRepositoryImpl(
         return UserMapper.toActiveUserDetailsAgainstPin(activeUserDetailEntities)
     }
 
+    override suspend fun getActiveUserDetails(): ActiveUserDetails? {
+        val activeUserDetailEntity = userDao.getActiveUserDetails()
+        return activeUserDetailEntity?.let {
+            UserMapper.toActiveUserDetailsAgainstPin(it)
+        }
+    }
+
     override suspend fun hasOpenBatch(
         userId: Int,
         storeId: Int,

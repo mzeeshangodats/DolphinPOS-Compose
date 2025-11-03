@@ -23,6 +23,8 @@ interface VerifyPinRepository {
 
     suspend fun getActiveUserDetailsByPin(pin: String): ActiveUserDetails
 
+    suspend fun getActiveUserDetails(): ActiveUserDetails?
+
     suspend fun hasOpenBatch(userId: Int, storeId: Int, registerId: Int): Boolean
 
     suspend fun clockInOut(request: ClockInOutRequest): Result<ClockInOutResponse>

@@ -27,4 +27,15 @@ object Constants {
     // Barcode scanner constants
     const val IS_QR_CODE_MODE = "is_qr_code_mode"
     const val SCANNED_CODE = "scanned_code"
+    
+    // Hardware setup preferences
+    const val SHARED_PREFS_FILE_NAME = "Dolphin-Preference"
+    const val LOGIN_DETAIL_KEY = "login-detail"
+    const val SHARED_PREF_USER_DETAIL_KEY = "user-detail"
+    const val PAX_DETAIL = "pax_detail"
+    const val PRINTER_DETAIL = "printer_detail"
+    const val CUSTOMER_FACING_DISPLAY_DETAIL = "customer_facing_display_details"
+    const val USER_PREFERENCE_KEY = "user_preference"
+    const val SHOW_IS_LOYALTY_DIALOG = "is_loyalty_member_dialog"
+
 }

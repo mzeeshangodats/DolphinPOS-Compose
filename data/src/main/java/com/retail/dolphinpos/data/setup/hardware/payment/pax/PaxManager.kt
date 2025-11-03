@@ -3,29 +3,30 @@ package com.retail.dolphinpos.data.setup.hardware.payment.pax
 import android.app.Application
 import android.os.Bundle
 import android.util.Log
-//import com.lingeriepos.common.module.AnalyticsModule.AnalyticsTracker
-//import com.retail.dolphinpos.data.setup.hardware.payment.pax.ConnectionSetting.Http
-//import com.retail.dolphinpos.data.setup.hardware.payment.pax.ConnectionSetting.Tcp
-//import com.lingeriepos.common.usecases.batch.GetBatchDetailsUseCase
-//import com.lingeriepos.common.usecases.pax.GetHttpSettingsUseCase
-//import com.lingeriepos.common.usecases.pax.GetPaxDetailsUseCase
-import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.GetTcpSettingsUseCase
-//import com.lingeriepos.common.usecases.user.GetUserDetailUseCase
-//import com.lingeriepos.models.request.CardDetails
-//import com.pax.poslinkadmin.Code100021
-//import com.pax.poslinkadmin.constant.EdcType
-//import com.pax.poslinkadmin.constant.TransactionType
-//import com.pax.poslinkadmin.manage.GetVariableRequest
-//import com.pax.poslinkadmin.manage.GetVariableResponse
-//import com.pax.poslinkadmin.util.AmountRequest
-//import com.pax.poslinksemiintegration.POSLinkSemi
-//import com.pax.poslinksemiintegration.Terminal
-//import com.pax.poslinksemiintegration.batch.BatchCloseRequest
-//import com.pax.poslinksemiintegration.batch.BatchCloseResponse
-//import com.pax.poslinksemiintegration.transaction.DoCreditRequest
-//import com.pax.poslinksemiintegration.transaction.DoCreditResponse
-//import com.pax.poslinksemiintegration.util.CashierRequest
-//import com.pax.poslinksemiintegration.util.TraceRequest
+import com.retail.dolphinpos.data.setup.hardware.payment.pax.ConnectionSetting.Http
+import com.retail.dolphinpos.data.setup.hardware.payment.pax.ConnectionSetting.Tcp
+import com.retail.dolphinpos.domain.usecases.auth.GetBatchDetailsUseCase
+import com.retail.dolphinpos.domain.usecases.auth.GetUserDetailUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.GetPaxDetailsUseCase
+import com.pax.poslinkadmin.Code100021
+import com.pax.poslinkadmin.constant.EdcType
+import com.pax.poslinkadmin.constant.TransactionType
+import com.pax.poslinkadmin.manage.GetVariableRequest
+import com.pax.poslinkadmin.manage.GetVariableResponse
+import com.pax.poslinkadmin.util.AmountRequest
+import com.pax.poslinksemiintegration.POSLinkSemi
+import com.pax.poslinksemiintegration.Terminal
+import com.pax.poslinksemiintegration.batch.BatchCloseRequest
+import com.pax.poslinksemiintegration.batch.BatchCloseResponse
+import com.pax.poslinksemiintegration.transaction.DoCreditRequest
+import com.pax.poslinksemiintegration.transaction.DoCreditResponse
+import com.pax.poslinksemiintegration.util.CashierRequest
+import com.pax.poslinksemiintegration.util.TraceRequest
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.util.UUID
 import javax.inject.Inject
@@ -36,303 +37,315 @@ const val CODE_SUCCESS = "000000"
 @Singleton
 class PaxManager @Inject constructor(
     private val application: Application,
-    //private val getUserDetailsUseCase: GetUserDetailUseCase,
-    //private val getBatchDetailsUseCase: GetBatchDetailsUseCase,
-    //private val getPaxDetailsUseCase: GetPaxDetailsUseCase,
+    private val getUserDetailsUseCase: GetUserDetailUseCase,
+    private val getBatchDetailsUseCase: GetBatchDetailsUseCase,
+    private val getPaxDetailsUseCase: GetPaxDetailsUseCase,
     private val getTcpSettingsUseCase: GetTcpSettingsUseCase,
-    //private val getHttpSettingsUseCase: GetHttpSettingsUseCase,
-    //private val analyticsTracker: AnalyticsTracker
+    private val getHttpSettingsUseCase: GetHttpSettingsUseCase,
+    // private val getAnalyticsTrackerUseCase: GetAnalyticsTrackerUseCase,
 ) {
     companion object {
         const val TAG = "PaxManager"
     }
 
-    private var paxRunningThread: Thread? = null
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-//    fun initTerminal(onResult: (Boolean, String, Terminal?) -> Unit) {
-//        analyticsTracker.logEvent("pax_terminal_init_attempt", null)
-//
-//        val paxDetail = getPaxDetailsUseCase()
-//        if (paxDetail == null) {
-//            val error = "Pax details not found, Please proceed to More/Setup/Credit Card Processing"
-//            analyticsTracker.logEvent("pax_terminal_init_failure", bundleOf("error" to error))
-//            onResult(false, error, null)
-//            return
-//        }
-//
-//        val connectionSetting = if (paxDetail.isCommunicationTypeTCP()) {
-//            Tcp(getTcpSettingsUseCase(paxDetail.ipAddress, paxDetail.portNumber))
-//        } else {
-//            Http(getHttpSettingsUseCase(paxDetail.ipAddress, paxDetail.portNumber))
-//        }
-//
-//        runAction {
-//            val terminal = when (connectionSetting) {
-//                is Tcp -> POSLinkSemi.getInstance()
-//                    .getTerminal(application, connectionSetting.tcpSetting)
-//
-//                is Http -> POSLinkSemi.getInstance()
-//                    .getTerminal(application, connectionSetting.httpSetting)
-//            }
-//
-//            terminal?.let {
-//                val result = it.manage.init()
-//                if (result.isSuccessful) {
-//                    val appName = result.response().appName()
-//                    Log.d(TAG, "Terminal initialized: $appName")
-//                    analyticsTracker.logEvent(
+    fun initTerminal(onResult: (Boolean, String, Terminal?) -> Unit) {
+//        getAnalyticsTrackerUseCase.logEvent("pax_terminal_init_attempt", null)
+
+        runAction {
+            val paxDetail = getPaxDetailsUseCase()
+            if (paxDetail == null) {
+                val error = "Pax details not found, Please proceed to Setup/Credit Card Processing"
+//                getAnalyticsTrackerUseCase.logEvent("pax_terminal_init_failure", bundleOf("error" to error))
+                onResult(false, error, null)
+                return@runAction
+            }
+
+            val connectionSetting = if (paxDetail.isCommunicationTypeTCP()) {
+                Tcp(getTcpSettingsUseCase(paxDetail.ipAddress, paxDetail.portNumber))
+            } else {
+                Http(getHttpSettingsUseCase(paxDetail.ipAddress, paxDetail.portNumber))
+            }
+
+            val terminal = when (connectionSetting) {
+                is Tcp -> POSLinkSemi.getInstance()
+                    .getTerminal(application, connectionSetting.tcpSetting)
+
+                is Http -> POSLinkSemi.getInstance()
+                    .getTerminal(application, connectionSetting.httpSetting)
+            }
+
+            terminal?.let {
+                val result = it.manage.init()
+                if (result.isSuccessful) {
+                    val appName = result.response().appName()
+                    Log.d(TAG, "Terminal initialized: $appName")
+//                    getAnalyticsTrackerUseCase.logEvent(
 //                        "pax_terminal_init_success",
 //                        bundleOf("app_name" to appName)
 //                    )
-//                    onResult(true, appName, it)
-//                } else {
-//                    val error = result.message()
-//                    analyticsTracker.logEvent(
+                    onResult(true, appName, it)
+                } else {
+                    val error = result.message()
+//                    getAnalyticsTrackerUseCase.logEvent(
 //                        "pax_terminal_init_failure",
 //                        bundleOf("error" to error)
 //                    )
-//                    onResult(false, error, null)
-//                }
-//            } ?: run {
-//                val error =
-//                    "Unable to communicate with Terminal. Please make sure terminal is connected to same network as POS"
-//                Log.e(TAG, error)
-//                analyticsTracker.logEvent("pax_terminal_init_failure", bundleOf("error" to error))
-//                onResult(false, error, null)
-//            }
-//        }
-//    }
+                    onResult(false, error, null)
+                }
+            } ?: run {
+                val error =
+                    "Unable to communicate with Terminal. Please make sure terminal is connected to same network as POS"
+                Log.e(TAG, error)
+                //getAnalyticsTrackerUseCase.logEvent("pax_terminal_init_failure", bundleOf("error" to error))
+                onResult(false, error, null)
+            }
+        }
+    }
 
-//    fun startTransaction(
-//        terminal: Terminal,
-//        amount: String,
-//        onSuccess: (DoCreditResponse) -> Unit,
-//        onFailure: (String) -> Unit,
-//    ) {
-//        analyticsTracker.logEvent("pax_transaction_start", bundleOf("amount" to amount))
-//
-//        runAction {
-//            val doCreditRequest = DoCreditRequest().apply {
-//                transactionType = TransactionType.SALE
-//                amountInformation = AmountRequest().apply {
-//                    transactionAmount = formatAmount(amount)
-//                }
-//                traceInformation = TraceRequest().apply {
-//                    ecrReferenceNumber = generateEcrReferenceNumber()
-//                }
-//                cashierInformation = CashierRequest().apply {
-//                    clerkId = getUserDetailsUseCase()?.id.toString()
-//                    shiftId = getBatchDetailsUseCase()?.batchNo.toString()
-//                }
-//            }
-//
-//            val response = terminal.transaction.doCredit(doCreditRequest)
-//
-//            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
-//                analyticsTracker.logEvent(
+    fun startTransaction(
+        terminal: Terminal,
+        amount: String,
+        onSuccess: (DoCreditResponse) -> Unit,
+        onFailure: (String) -> Unit,
+    ) {
+        //getAnalyticsTrackerUseCase.logEvent("pax_transaction_start", bundleOf("amount" to amount))
+
+        runAction {
+            val userDetail = getUserDetailsUseCase()
+            if (userDetail == null) {
+                onFailure("User details not found")
+                return@runAction
+            }
+            
+            val batchDetails = getBatchDetailsUseCase()
+            
+            val doCreditRequest = DoCreditRequest().apply {
+                transactionType = TransactionType.SALE
+                amountInformation = AmountRequest().apply {
+                    transactionAmount = formatAmount(amount)
+                }
+                traceInformation = TraceRequest().apply {
+                    ecrReferenceNumber = generateEcrReferenceNumber()
+                }
+                cashierInformation = CashierRequest().apply {
+                    clerkId = userDetail.id.toString()
+                    shiftId = batchDetails.batchNo
+                }
+            }
+
+            val response = terminal.transaction.doCredit(doCreditRequest)
+
+            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
+//                getAnalyticsTrackerUseCase.logEvent(
 //                    "pax_transaction_success",
 //                    bundleOf("pax_transaction_success" to response.response())
 //                )
-//                onSuccess(response.response())
-//            } else {
-//                val errorCode = response?.response()?.responseCode()
-//                val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
-//                    ?: "Unknown transaction error"))
-//                Log.e(TAG, "Transaction failed: $errorMessage")
-//                analyticsTracker.logEvent(
+                onSuccess(response.response())
+            } else {
+                val errorCode = response?.response()?.responseCode()
+                val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
+                    ?: "Unknown transaction error"))
+                Log.e(TAG, "Transaction failed: $errorMessage")
+//                getAnalyticsTrackerUseCase.logEvent(
 //                    "pax_transaction_failure",
 //                    bundleOf("error" to "Transaction failed: $errorMessage")
 //                )
-//                onFailure(errorMessage)
-//            }
-//        }
-//    }
+                onFailure(errorMessage)
+            }
+        }
+    }
 
-//    fun refundTransaction(
-//        terminal: Terminal,
-//        amount: String,
-//        onSuccess: (DoCreditResponse) -> Unit,
-//        onFailure: (String) -> Unit,
-//    ) {
-//        analyticsTracker.logEvent("pax_refund_start", bundleOf("amount" to amount))
-//
-//        runAction {
-//            val doCreditRequestReturn = DoCreditRequest().apply {
-//                transactionType = TransactionType.RETURN
-//                amountInformation = AmountRequest().apply {
-//                    transactionAmount = formatAmount(amount)
-//                }
-//                traceInformation = TraceRequest().apply {
-//                    ecrReferenceNumber = generateEcrReferenceNumber()
-//                }
-//                cashierInformation = CashierRequest().apply {
-//                    clerkId = getUserDetailsUseCase()?.id.toString()
-//                    shiftId = getBatchDetailsUseCase()?.batchNo.toString()
-//                }
-//            }
-//
-//            val response = terminal.transaction.doCredit(doCreditRequestReturn)
-//
-//            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
-//                Log.d(TAG, "refundTransaction: ===========START==============")
-//                Log.d(TAG, "Success - " + response.response().responseCode())
-//                Log.d(TAG, "Success - " + response.response())
-//                analyticsTracker.logEvent(
+    fun refundTransaction(
+        terminal: Terminal,
+        amount: String,
+        onSuccess: (DoCreditResponse) -> Unit,
+        onFailure: (String) -> Unit,
+    ) {
+//        getAnalyticsTrackerUseCase.logEvent("pax_refund_start", bundleOf("amount" to amount))
+
+        runAction {
+            val userDetail = getUserDetailsUseCase()
+            if (userDetail == null) {
+                onFailure("User details not found")
+                return@runAction
+            }
+            
+            val batchDetails = getBatchDetailsUseCase()
+            
+            val doCreditRequestReturn = DoCreditRequest().apply {
+                transactionType = TransactionType.RETURN
+                amountInformation = AmountRequest().apply {
+                    transactionAmount = formatAmount(amount)
+                }
+                traceInformation = TraceRequest().apply {
+                    ecrReferenceNumber = generateEcrReferenceNumber()
+                }
+                cashierInformation = CashierRequest().apply {
+                    clerkId = userDetail.id.toString()
+                    shiftId = batchDetails.batchNo
+                }
+            }
+
+            val response = terminal.transaction.doCredit(doCreditRequestReturn)
+
+            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
+                Log.d(TAG, "refundTransaction: ===========START==============")
+                Log.d(TAG, "Success - " + response.response().responseCode())
+                Log.d(TAG, "Success - " + response.response())
+//                getAnalyticsTrackerUseCase.logEvent(
 //                    "pax_refund_success",
 //                    bundleOf("pax_refund_success" to response.response())
 //                )
-//                onSuccess(response.response())
-//            } else {
-//                Log.e(TAG, "Failure : ${response.message()}")
-//                val errorCode = response?.response()?.responseCode()
-//                val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
-//                    ?: "Unknown transaction error"))
-//                analyticsTracker.logEvent("pax_refund_failure", bundleOf("error" to errorMessage))
-//                onFailure(errorMessage)
-//                Log.d(TAG, "refundTransaction: ===========END==============")
-//            }
-//        }
-//    }
+                onSuccess(response.response())
+            } else {
+                Log.e(TAG, "Failure : ${response.message()}")
+                val errorCode = response?.response()?.responseCode()
+                val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
+                    ?: "Unknown transaction error"))
+//                getAnalyticsTrackerUseCase.logEvent("pax_refund_failure", bundleOf("error" to errorMessage))
+                onFailure(errorMessage)
+                Log.d(TAG, "refundTransaction: ===========END==============")
+            }
+        }
+    }
 
-//    fun voidTransaction(
-//        terminal: Terminal,
-//        onSuccess: (DoCreditResponse) -> Unit,
-//        onFailure: (String) -> Unit,
-//        cardDetails: CardDetails
-//    ) {
-//        analyticsTracker.logEvent(
+    fun voidTransaction(
+        terminal: Terminal,
+        onSuccess: (DoCreditResponse) -> Unit,
+        onFailure: (String) -> Unit,
+        cardDetails: CardDetails
+    ) {
+//        getAnalyticsTrackerUseCase.logEvent(
 //            "pax_void_attempt",
 //            bundleOf("transaction_no" to cardDetails.transactionNo)
 //        )
-//
-//        runAction {
-//            val doVoidCreditTransaction = DoCreditRequest().apply {
-//                transactionType = TransactionType.VOID
-//                traceInformation = TraceRequest().apply {
-//                    originalReferenceNumber = cardDetails.transactionNo
-//                    ecrReferenceNumber = cardDetails.ecrReference
-//                }
-//            }
-//
-//            val response = terminal.transaction.doCredit(doVoidCreditTransaction)
-//
-//            if (response.isSuccessful) {
-//                response.response()?.let { creditResponse ->
-//                    when (creditResponse.responseCode()) {
-//                        CODE_SUCCESS, Code100021.ALREADY_VOIDED -> {
-//                            analyticsTracker.logEvent(
+
+        runAction {
+            val doVoidCreditTransaction = DoCreditRequest().apply {
+                transactionType = TransactionType.VOID
+                traceInformation = TraceRequest().apply {
+                    originalReferenceNumber = cardDetails.transactionId
+                    ecrReferenceNumber = cardDetails.terminalInvoiceNo
+                }
+            }
+
+            val response = terminal.transaction.doCredit(doVoidCreditTransaction)
+
+            if (response.isSuccessful) {
+                response.response()?.let { creditResponse ->
+                    when (creditResponse.responseCode()) {
+                        CODE_SUCCESS, Code100021.ALREADY_VOIDED -> {
+//                            getAnalyticsTrackerUseCase.logEvent(
 //                                "pax_void_success",
 //                                bundleOf("pax_void_success" to creditResponse)
 //                            )
-//                            onSuccess(creditResponse)
-//                        }
-//
-//                        else -> {
-//                            val errorMessage =
-//                                "${creditResponse.responseCode()} / ${creditResponse.responseMessage() ?: "Unknown error"}"
-//                            analyticsTracker.logEvent(
+                            onSuccess(creditResponse)
+                        }
+
+                        else -> {
+                            val errorMessage =
+                                "${creditResponse.responseCode()} / ${creditResponse.responseMessage() ?: "Unknown error"}"
+//                            getAnalyticsTrackerUseCase.logEvent(
 //                                "pax_void_failure",
 //                                bundleOf("error" to errorMessage)
 //                            )
-//                            Log.e(TAG, "Transaction Failed: $errorMessage")
-//                            onFailure(errorMessage)
-//                        }
-//                    }
-//                } ?: run {
-//                    val unknownError = "Transaction Void failed: No response received"
-//                    Log.e(TAG, unknownError)
-//                    onFailure(unknownError)
-//                }
-//            } else {
-//                val errorMessage = "Transaction failed: ${response.message() ?: "Unknown error"}"
-//                Log.e(TAG, errorMessage)
-//                analyticsTracker.logEvent("pax_void_failure", bundleOf("error" to errorMessage))
-//                onFailure(errorMessage)
-//            }
-//        }
-//    }
+                            Log.e(TAG, "Transaction Failed: $errorMessage")
+                            onFailure(errorMessage)
+                        }
+                    }
+                } ?: run {
+                    val unknownError = "Transaction Void failed: No response received"
+                    Log.e(TAG, unknownError)
+                    onFailure(unknownError)
+                }
+            } else {
+                val errorMessage = "Transaction failed: ${response.message() ?: "Unknown error"}"
+                Log.e(TAG, errorMessage)
+//                getAnalyticsTrackerUseCase.logEvent("pax_void_failure", bundleOf("error" to errorMessage))
+                onFailure(errorMessage)
+            }
+        }
+    }
 
-//    fun requestPaxBatchClose(
-//        terminal: Terminal,
-//        onSuccess: (BatchCloseResponse) -> Unit,
-//        onFailure: (String) -> Unit
-//    ) {
-//        analyticsTracker.logEvent("pax_batch_close_attempt", null)
-//
-//        runAction {
-//            val response = terminal.batch.batchClose(BatchCloseRequest())
-//            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
-//                analyticsTracker.logEvent(
+    fun requestPaxBatchClose(
+        terminal: Terminal,
+        onSuccess: (BatchCloseResponse) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+//        getAnalyticsTrackerUseCase.logEvent("pax_batch_close_attempt", null)
+
+        runAction {
+            val response = terminal.batch.batchClose(BatchCloseRequest())
+            if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
+//                getAnalyticsTrackerUseCase.logEvent(
 //                    "pax_batch_close_success",
 //                    bundleOf("pax_batch_close_success" to response.response())
 //                )
-//                onSuccess(response.response())
-//            } else {
-//                val errorCode = response?.response()?.responseCode()
-//                val errorMessage = ("$errorCode / " + (response.response()?.responseMessage()
-//                    ?: "Unknown transaction error"))
-//                analyticsTracker.logEvent(
+                onSuccess(response.response())
+            } else {
+                val errorCode = response?.response()?.responseCode()
+                val errorMessage = ("$errorCode / " + (response.response()?.responseMessage()
+                    ?: "Unknown transaction error"))
+//                getAnalyticsTrackerUseCase.logEvent(
 //                    "pax_batch_close_failure",
 //                    bundleOf("error" to errorMessage)
 //                )
-//                onFailure(errorMessage)
-//            }
-//        }
-//    }
+                onFailure(errorMessage)
+            }
+        }
+    }
 
-//    fun getPaxBatchNo(
-//        terminal: Terminal,
-//        onSuccess: (GetVariableResponse) -> Unit,
-//        onFailure: (String) -> Unit
-//    ) {
-//        analyticsTracker.logEvent("pax_get_batch_no_attempt", null)
-//
-//        val response = terminal.manage.getVariable(GetVariableRequest().apply {
-//            edcType = EdcType.CREDIT
-//            variableName1 = "batchNo"
-//        })
-//
-//        if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
-//            analyticsTracker.logEvent(
+    fun getPaxBatchNo(
+        terminal: Terminal,
+        onSuccess: (GetVariableResponse) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+//        getAnalyticsTrackerUseCase.logEvent("pax_get_batch_no_attempt", null)
+
+        val response = terminal.manage.getVariable(GetVariableRequest().apply {
+            edcType = EdcType.CREDIT
+            variableName1 = "batchNo"
+        })
+
+        if (response.isSuccessful && response.response()?.responseCode() == CODE_SUCCESS) {
+//            getAnalyticsTrackerUseCase.logEvent(
 //                "pax_get_batch_no_success",
 //                bundleOf("pax_get_batch_no_success" to response.response())
 //            )
-//            onSuccess(response.response())
-//        } else {
-//            val errorCode = response?.response()?.responseCode()
-//            val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
-//                ?: "Unknown transaction error"))
-//            analyticsTracker.logEvent(
+            onSuccess(response.response())
+        } else {
+            val errorCode = response?.response()?.responseCode()
+            val errorMessage = ("$errorCode /" + (response.response()?.responseMessage()
+                ?: "Unknown transaction error"))
+//            getAnalyticsTrackerUseCase.logEvent(
 //                "pax_get_batch_no_failure",
 //                bundleOf("error" to errorMessage)
 //            )
-//            onFailure(errorMessage)
-//        }
-//    }
+            onFailure(errorMessage)
+        }
+    }
 
-//    fun cancelTransactionBeforeApproved(terminal: Terminal?) {
-//        terminal?.cancel()
-//        analyticsTracker.logEvent("pax_transaction_cancelled", null)
-//    }
-//
-//    fun verifyTransaction(terminal: Terminal) {
-//        analyticsTracker.logEvent("pax_transaction_verification_attempt", null)
-//    }
+    fun cancelTransactionBeforeApproved(terminal: Terminal?) {
+        terminal?.cancel()
+//        getAnalyticsTrackerUseCase.logEvent("pax_transaction_cancelled", null)
+    }
+
+    fun verifyTransaction(terminal: Terminal) {
+//        getAnalyticsTrackerUseCase.logEvent("pax_transaction_verification_attempt", null)
+    }
 
     // --- Utility Methods for Pax Logging ---
 
-    private fun runAction(runnable: Runnable) {
-        paxRunningThread?.takeIf { it.isAlive }?.interrupt()
-        paxRunningThread = Thread {
+    private fun runAction(action: suspend () -> Unit) {
+        scope.launch {
             try {
-                runnable.run()
-            } catch (e: InterruptedException) {
-                Log.e(TAG, "Thread interrupted", e)
-                Thread.currentThread().interrupt()
+                action()
             } catch (e: Exception) {
-                Log.e(TAG, "Thread error : Error in thread execution", e)
+                Log.e(TAG, "Error in coroutine execution", e)
             }
-        }.also { it.start() }
+        }
     }
 
     private fun formatAmount(amount: String): String {
@@ -340,9 +353,9 @@ class PaxManager @Inject constructor(
             .multiply(BigDecimal(100)).toInt().toString()
     }
 
-//    private fun getEdcType(edcType: String): EdcType {
-//        return EdcType.CREDIT
-//    }
+    private fun getEdcType(edcType: String): EdcType {
+        return EdcType.CREDIT
+    }
 
     private fun generateEcrReferenceNumber(): String {
         return UUID.randomUUID().toString().replace("-", "").substring(0, 8)

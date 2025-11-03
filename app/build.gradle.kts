@@ -98,6 +98,10 @@ android {
 }
 
 dependencies {
+    // Firebase BOM must come first - Commented out until google-services.json is added
+    // platform(libs.firebaseBom)
+    // implementation("com.google.firebase:firebase-analytics")
+    // implementation("com.google.firebase:firebase-crashlytics")
 
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
@@ -133,7 +137,6 @@ dependencies {
     implementation(libs.coil.network)
     implementation(libs.security)
     implementation(libs.starPrinter)
-    platform(libs.firebaseBom)
     implementation(libs.camera)
     implementation(libs.camera.core)
     implementation(libs.camera.view)

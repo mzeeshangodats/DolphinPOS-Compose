@@ -34,6 +34,9 @@ android {
 }
 
 dependencies {
+    // Firebase BOM must come first - Commented out until google-services.json is added
+    // platform(libs.firebaseBom)
+    // implementation("com.google.firebase:firebase-analytics")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -57,6 +60,7 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
+    implementation(project(":common"))
     implementation(project(":domain"))
 
     // PAX Libraries
@@ -65,6 +69,7 @@ dependencies {
     implementation(files("../app/libs/PaxLog_1.0.11_20220921.jar"))
     implementation(files("../app/libs/POSLink_Core_Android_V2.00.07_20240912.jar"))
     implementation(files("../app/libs/POSLink_Admin_Android_Plugin_V2.01.00_20240913.jar"))
+    implementation(files("../app/libs/POSLink_Semi_Android_Plugin_V2.01.00_20240913.jar"))
     implementation(files("../app/libs/BrotherPrintLibrary.aar"))
 
 }
