@@ -80,8 +80,9 @@ fun PinCodeScreen(
                             buttonText = "OK",
                             iconRes = R.drawable.success_circle_icon
                         ) {
+                            val currentPin = pinValue
                             pinValue = ""
-                            viewModel.getClockInOutHistory()
+                            viewModel.getClockInOutHistory(currentPin)
                         }
                     } else {
                         DialogHandler.showDialog(
