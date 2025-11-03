@@ -55,22 +55,6 @@ class CreditCardProcessingViewModel @Inject constructor() : ViewModel() {
         updateState { it.copy(config = it.config.copy(merchantId = merchantId)) }
     }
 
-    fun updatePhoneNumber(phone: String) {
-        updateState { it.copy(config = it.config.copy(phoneNumber = phone)) }
-    }
-
-    fun updateEmail(email: String) {
-        updateState { it.copy(config = it.config.copy(email = email)) }
-    }
-
-    fun updateEmailReceipt(enabled: Boolean) {
-        updateState { it.copy(config = it.config.copy(enableEmailReceipt = enabled)) }
-    }
-
-    fun updateSmsReceipt(enabled: Boolean) {
-        updateState { it.copy(config = it.config.copy(enableSmsReceipt = enabled)) }
-    }
-
     fun updateDigitalSignature(enabled: Boolean) {
         updateState { it.copy(config = it.config.copy(digitalSignatureEnabled = enabled)) }
     }

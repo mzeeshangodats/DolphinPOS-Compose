@@ -47,9 +47,5 @@ data class CreditCardConfigState(
     val portNumber: String = "",
     val terminalId: String = "",
     val merchantId: String = "",
-    val phoneNumber: String = "",
-    val email: String = "",
-    val enableEmailReceipt: Boolean = false,
-    val enableSmsReceipt: Boolean = false,
     val digitalSignatureEnabled: Boolean = false
 )

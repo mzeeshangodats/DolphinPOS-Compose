@@ -81,7 +81,7 @@ fun CreditCardProcessingScreen(
             color = Color.Black,
             fontSize = 24f,
             fontFamily = GeneralSans,
-            fontWeight = FontWeight.Bold,
+            //fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(24.dp, 16.dp, 16.dp, 8.dp)
         )
 
@@ -147,117 +147,65 @@ fun CreditCardProcessingScreen(
                             }
                         )
 
-                        if (configState.selectedTerminalType == TerminalType.PAX_A35
-                            || configState.selectedTerminalType == TerminalType.PAX_A920) {
-                            Spacer(modifier = Modifier.height(16.dp))
+//                        if (configState.selectedTerminalType == TerminalType.PAX_A35
+//                            || configState.selectedTerminalType == TerminalType.PAX_A920) {
+//                            Spacer(modifier = Modifier.height(16.dp))
+//
+//                            // Bluetooth Address
+//                            SettingRow(
+//                                icon = R.drawable.card_icon,
+//                                label = "Bluetooth Address",
+//                                content = {
+//                                    BaseOutlinedEditText(
+//                                        value = configState.bluetoothAddress,
+//                                        onValueChange = { viewModel.updateBluetoothAddress(it) },
+//                                        placeholder = "Enter Bluetooth Address"
+//                                    )
+//                                }
+//                            )
+//                        }
 
-                            // Bluetooth Address
-                            SettingRow(
-                                icon = R.drawable.card_icon,
-                                label = "Bluetooth Address",
-                                content = {
-                                    BaseOutlinedEditText(
-                                        value = configState.bluetoothAddress,
-                                        onValueChange = { viewModel.updateBluetoothAddress(it) },
-                                        placeholder = "Enter Bluetooth Address"
-                                    )
-                                }
-                            )
-                        }
                     }
+                    else -> {}
 
-                    TerminalType.WIFI, TerminalType.D200 -> {
-                        // Terminal ID
-                        SettingRow(
-                            icon = R.drawable.card_icon,
-                            label = "Terminal ID",
-                            content = {
-                                BaseOutlinedEditText(
-                                    value = configState.terminalId,
-                                    onValueChange = { viewModel.updateTerminalId(it) },
-                                    placeholder = "Enter Terminal ID"
-                                )
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Merchant ID
-                        SettingRow(
-                            icon = R.drawable.card_icon,
-                            label = "Merchant ID",
-                            content = {
-                                BaseOutlinedEditText(
-                                    value = configState.merchantId,
-                                    onValueChange = { viewModel.updateMerchantId(it) },
-                                    placeholder = "Enter Merchant ID"
-                                )
-                            }
-                        )
-                    }
+//                    TerminalType.WIFI, TerminalType.D200 -> {
+//                        // Terminal ID
+//                        SettingRow(
+//                            icon = R.drawable.card_icon,
+//                            label = "Terminal ID",
+//                            content = {
+//                                BaseOutlinedEditText(
+//                                    value = configState.terminalId,
+//                                    onValueChange = { viewModel.updateTerminalId(it) },
+//                                    placeholder = "Enter Terminal ID"
+//                                )
+//                            }
+//                        )
+//
+//                        Spacer(modifier = Modifier.height(16.dp))
+//
+//                        // Merchant ID
+//                        SettingRow(
+//                            icon = R.drawable.card_icon,
+//                            label = "Merchant ID",
+//                            content = {
+//                                BaseOutlinedEditText(
+//                                    value = configState.merchantId,
+//                                    onValueChange = { viewModel.updateMerchantId(it) },
+//                                    placeholder = "Enter Merchant ID"
+//                                )
+//                            }
+//                        )
+//                    }
 
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Contact Information Section
-                SettingRow(
-                    icon = R.drawable.card_icon,
-                    label = "Phone Number",
-                    content = {
-                        BaseOutlinedEditText(
-                            value = configState.phoneNumber,
-                            onValueChange = { viewModel.updatePhoneNumber(it) },
-                            placeholder = "Enter Phone Number"
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SettingRow(
-                    icon = R.drawable.card_icon,
-                    label = "Email",
-                    content = {
-                        BaseOutlinedEditText(
-                            value = configState.email,
-                            onValueChange = { viewModel.updateEmail(it) },
-                            placeholder = "Enter Email"
-                        )
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider()
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Receipt Options Section
-                SettingRowWithToggle(
-                    icon = R.drawable.card_icon,
-                    label = "Email Receipt",
-                    checked = configState.enableEmailReceipt,
-                    onCheckedChange = { viewModel.updateEmailReceipt(it) }
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                SettingRowWithToggle(
-                    icon = R.drawable.card_icon,
-                    label = "SMS Receipt",
-                    checked = configState.enableSmsReceipt,
-                    onCheckedChange = { viewModel.updateSmsReceipt(it) }
-                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     BaseButton(
                         text = "Cancel",
@@ -277,17 +225,15 @@ fun CreditCardProcessingScreen(
                             .height(48.dp),
                         onClick = { viewModel.saveConfiguration() }
                     )
+
+                    BaseButton(
+                        text = "Test Connection",
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        onClick = { viewModel.testConnection() }
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                BaseButton(
-                    text = "Test Connection",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    onClick = { viewModel.testConnection() }
-                )
             }
         }
     }
