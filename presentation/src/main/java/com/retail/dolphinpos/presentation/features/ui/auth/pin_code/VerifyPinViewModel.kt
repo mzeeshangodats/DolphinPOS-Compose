@@ -191,11 +191,16 @@ class VerifyPinViewModel @Inject constructor(
         }
     }
 
-    fun getClockInOutHistory(){
+    fun getClockInOutHistory(pin: String){
         viewModelScope.launch {
             try {
-                val userId = preferenceManager.getUserID()
-                val result = repository.getClockInOutHistory(userId)
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = repository.getUser(pin, locationId)
+                if (user == null) {
+                    _history.value = emptyList()
+                    return@launch
+                }
+                val result = repository.getClockInOutHistory(user.id)
                 result.fold(
                     onSuccess = { list -> _history.value = list },
                     onFailure = { _history.value = emptyList() }
