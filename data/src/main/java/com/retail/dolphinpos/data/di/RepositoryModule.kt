@@ -9,6 +9,7 @@ import com.retail.dolphinpos.data.repositories.auth.LoginRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.StoreRegisterRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.VerifyPinRepositoryImpl
 import com.retail.dolphinpos.data.repositories.home.HomeRepositoryImpl
+import com.retail.dolphinpos.data.repositories.home.OrdersRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
@@ -16,6 +17,7 @@ import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,9 +54,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideVerifyPinRepository(
-        userDao: UserDao
+        userDao: UserDao,
+        api: ApiService
     ): VerifyPinRepository {
-        return VerifyPinRepositoryImpl(userDao)
+        return VerifyPinRepositoryImpl(userDao, api)
     }
 
     @Provides
@@ -75,6 +78,14 @@ object RepositoryModule {
         storeRegistersRepository: StoreRegistersRepository
     ): HomeRepository {
         return HomeRepositoryImpl(productsDao, customerDao, userDao, storeRegistersRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideOrdersRepository(
+        apiService: ApiService
+    ): OrdersRepository {
+        return OrdersRepositoryImpl(apiService)
     }
 
 }

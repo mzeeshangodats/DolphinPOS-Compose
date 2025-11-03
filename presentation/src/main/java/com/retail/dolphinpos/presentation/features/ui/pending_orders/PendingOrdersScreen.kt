@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -63,7 +64,7 @@ fun PendingOrdersScreen(
     val filteredOrders = if (searchQuery.isEmpty()) {
         orders
     } else {
-        orders.filter { it.orderNo.contains(searchQuery, ignoreCase = true) }
+        orders.filter { it.orderNumber.contains(searchQuery, ignoreCase = true) }
     }
 
     LaunchedEffect(Unit) {
@@ -144,7 +145,7 @@ fun PendingOrdersScreen(
                                 color = Color.Black
                             ),
                             decorationBox = { innerTextField ->
-                                Box {
+                                Box(modifier = Modifier.fillMaxWidth()) {
                                     if (searchQuery.isEmpty()) {
                                         BaseText(
                                             text = "Search by order number",
@@ -155,7 +156,8 @@ fun PendingOrdersScreen(
                                     }
                                     innerTextField()
                                 }
-                            }
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -253,7 +255,7 @@ fun PendingOrdersScreen(
                                 modifier = Modifier.width(40.dp)
                             )
                             BaseText(
-                                text = order.orderNo,
+                                text = order.orderNumber,
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
@@ -332,7 +334,7 @@ fun PendingOrderDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = order.orderNo,
+                        text = order.orderNumber,
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,

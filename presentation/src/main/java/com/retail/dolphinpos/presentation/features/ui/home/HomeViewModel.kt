@@ -261,12 +261,20 @@ class HomeViewModel @Inject constructor(
         calculateSubtotal(updatedCart)
     }
 
-    fun removeFromCart(productId: Int): Boolean {
+    fun removeFromCart(productId: Int, variantId: Int?): Boolean {
         if (!canRemoveItemFromCart()) {
             return false  // Cannot remove item after cash discount applied
         }
 
-        val updatedCart = _cartItems.value.filter { it.productId != productId }
+        val updatedCart = _cartItems.value.filter { cartItem ->
+            // If variantId is provided, remove only that specific variant
+            // Otherwise, remove all items with that productId (non-variant products)
+            if (variantId != null) {
+                cartItem.productId != productId || cartItem.productVariantId != variantId
+            } else {
+                cartItem.productId != productId
+            }
+        }
         _cartItems.value = updatedCart
         if (updatedCart.isEmpty()) {
             isCashSelected = false  // Set default to card when cart becomes empty
@@ -278,7 +286,10 @@ class HomeViewModel @Inject constructor(
 
     fun updateCartItem(updatedItem: CartItem) {
         val currentList = _cartItems.value.toMutableList()
-        val index = currentList.indexOfFirst { it.productId == updatedItem.productId }
+        // Find index based on both productId and variantId
+        val index = currentList.indexOfFirst { item ->
+            item.productId == updatedItem.productId && item.productVariantId == updatedItem.productVariantId
+        }
         if (index >= 0) {
             if (updatedItem.quantity <= 0) {
                 currentList.removeAt(index)
@@ -302,6 +313,12 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun calculateCashDiscount(cartItems: List<CartItem>) {
+        // Reset cash discount if cart is empty or cash is not selected
+        if (cartItems.isEmpty() || !isCashSelected) {
+            _cashDiscountTotal.value = 0.0
+            return
+        }
+        
         if (isCashSelected) {
             // Calculate cash discount as the difference between card-based subtotal and cash-based subtotal
             val cardBasedSubtotal = cartItems.sumOf { cartItem ->
@@ -336,7 +353,8 @@ class HomeViewModel @Inject constructor(
                 discountedCashPrice * cartItem.quantity
             }
 
-            _cashDiscountTotal.value = cardBasedSubtotal - cashBasedSubtotal
+            // Cash discount should never be negative - if cash prices are higher, there's no discount
+            _cashDiscountTotal.value = (cardBasedSubtotal - cashBasedSubtotal).coerceAtLeast(0.0)
         } else {
             _cashDiscountTotal.value = 0.0
         }
@@ -420,10 +438,16 @@ class HomeViewModel @Inject constructor(
                 totalOrderDiscount += (beforeDiscount - discountedSubtotal)
             }
 
-            // 4️⃣ Apply cash discount (after order-level discounts)
-            val finalSubtotal = discountedSubtotal - _cashDiscountTotal.value
+            // 4️⃣ Recalculate cash discount first (before using it in calculation)
+            calculateCashDiscount(cartItems)
+            
+            // Get the current cash discount value after recalculation
+            val currentCashDiscount = _cashDiscountTotal.value
+            
+            // 5️⃣ Apply cash discount (after order-level discounts)
+            val finalSubtotal = discountedSubtotal - currentCashDiscount
 
-            // 5️⃣ Tax (only for taxable products, proportional to discount)
+            // 6️⃣ Tax (only for taxable products, proportional to discount)
             val taxableBase = cartItems.sumOf { cart ->
                 if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
             }
@@ -434,7 +458,7 @@ class HomeViewModel @Inject constructor(
 
             val taxValue = taxableAfterOrderDiscounts * 10 / 100.0
 
-            // 6️⃣ Final total
+            // 7️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
 
             withContext(Dispatchers.Main) {
@@ -443,9 +467,6 @@ class HomeViewModel @Inject constructor(
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
-
-                // Recalculate cash discount when cart changes
-                calculateCashDiscount(cartItems)
             }
         }
     }
@@ -605,7 +626,7 @@ class HomeViewModel @Inject constructor(
             try {
                 holdCartRepository.deleteHoldCart(holdCartId)
                 loadHoldCarts() // Reload to update count
-                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
+//                _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Hold cart deleted successfully!"))
             } catch (e: Exception) {
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to delete hold cart: ${e.message}"))
             }
@@ -615,6 +636,9 @@ class HomeViewModel @Inject constructor(
     fun createOrder(paymentMethod: String) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                // Show loading dialog
+                _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+                
                 val storeId = preferenceManager.getStoreID()
                 val userId = preferenceManager.getUserID()
                 val registerId = preferenceManager.getOccupiedRegisterID()
@@ -623,10 +647,16 @@ class HomeViewModel @Inject constructor(
 
                 // Get batch details from database
                 val batch = homeRepository.getBatchDetails()
-                val batchId = batch.batchId
 
                 // Generate order number
-                val orderNo = generateOrderNumber()
+                val orderNumber = generateOrderNumber()
+                
+                // Capture current values before clearing cart
+                val finalSubtotal = _subtotal.value
+                val finalCashDiscount = _cashDiscountTotal.value
+                val finalOrderDiscount = _orderDiscountTotal.value
+                val finalTax = _tax.value
+                val finalTotal = _totalAmount.value
 
                 // Convert cart items to CheckOutOrderItem list
                 val orderItems = _cartItems.value.map { cartItem ->
@@ -666,26 +696,27 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
-                // Create order request
+                // Create order request using captured values
                 val orderRequest = CreateOrderRequest(
-                    orderNo = orderNo,
+                    orderNumber = orderNumber,
+                    invoiceNo = null, // Will be generated by server
                     customerId = if (customerId > 0) customerId else null,
                     storeId = storeId,
                     locationId = locationId,
                     storeRegisterId = registerId,
+                    batchNo = batch.batchNo,
                     paymentMethod = paymentMethod,
                     isRedeemed = false,
                     source = "point-of-sale",
                     items = orderItems,
-                    subTotal = _subtotal.value,
-                    total = _totalAmount.value,
+                    subTotal = finalSubtotal,
+                    total = finalTotal,
                     applyTax = true,
-                    taxValue = _tax.value,
-                    discountAmount = _orderDiscountTotal.value,
-                    cashDiscountAmount = _cashDiscountTotal.value,
+                    taxValue = finalTax,
+                    discountAmount = finalOrderDiscount,
+                    cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
-                    batchId = batchId,
-                    cashierId = userId,
+                    userId = userId,
                     cardDetails = null
                 )
 
@@ -699,8 +730,10 @@ class HomeViewModel @Inject constructor(
                         if (unsyncedOrders.isNotEmpty()) {
                             val lastOrder = unsyncedOrders.last()
                             pendingOrderRepository.syncOrderToServer(lastOrder).onSuccess {
+                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
                                 _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
                             }.onFailure { e ->
+                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
                                 android.util.Log.e(
                                     "Order",
                                     "Failed to sync order: ${e.message}\n Your order has been saved in pending orders"
@@ -708,13 +741,16 @@ class HomeViewModel @Inject constructor(
                                 _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
                             }
                         } else {
+                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
                             _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("No Orders Found"))
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("Order", "Failed to sync order: ${e.message}")
+                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
                         _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
                     }
                 } else {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
                     _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved offline and will sync when internet is available"))
                 }
 
@@ -723,6 +759,7 @@ class HomeViewModel @Inject constructor(
 
             } catch (e: Exception) {
                 android.util.Log.e("Order", "Failed to create order: ${e.message}")
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
             }
         }

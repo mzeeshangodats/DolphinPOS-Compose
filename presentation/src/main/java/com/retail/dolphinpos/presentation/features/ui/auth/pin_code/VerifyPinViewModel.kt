@@ -6,6 +6,7 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
 import com.retail.dolphinpos.domain.usecases.GetCurrentTimeUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -13,6 +14,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.update
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,6 +35,9 @@ class VerifyPinViewModel @Inject constructor(
 
     private val _verifyPinUiEvent = MutableSharedFlow<VerifyPinUiEvent>()
     val verifyPinUiEvent = _verifyPinUiEvent.asSharedFlow()
+
+    private val _history = MutableStateFlow<List<ClockInOutHistoryData>>(emptyList())
+    val history: StateFlow<List<ClockInOutHistoryData>> = _history
 
     init {
         viewModelScope.launch {
@@ -50,7 +59,7 @@ class VerifyPinViewModel @Inject constructor(
                 if (response == null) {
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                     _verifyPinUiEvent.emit(
-                        VerifyPinUiEvent.ShowError("No user exist against this PIN")
+                        VerifyPinUiEvent.ShowDialog("No user exist against this PIN at this location")
                     )
                 } else {
                     insertActiveUserDetails(response, pin)
@@ -75,7 +84,7 @@ class VerifyPinViewModel @Inject constructor(
             } catch (e: Exception) {
                 _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                 _verifyPinUiEvent.emit(
-                    VerifyPinUiEvent.ShowError(e.message ?: "Something went wrong")
+                    VerifyPinUiEvent.ShowDialog(e.message ?: "Something went wrong")
                 )
             }
         }
@@ -124,5 +133,76 @@ class VerifyPinViewModel @Inject constructor(
             registerStatus = register.status
         )
         repository.insertActiveUserDetailsIntoLocalDB(activeUserDetails)
+    }
+
+    fun clockInOut(pin: String, slug: String) {
+        viewModelScope.launch {
+            _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowLoading)
+            try {
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val user = repository.getUser(pin, locationId)
+                if (user == null) {
+                    _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                    _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog("Invalid PIN"))
+                    return@launch
+                }
+
+                // Current UTC time in format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+                val utcTime = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+                    .withZone(ZoneOffset.UTC)
+                    .format(Instant.now())
+
+                val request = ClockInOutRequest(
+                    slug = slug,
+                    storeId = preferenceManager.getStoreID(),
+                    time = utcTime,
+                    userId = user.id
+                )
+
+                val result = repository.clockInOut(request)
+                _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                result.fold(
+                    onSuccess = { resp ->
+                        // Toggle local status
+//                        if (slug == "check-in") {
+//                            preferenceManager.setClockInStatus(true)
+//                            preferenceManager.setClockInTime(System.currentTimeMillis())
+//                        } else {
+//                            preferenceManager.clockOut()
+//                        }
+                        // Show message
+                        _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(resp.message, true))
+                    },
+                    onFailure = { err ->
+                        val msg = err.message
+                        if (msg == "OFFLINE_QUEUED") {
+                            _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog("Clock ${if (slug=="check-in") "In" else "Out"} request queued for sync"))
+                        } else if (!msg.isNullOrBlank()) {
+                            _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(msg))
+                        } else {
+                            _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog("Clock In/Out failed"))
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(e.message ?: "Clock In/Out failed"))
+            }
+        }
+    }
+
+    fun getClockInOutHistory(){
+        viewModelScope.launch {
+            try {
+                val userId = preferenceManager.getUserID()
+                val result = repository.getClockInOutHistory(userId)
+                result.fold(
+                    onSuccess = { list -> _history.value = list },
+                    onFailure = { _history.value = emptyList() }
+                )
+            } catch (_: Exception) {
+                _history.value = emptyList()
+            }
+        }
     }
 }

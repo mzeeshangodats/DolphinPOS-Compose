@@ -29,13 +29,14 @@ import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
 import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
+import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 
 @Database(
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
-        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class],
-    version = 1,
+        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, TimeSlotEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class DolphinDatabase : RoomDatabase() {
@@ -73,6 +74,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE pending_orders ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0")
             }
         }
+
 
         // Method to delete the database file
 //        fun deleteDatabase(context: Context) {
