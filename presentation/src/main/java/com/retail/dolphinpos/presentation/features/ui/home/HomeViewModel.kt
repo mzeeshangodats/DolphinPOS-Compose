@@ -389,6 +389,9 @@ class HomeViewModel @Inject constructor(
 
     fun resetOrderDiscountValues() {
         preferenceManager.clearOrderDiscountValues()
+        _orderLevelDiscounts.value = emptyList()
+        // Recalculate subtotal to reflect discount removal
+        calculateSubtotal(_cartItems.value)
     }
 
     fun removeAllOrderDiscounts() {
@@ -779,6 +782,8 @@ class HomeViewModel @Inject constructor(
                 android.util.Log.e("Order", "Failed to create order: ${e.message}")
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
+                // Reset order level discounts when order fails
+                resetOrderDiscountValues()
             }
         }
     }
