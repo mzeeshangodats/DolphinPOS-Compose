@@ -6,6 +6,10 @@ data class PaxDetail(
     val timeOut : Int = 60000,
     val communicationType : String
 ) {
+    companion object {
+        const val PAX_DEFAULT_CONNECTION_TIME_OUT = 60000
+    }
+    
     fun isCommunicationTypeHTTP () = communicationType.lowercase() == "http/get"
     fun isCommunicationTypeTCP () = communicationType.lowercase() == "tcp/ip"
 }

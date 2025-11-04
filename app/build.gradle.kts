@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.firebase.crashlytics)
     alias(libs.plugins.firebase.app.distribution)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -17,7 +18,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.dolphinpos"
+        applicationId = "com.retail.dolphinpos"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
@@ -69,39 +70,51 @@ android {
 
     productFlavors {
         create("dev") {
-            applicationId = "com.dolphin.retail.pos"
+            applicationId = "com.retail.dolphinpos"
             dimension = "default"
             resValue("string", "app_name", "Dolphin POS (Dev)")
             buildConfigField("String", "BUILD_TYPE", "\"DEV\"")
-            buildConfigField("String", "BASE_URL", "\"https://www.dev-retail.gotmsolutions.com/api/\"")
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                "\"https://www.dev-retail.gotmsolutions.com/api/\""
+            )
             versionNameSuffix = "-dev"
 
         }
         create("uat") {
-            applicationId = "com.dolphin.retail.pos"
+            applicationId = "com.retail.dolphinpos"
             dimension = "default"
             resValue("string", "app_name", "Dolphin POS (Uat)")
             buildConfigField("String", "BUILD_TYPE", "\"UAT\"")
-            buildConfigField("String", "BASE_URL", "\"https://uat-lingerie.gotmsolutions.com/api/\"")
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                "\"https://uat-lingerie.gotmsolutions.com/api/\""
+            )
             versionNameSuffix = "-uat"
 
         }
         create("prod") {
-            applicationId = "com.dolphin.retail.pos"
+            applicationId = "com.retail.dolphinpos"
             dimension = "default"
             resValue("string", "app_name", "Dolphin POS")
             buildConfigField("String", "BUILD_TYPE", "\"PROD\"")
-            buildConfigField("String", "BASE_URL", "\"https://uat-lingerie.gotmsolutions.com/api/\"")
+            buildConfigField(
+                "String",
+                "BASE_URL",
+                "\"https://uat-lingerie.gotmsolutions.com/api/\""
+            )
             versionNameSuffix = "-prod"
         }
     }
 }
 
 dependencies {
-    // Firebase BOM must come first - Commented out until google-services.json is added
-    // platform(libs.firebaseBom)
-    // implementation("com.google.firebase:firebase-analytics")
-    // implementation("com.google.firebase:firebase-crashlytics")
+    // Firebase BOM must come first
+    implementation(platform(libs.firebaseBom))
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
 
     implementation(libs.androidx.core.ktx)
     testImplementation(libs.junit)
@@ -163,10 +176,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.coil.compose)
-    
+
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
-    
+
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test.junit4)
 

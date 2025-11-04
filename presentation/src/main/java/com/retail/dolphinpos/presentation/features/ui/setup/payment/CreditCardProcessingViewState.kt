@@ -50,8 +50,8 @@ data class CreditCardConfigState(
     val communicationType: CommunicationType = CommunicationType.TCP_IP,
     val bluetoothAddress: String = "",
     val ipAddress: String = "",
-    val portNumber: String = "",
+    val portNumber: String = "10009",
     val terminalId: String = "",
     val merchantId: String = "",
-    val digitalSignatureEnabled: Boolean = false
+    val digitalSignatureEnabled: Boolean = true
 )

@@ -7,6 +7,7 @@ import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.retail.dolphinpos.data.repository.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
+import com.retail.dolphinpos.data.util.AppConfig
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
@@ -21,9 +22,13 @@ import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -45,7 +50,10 @@ class HomeViewModel @Inject constructor(
     private val pendingOrderRepository: PendingOrderRepository,
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
-    private val verifyPinRepository: VerifyPinRepository
+    private val verifyPinRepository: VerifyPinRepository,
+    private val initializeTerminalUseCase: InitializeTerminalUseCase,
+    private val processTransactionUseCase: ProcessTransactionUseCase,
+    private val cancelTransactionUseCase: CancelTransactionUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -634,6 +642,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun createOrder(paymentMethod: String) {
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Show loading dialog
@@ -762,6 +771,97 @@ class HomeViewModel @Inject constructor(
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
             }
+        }
+    }
+
+    fun initCardPayment() {
+
+        if (!AppConfig.isDevMode) {
+
+            initializeTerminalUseCase { success, message, terminal ->
+                if (success) {
+                    terminal?.let {
+                        paxTerminal = it
+
+                        processTransaction(
+                            terminal = it, amount = viewState.value.total.toString()
+                        )
+                    } ?: run {
+                        emitViewEffect(
+                            UpdateWaitingForPaymentDialog(
+                                title = title, description = message, isCancelable = true
+                            )
+                        )
+                    }
+                } else {
+                    _viewState.value = _viewState.value.copy(
+                        showTenderAmountCalculator = false
+                    )
+                    emitViewEffect(
+                        UpdateWaitingForPaymentDialog(
+                            title = title, description = message, isCancelable = true
+                        )
+                    )
+                }
+            }
+
+        } else {
+            // For testing purposes, we can simulate a successful transaction
+            createOrder(PAYMENT_METHOD.CARD)
+        }
+
+    }
+
+    private fun processTransaction(terminal: Terminal, amount: String) {
+
+        emitViewEffect(
+            UpdateWaitingForPaymentDialog(
+                title = title,
+                description = "Please check Pax Terminal Screen and Pay with Card to Proceed",
+                isCancelable = false
+            )
+        )
+
+        processTransactionUseCase(
+            terminal = terminal,
+            amount = amount,
+            onSuccess = { doCreditResponse ->
+                handleTransactionSuccess(doCreditResponse)
+            },
+            onFailure = { errorMessage ->
+                emitViewEffect(
+                    UpdateWaitingForPaymentDialog(
+                        title = title,
+                        description = "Transaction failed: $errorMessage",
+                        isCancelable = true
+                    )
+                )
+
+            })
+    }
+
+    private fun handleTransactionSuccess(doCreditResponse: DoCreditResponse) {
+        emitViewEffect(
+            UpdateWaitingForPaymentDialog(
+                title = title,
+                description = "Transaction Successful: ${doCreditResponse.responseCode()}",
+                isCancelable = false,
+                isSuccess = true
+            )
+        )
+
+        viewModelScope.launch {
+            delay(100)
+        }
+        createOrder(PAYMENT_METHOD.CARD, doCreditResponse)
+    }
+
+    private fun cancelTransaction() {
+        if (::paxTerminal.isInitialized) {
+            cancelTransactionUseCase(paxTerminal)
+        } else {
+
+            emitViewEffect(DismissWaitingForPaymentDialog)
         }
     }
 

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.kapt)
     alias(libs.plugins.kotlin.ksp)
     alias(libs.plugins.hilt)
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -34,9 +35,10 @@ android {
 }
 
 dependencies {
-    // Firebase BOM must come first - Commented out until google-services.json is added
-    // platform(libs.firebaseBom)
-    // implementation("com.google.firebase:firebase-analytics")
+
+    implementation(platform(libs.firebaseBom))
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

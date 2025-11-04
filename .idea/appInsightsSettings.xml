@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="com.retail.dolphinpos" />
+                  <option name="mobileSdkAppId" value="1:508457758015:android:65b18ca7d4bb3b3e48b78a" />
+                  <option name="projectId" value="dolphin-pos" />
+                  <option name="projectNumber" value="508457758015" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

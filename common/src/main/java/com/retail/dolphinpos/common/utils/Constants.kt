@@ -33,6 +33,7 @@ object Constants {
     const val LOGIN_DETAIL_KEY = "login-detail"
     const val SHARED_PREF_USER_DETAIL_KEY = "user-detail"
     const val PAX_DETAIL = "pax_detail"
+    const val PAX_DEFAULT_CONNECTION_TIME_OUT = 60000
     const val PRINTER_DETAIL = "printer_detail"
     const val CUSTOMER_FACING_DISPLAY_DETAIL = "customer_facing_display_details"
     const val USER_PREFERENCE_KEY = "user_preference"

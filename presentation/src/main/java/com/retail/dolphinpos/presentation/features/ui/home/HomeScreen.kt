@@ -333,7 +333,7 @@ fun HomeScreen(
                         onNext = {
                             when {
                                 viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                else -> viewModel.createOrder("card")
+                                else -> viewModel.initCardPayment()
                             }
                         }
                     )
