@@ -137,6 +137,7 @@ fun MainLayout(
                             // reselecting the same item
                             launchSingleTop = true
                             // Restore state when reselecting a previously selected item
+                            // This ensures navigation works consistently across all screens
                             restoreState = true
                         }
                     }

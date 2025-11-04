@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.domain.model.auth.select_registers.reponse
+package com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister
 
 data class UpdateStoreRegisterData(
     val storeId: Int,

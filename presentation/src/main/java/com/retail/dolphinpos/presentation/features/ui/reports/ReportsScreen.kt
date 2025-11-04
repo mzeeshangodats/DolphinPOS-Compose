@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -77,7 +78,10 @@ fun ReportsScreen(
                     // If Home button is clicked (index 0), navigate to home
                     if (index == 0) {
                         navController.navigate("home") {
-                            popUpTo("home") { inclusive = true }
+                            // Pop up to the start destination to clear the back stack properly
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
                             launchSingleTop = true
                             restoreState = true
                         }
