@@ -23,4 +23,7 @@ object Constants {
     
     // Customer persistence
     const val CUSTOMER_ID = "customer_id"
+    
+    // Force register selection flag
+    const val FORCE_REGISTER_SELECTION = "force_register_selection"
 }

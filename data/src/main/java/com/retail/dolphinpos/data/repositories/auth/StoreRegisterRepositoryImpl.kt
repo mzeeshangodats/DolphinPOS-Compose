@@ -62,6 +62,14 @@ class StoreRegisterRepositoryImpl(
         }
     }
 
+    override suspend fun verifyStoreRegister(verifyRegisterRequest: com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest): com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse {
+        return try {
+            api.verifyStoreRegister(verifyRegisterRequest)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
     override suspend fun getProducts(storeID: Int, locationID: Int): ProductsResponse {
         return try {
             api.getProducts(storeID, locationID)

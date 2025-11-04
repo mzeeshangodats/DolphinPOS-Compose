@@ -180,4 +180,17 @@ class PreferenceManager @Inject constructor(
         prefs.edit { remove(Constants.CUSTOMER_ID) }
     }
 
+    // Force register selection flag (for navigation after logout)
+    fun setForceRegisterSelection(value: Boolean) {
+        prefs.edit { putBoolean(Constants.FORCE_REGISTER_SELECTION, value) }
+    }
+
+    fun getForceRegisterSelection(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.FORCE_REGISTER_SELECTION, defaultValue)
+    }
+
+    fun clearForceRegisterSelection() {
+        prefs.edit { remove(Constants.FORCE_REGISTER_SELECTION) }
+    }
+
 }
