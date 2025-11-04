@@ -20,6 +20,7 @@ interface StoreRegistersRepository {
     suspend fun logout(): LogoutResponse
     suspend fun getLocations(storeID: Int): List<Locations>
     suspend fun getRegistersByLocationID(locationID: Int): List<Registers>
+    suspend fun insertRegisterIntoLocalDB(register: Registers)
     suspend fun insertRegisterStatusDetailsIntoLocalDB(updateStoreRegisterData: UpdateStoreRegisterData)
     suspend fun getRegisterStatus(): UpdateStoreRegisterData
     suspend fun insertCategoriesIntoLocalDB(categoryList: List<CategoryData>)

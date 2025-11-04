@@ -91,14 +91,9 @@ class LoginRepositoryImpl(
     ) {
         try {
             locationsList.forEach { location ->
-                // Save location
+                // Save location only (registers will be fetched from API when needed)
                 val locationEntity = UserMapper.toLocationEntity(storeID, location)
                 userDao.insertLocations(locationEntity)
-
-                location.registers?.forEach { register ->
-                    val registerEntity = UserMapper.toRegisterEntity(register)
-                    userDao.insertRegisters(registerEntity)
-                }
             }
 
         } catch (e: Exception) {

@@ -249,7 +249,7 @@ fun SelectRegisterScreen(
                         ) {
                             selectedLocation?.let { loc ->
                                 selectedRegister?.let { reg ->
-                                    viewModel.getProducts(loc.id, reg.id)
+                                    viewModel.getProducts(loc.id, reg.id, reg)
                                 }
                             }
                         }
