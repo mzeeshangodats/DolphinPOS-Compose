@@ -1,16 +1,17 @@
 package com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax
 
-import javax.inject.Inject
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 
-class ProcessTransactionUseCase @Inject constructor(
-    private val paxManager: PaxManager
-) {
-    operator fun invoke(
-        terminal: Terminal,
+data class ProcessTransactionResult(
+    val isSuccess: Boolean,
+    val message: String,
+    val cardDetails: CardDetails? = null
+)
+
+interface ProcessTransactionUseCase {
+    suspend operator fun invoke(
+        sessionId: String,
         amount: String,
-        onSuccess: (DoCreditResponse) -> Unit,
-        onFailure: (String) -> Unit
-    ) {
-        paxManager.startTransaction(terminal, amount, onSuccess, onFailure)
-    }
+        onResult: (ProcessTransactionResult) -> Unit
+    )
 }

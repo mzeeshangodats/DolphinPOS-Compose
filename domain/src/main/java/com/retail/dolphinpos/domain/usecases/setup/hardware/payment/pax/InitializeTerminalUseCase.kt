@@ -1,13 +1,15 @@
 package com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax
 
-import javax.inject.Inject
+data class InitializeTerminalResult(
+    val isSuccess: Boolean,
+    val message: String,
+    val session: TerminalSession? = null
+)
 
-class InitializeTerminalUseCase @Inject constructor(
-    private val paxManager: PaxManager
-) {
-    operator fun invoke(callback: (Boolean, String, Terminal?) -> Unit) {
-        paxManager.initTerminal(callback)
-    }
+interface InitializeTerminalUseCase {
+    suspend operator fun invoke(
+        onResult: (InitializeTerminalResult) -> Unit
+    )
 }
 
 

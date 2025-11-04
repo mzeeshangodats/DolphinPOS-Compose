@@ -22,6 +22,7 @@ import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
@@ -104,6 +105,9 @@ class HomeViewModel @Inject constructor(
 
     private val _holdCartCount = MutableStateFlow(0)
     val holdCartCount: StateFlow<Int> = _holdCartCount.asStateFlow()
+
+    // PAX Terminal Session ID (stored as domain model, not SDK type)
+    private var currentSessionId: String? = null
 
     init {
         loadCategories()
@@ -641,7 +645,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun createOrder(paymentMethod: String) {
+    fun createOrder(paymentMethod: String, cardDetails: CardDetails? = null) {
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -705,6 +709,23 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
+                // Create dummy card details if card payment is selected
+                val cardDetails = if (paymentMethod != "cash") {
+                    CardDetails(
+                        terminalInvoiceNo = "Dummy${orderNumber}",
+                        transactionId = "TXN${System.currentTimeMillis()}",
+                        authCode = "AUTH${(1000..9999).random()}",
+                        rrn = "RRN${System.currentTimeMillis()}",
+                        brand = "VISA",
+                        last4 = "1234",
+                        entryMethod = "SWIPE",
+                        merchantId = "MERCH${storeId}",
+                        terminalId = "TERM${registerId}"
+                    )
+                } else {
+                    null
+                }
+
                 // Create order request using captured values
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
@@ -726,7 +747,7 @@ class HomeViewModel @Inject constructor(
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
                     userId = userId,
-                    cardDetails = null
+                    cardDetails = cardDetails
                 )
 
                 // Always save to local database first
@@ -776,92 +797,80 @@ class HomeViewModel @Inject constructor(
 
     fun initCardPayment() {
 
-        if (!AppConfig.isDevMode) {
+        viewModelScope.launch {
 
-            initializeTerminalUseCase { success, message, terminal ->
-                if (success) {
-                    terminal?.let {
-                        paxTerminal = it
-
-                        processTransaction(
-                            terminal = it, amount = viewState.value.total.toString()
-                        )
-                    } ?: run {
-                        emitViewEffect(
-                            UpdateWaitingForPaymentDialog(
-                                title = title, description = message, isCancelable = true
-                            )
-                        )
-                    }
-                } else {
-                    _viewState.value = _viewState.value.copy(
-                        showTenderAmountCalculator = false
-                    )
-                    emitViewEffect(
-                        UpdateWaitingForPaymentDialog(
-                            title = title, description = message, isCancelable = true
-                        )
-                    )
-                }
+            if (!networkMonitor.isNetworkConnected()) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("No internet connection"))
+                return@launch
             }
 
-        } else {
-            // For testing purposes, we can simulate a successful transaction
-            createOrder(PAYMENT_METHOD.CARD)
+            if (!AppConfig.isDevMode) {
+                _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+                
+                initializeTerminalUseCase { result ->
+                    viewModelScope.launch(Dispatchers.Main) {
+                        if (result.isSuccess && result.session != null) {
+                            currentSessionId = result.session?.sessionId
+                            processTransaction(
+                                sessionId = result.session?.sessionId ?: "session_id_default",
+                                amount = _totalAmount.value.toString()
+                            )
+                        } else {
+                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                            _homeUiEvent.emit(
+                                HomeUiEvent.ShowError(result.message ?: "Failed to initialize terminal")
+                            )
+                        }
+                    }
+                }
+            } else {
+                // For testing purposes, we can simulate a successful transaction
+                createOrder("card")
+            }
         }
-
     }
 
-    private fun processTransaction(terminal: Terminal, amount: String) {
-
-        emitViewEffect(
-            UpdateWaitingForPaymentDialog(
-                title = title,
-                description = "Please check Pax Terminal Screen and Pay with Card to Proceed",
-                isCancelable = false
-            )
-        )
-
-        processTransactionUseCase(
-            terminal = terminal,
-            amount = amount,
-            onSuccess = { doCreditResponse ->
-                handleTransactionSuccess(doCreditResponse)
-            },
-            onFailure = { errorMessage ->
-                emitViewEffect(
-                    UpdateWaitingForPaymentDialog(
-                        title = title,
-                        description = "Transaction failed: $errorMessage",
-                        isCancelable = true
-                    )
-                )
-
-            })
-    }
-
-    private fun handleTransactionSuccess(doCreditResponse: DoCreditResponse) {
-        emitViewEffect(
-            UpdateWaitingForPaymentDialog(
-                title = title,
-                description = "Transaction Successful: ${doCreditResponse.responseCode()}",
-                isCancelable = false,
-                isSuccess = true
-            )
-        )
-
+    private fun processTransaction(sessionId: String, amount: String) {
         viewModelScope.launch {
-            delay(100)
+            _homeUiEvent.emit(
+                HomeUiEvent.ShowSuccess("Please check Pax Terminal Screen and Pay with Card to Proceed")
+            )
+            
+            processTransactionUseCase(
+                sessionId = sessionId,
+                amount = amount
+            ) { result ->
+                viewModelScope.launch(Dispatchers.Main) {
+                    if (result.isSuccess && result.cardDetails != null) {
+                        handleTransactionSuccess(result.cardDetails ?: CardDetails())
+                    } else {
+                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                        _homeUiEvent.emit(
+                            HomeUiEvent.ShowError(result.message ?: "Transaction failed")
+                        )
+                    }
+                }
+            }
         }
-        createOrder(PAYMENT_METHOD.CARD, doCreditResponse)
+    }
+
+    private fun handleTransactionSuccess(cardDetails: CardDetails) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(
+                HomeUiEvent.ShowSuccess("Transaction Successful!")
+            )
+            delay(100)
+            createOrder("card", cardDetails)
+        }
     }
 
     private fun cancelTransaction() {
-        if (::paxTerminal.isInitialized) {
-            cancelTransactionUseCase(paxTerminal)
-        } else {
-
-            emitViewEffect(DismissWaitingForPaymentDialog)
+        viewModelScope.launch {
+            val sessionId = currentSessionId
+            if (sessionId != null) {
+                cancelTransactionUseCase(sessionId)
+                currentSessionId = null
+            }
         }
     }
 
