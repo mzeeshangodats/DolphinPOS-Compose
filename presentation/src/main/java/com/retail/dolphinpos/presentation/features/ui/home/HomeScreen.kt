@@ -1957,7 +1957,7 @@ fun ProductLevelDiscountDialog(
                 )
             }
         }
-    )
+    })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

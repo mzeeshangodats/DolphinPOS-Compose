@@ -22,7 +22,6 @@ import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
-import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
