@@ -15,7 +15,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
 import com.retail.dolphinpos.domain.model.auth.login.response.StoreLogoUrl
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterData
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterData
 
 object UserMapper {
 

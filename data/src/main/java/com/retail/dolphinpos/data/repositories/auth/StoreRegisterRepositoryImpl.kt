@@ -13,9 +13,10 @@ import kotlinx.coroutines.coroutineScope
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.storeRegisters.StoreRegistersResponse
 import com.retail.dolphinpos.data.util.parseErrorResponse
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterData
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterData
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductImage
@@ -61,6 +62,14 @@ class StoreRegisterRepositoryImpl(
         }
     }
 
+    override suspend fun verifyStoreRegister(verifyRegisterRequest: com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest): com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse {
+        return try {
+            api.verifyStoreRegister(verifyRegisterRequest)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
     override suspend fun getProducts(storeID: Int, locationID: Int): ProductsResponse {
         return try {
             api.getProducts(storeID, locationID)
@@ -83,8 +92,40 @@ class StoreRegisterRepositoryImpl(
     }
 
     override suspend fun getRegistersByLocationID(locationID: Int): List<Registers> {
-        val registerEntities = userDao.getRegistersByLocationId(locationID)
-        return UserMapper.toRegistersAgainstLocationID(locationID, registerEntities)
+        return try {
+            // Get storeId from database (StoreEntity.id is the store ID)
+            val storeEntity = userDao.getStore()
+            val storeId = storeEntity.id
+            if (storeId == 0) {
+                return emptyList()
+            }
+            
+            // Call API to get registers for the selected location
+            val response: StoreRegistersResponse = api.getStoreRegisters(storeId, locationID)
+            
+            // Filter and map only active registers
+            response.data
+                .filter { it.status.equals("active", ignoreCase = true) }
+                .map { storeRegister ->
+                    Registers(
+                        id = storeRegister.id,
+                        name = storeRegister.name,
+                        status = storeRegister.status,
+                        locationId = storeRegister.locationId
+                    )
+                }
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    override suspend fun insertRegisterIntoLocalDB(register: Registers) {
+        try {
+            val registerEntity = UserMapper.toRegisterEntity(register)
+            userDao.insertRegisters(registerEntity)
+        } catch (e: Exception) {
+            throw e
+        }
     }
 
     override suspend fun insertRegisterStatusDetailsIntoLocalDB(updateStoreRegisterData: UpdateStoreRegisterData) {

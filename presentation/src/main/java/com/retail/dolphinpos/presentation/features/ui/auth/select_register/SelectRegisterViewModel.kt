@@ -105,10 +105,13 @@ class SelectRegisterViewModel @Inject constructor(
         }
     }
 
-    fun getProducts(locationID: Int, storeRegisterID: Int) {
+    fun getProducts(locationID: Int, storeRegisterID: Int, selectedRegister: com.retail.dolphinpos.domain.model.auth.login.response.Registers) {
         viewModelScope.launch {
             _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
             try {
+                // Save the selected register to database
+                storeRegistersRepository.insertRegisterIntoLocalDB(selectedRegister)
+                
                 val response =
                     storeRegistersRepository.getProducts(preferenceManager.getStoreID(), locationID)
                 if (response.category?.categories.isNullOrEmpty()) {

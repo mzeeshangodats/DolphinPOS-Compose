@@ -219,18 +219,18 @@ fun HomeScreen(
             // Home App Bar with search and logout
             HomeAppBar(
                 searchQuery = searchQuery, onSearchQueryChange = { query ->
-                searchQuery = query
-                viewModel.searchProducts(query)
-            }, onLogout = {
-                showLogoutDialog = true
-            }, searchResults = searchResults, onProductClick = { product ->
-                val success = viewModel.addToCart(product)
-                if (success) {
-                    searchQuery = ""
-                } else {
-                    DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
-                }
-            }, userName = userName, isClockedIn = isClockedIn, clockInTime = clockInTime
+                    searchQuery = query
+                    viewModel.searchProducts(query)
+                }, onLogout = {
+                    showLogoutDialog = true
+                }, searchResults = searchResults, onProductClick = { product ->
+                    val success = viewModel.addToCart(product)
+                    if (success) {
+                        searchQuery = ""
+                    } else {
+                        DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                    }
+                }, userName = userName, isClockedIn = isClockedIn, clockInTime = clockInTime
             )
 
             Row(
@@ -276,14 +276,14 @@ fun HomeScreen(
                     // Cart Action Buttons
                     CartActionButtons(
                         cartItems = cartItems,
-                                      onClearCart = { viewModel.clearCart() },
-                                      onHoldCartClick = {
-                                          if (cartItems.isEmpty()) {
-                                              showHoldCartDialog = true
-                                          } else {
-                                              viewModel.saveHoldCart("Guest Cart")
-                                          }
-                                      })
+                        onClearCart = { viewModel.clearCart() },
+                        onHoldCartClick = {
+                            if (cartItems.isEmpty()) {
+                                showHoldCartDialog = true
+                            } else {
+                                viewModel.saveHoldCart("Guest Cart")
+                            }
+                        })
 
                     // Payment Input
                     PaymentInput(
@@ -315,7 +315,7 @@ fun HomeScreen(
                     }, onNext = {
                         when {
                             viewModel.isCashSelected -> viewModel.createOrder("cash")
-                            else -> viewModel.initCardPayment()
+                            else -> viewModel.createOrder("card")
                         }
                     })
                 }
@@ -366,26 +366,26 @@ fun HomeScreen(
             if (showOrderDiscountDialog) {
                 OrderLevelDiscountDialog(
                     onDismiss = { showOrderDiscountDialog = false },
-                                         onApplyDiscount = { discounts ->
-                                             viewModel.setOrderLevelDiscounts(discounts)
-                                             viewModel.updateCartPrices()
-                                             showOrderDiscountDialog = false
-                                         },
-                                         onSaveDiscountValues = { discountValue, discountType, discountReason ->
-                                             viewModel.saveOrderDiscountValues(
-                                                 discountValue, discountType, discountReason
-                                             )
-                                         },
-                                         onRemoveAllDiscounts = {
-                                             viewModel.removeAllOrderDiscounts()
-                                         },
-                                         onResetDiscountValues = {
-                                             viewModel.resetOrderDiscountValues()
-                                         },
-                                         preFilledDiscountValue = viewModel.getOrderDiscountValue(),
-                                         preFilledDiscountType = viewModel.getOrderDiscountType(),
-                                         preFilledDiscountReason = viewModel.getOrderDiscountReason(),
-                                         existingOrderDiscounts = orderLevelDiscounts
+                    onApplyDiscount = { discounts ->
+                        viewModel.setOrderLevelDiscounts(discounts)
+                        viewModel.updateCartPrices()
+                        showOrderDiscountDialog = false
+                    },
+                    onSaveDiscountValues = { discountValue, discountType, discountReason ->
+                        viewModel.saveOrderDiscountValues(
+                            discountValue, discountType, discountReason
+                        )
+                    },
+                    onRemoveAllDiscounts = {
+                        viewModel.removeAllOrderDiscounts()
+                    },
+                    onResetDiscountValues = {
+                        viewModel.resetOrderDiscountValues()
+                    },
+                    preFilledDiscountValue = viewModel.getOrderDiscountValue(),
+                    preFilledDiscountType = viewModel.getOrderDiscountType(),
+                    preFilledDiscountReason = viewModel.getOrderDiscountReason(),
+                    existingOrderDiscounts = orderLevelDiscounts
                 )
             }
 
@@ -393,60 +393,60 @@ fun HomeScreen(
             if (showAddCustomerDialog) {
                 AddCustomerDialog(
                     onDismiss = { showAddCustomerDialog = false },
-                                  onSaveCustomer = { firstName, lastName, email, birthday ->
-                                      viewModel.saveCustomer(firstName, lastName, email, birthday)
-                                      showAddCustomerDialog = false
-                                      DialogHandler.showDialog(
-                                          message = "Customer Added Successfully",
-                                          buttonText = "OK",
-                                          iconRes = R.drawable.add_customer_icon_blue,
-                                          cancellable = true
-                                      )
-                                  })
+                    onSaveCustomer = { firstName, lastName, email, birthday ->
+                        viewModel.saveCustomer(firstName, lastName, email, birthday)
+                        showAddCustomerDialog = false
+                        DialogHandler.showDialog(
+                            message = "Customer Added Successfully",
+                            buttonText = "OK",
+                            iconRes = R.drawable.add_customer_icon_blue,
+                            cancellable = true
+                        )
+                    })
             }
 
             // Hold Cart List Dialog
             if (showHoldCartDialog) {
                 HoldCartListDialog(
                     onDismiss = { showHoldCartDialog = false },
-                                   onRestoreCart = { holdCartId ->
-                                       viewModel.restoreHoldCart(holdCartId)
-                                       showHoldCartDialog = false
-                                   },
-                                   onDeleteCart = { holdCartId ->
-                                       viewModel.deleteHoldCart(holdCartId)
-                                   })
+                    onRestoreCart = { holdCartId ->
+                        viewModel.restoreHoldCart(holdCartId)
+                        showHoldCartDialog = false
+                    },
+                    onDeleteCart = { holdCartId ->
+                        viewModel.deleteHoldCart(holdCartId)
+                    })
             }
 
             // Logout Confirmation Dialog
             if (showLogoutDialog) {
                 LogoutConfirmationDialog(
                     onDismiss = { showLogoutDialog = false },
-                                         onConfirm = { viewModel.logout() })
+                    onConfirm = { viewModel.logout() })
             }
 
             // Clock In/Out Dialog
             if (showClockInOutDialog) {
                 ClockInOutDialog(
                     pinValue = clockInOutPin,
-                                 onPinChange = { clockInOutPin = it },
-                                 onClockOut = {
-                                     viewModel.clockOut(clockInOutPin)
-                                     clockInOutPin = ""
-                                     showClockInOutDialog = false
-                                 },
-                                 onClockIn = {
-                                     viewModel.clockIn(clockInOutPin)
-                                     clockInOutPin = ""
-                                     showClockInOutDialog = false
-                                 },
-                                 onDismiss = {
-                                     clockInOutPin = ""
-                                     showClockInOutDialog = false
-                                 },
-                                 onViewHistory = {
-                                     // TODO: Navigate to clock in/out history screen
-                                 })
+                    onPinChange = { clockInOutPin = it },
+                    onClockOut = {
+                        viewModel.clockOut(clockInOutPin)
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onClockIn = {
+                        viewModel.clockIn(clockInOutPin)
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onDismiss = {
+                        clockInOutPin = ""
+                        showClockInOutDialog = false
+                    },
+                    onViewHistory = {
+                        // TODO: Navigate to clock in/out history screen
+                    })
             }
 
             if (selectedProductForVariant != null) {
@@ -507,24 +507,24 @@ fun CartPanel(
             } else {
                 CartItemsList(
                     cartItems = cartItems,
-                              onRemoveFromCart = { cartItem ->
-                                  cartItem.productId?.let { productId ->
-                                      if (cartItem.productVariantId != null) {
-                                          onRemoveFromCart(productId, cartItem.productVariantId)
-                                      } else {
-                                          onRemoveFromCart(productId, null)
-                                      }
-                                  }
-                              },
-                              onUpdateCartItem = { cartItem ->
-                                  if (canApplyProductDiscount()) {
-                                      selectedCartItem = cartItem
-                                  } else {
-                                      DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
-                                  }
-                              },
-                              canApplyProductDiscount = canApplyProductDiscount,
-                              canRemoveItemFromCart = canRemoveItemFromCart
+                    onRemoveFromCart = { cartItem ->
+                        cartItem.productId?.let { productId ->
+                            if (cartItem.productVariantId != null) {
+                                onRemoveFromCart(productId, cartItem.productVariantId)
+                            } else {
+                                onRemoveFromCart(productId, null)
+                            }
+                        }
+                    },
+                    onUpdateCartItem = { cartItem ->
+                        if (canApplyProductDiscount()) {
+                            selectedCartItem = cartItem
+                        } else {
+                            DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
+                        }
+                    },
+                    canApplyProductDiscount = canApplyProductDiscount,
+                    canRemoveItemFromCart = canRemoveItemFromCart
                 )
             }
         }
@@ -533,17 +533,15 @@ fun CartPanel(
         selectedCartItem?.let { cartItem ->
             ProductLevelDiscountDialog(
                 cartItem = cartItem,
-                                       onDismiss = { selectedCartItem = null },
-                                       onApplyDiscount = { updatedItem ->
-                                           onUpdateCartItem(updatedItem)
-                                           selectedCartItem = null
-                                       },
-                                       onRemoveItem = {
-                                           onRemoveFromCart(
-                                               cartItem.productId ?: 0, cartItem.productVariantId
-                                           )
-                                           selectedCartItem = null
-                                       })
+                onDismiss = { selectedCartItem = null },
+                onApplyDiscount = { updatedItem ->
+                    onUpdateCartItem(updatedItem)
+                    selectedCartItem = null
+                },
+                onRemoveItem = {
+                    onRemoveFromCart(cartItem.productId ?: 0, cartItem.productVariantId)
+                    selectedCartItem = null
+                })
         }
     }
 }
@@ -654,7 +652,7 @@ fun PricingSummary(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = Color.White, shape = RoundedCornerShape(8.dp)
+                color = Color.White, shape = RoundedCornerShape(5.dp)
             )
             .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -663,12 +661,16 @@ fun PricingSummary(
             modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             BaseText(
-                text = "Subtotal:", color = Color.Black, fontSize = 12f, fontFamily = GeneralSans
+                text = "Subtotal:",
+                color = Color.Black,
+                fontSize = 14f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans
             )
             BaseText(
                 text = String.format(Locale.US, "$%.2f", subtotal),
                 color = Color.Black,
-                fontSize = 12f,
+                fontSize = 14f,
                 fontFamily = GeneralSans,
                 fontWeight = FontWeight.SemiBold
             )
@@ -682,13 +684,14 @@ fun PricingSummary(
                 BaseText(
                     text = "Cash Discount:",
                     color = colorResource(id = R.color.green_success),
-                    fontSize = 12f,
-                    fontFamily = GeneralSans
+                    fontSize = 14f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
                 )
                 BaseText(
                     text = String.format(Locale.US, "-$%.2f", cashDiscountTotal),
                     color = colorResource(id = R.color.green_success),
-                    fontSize = 12f,
+                    fontSize = 14f,
                     fontFamily = GeneralSans,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -703,13 +706,14 @@ fun PricingSummary(
                 BaseText(
                     text = "Discount:",
                     color = colorResource(id = R.color.green_success),
-                    fontSize = 12f,
-                    fontFamily = GeneralSans
+                    fontSize = 14f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
                 )
                 BaseText(
                     text = String.format(Locale.US, "-$%.2f", orderDiscountTotal),
                     color = colorResource(id = R.color.green_success),
-                    fontSize = 12f,
+                    fontSize = 14f,
                     fontFamily = GeneralSans,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -721,12 +725,16 @@ fun PricingSummary(
             modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             BaseText(
-                text = "Tax:", color = Color.Black, fontSize = 12f, fontFamily = GeneralSans
+                text = "Tax:",
+                color = Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
             )
             BaseText(
                 text = String.format(Locale.US, "$%.2f", tax),
                 color = Color.Black,
-                fontSize = 12f,
+                fontSize = 14f,
                 fontFamily = GeneralSans,
                 fontWeight = FontWeight.SemiBold
             )
@@ -957,33 +965,35 @@ fun CartItemRow(
         }
 
         // Main content row - mimics ItemTouchHelper.LEFT behavior
-        Row(modifier = Modifier
-            .fillMaxWidth()
-            .offset { IntOffset(offsetX.roundToInt(), 0) }
-            .background(
-                color = Color.White, shape = RoundedCornerShape(4.dp)
-            )
-            .pointerInput(item.productId) {
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        // Similar to ItemTouchHelper onSwiped behavior
-                        if (offsetX < -swipeThreshold) {
-                            // Swipe threshold reached - remove item (like ItemTouchHelper.LEFT)
-                            onRemove()
-                        } else {
-                            // Snap back to original position (like ItemTouchHelper animation)
-                            offsetX = 0f
-                        }
-                    }) { _, dragAmount ->
-                    // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
-                    // Allow more aggressive swiping for better detection
-                    val newOffset =
-                        (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f).coerceAtMost(0f)
-                    offsetX = newOffset
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(offsetX.roundToInt(), 0) }
+                .background(
+                    color = Color.White, shape = RoundedCornerShape(4.dp)
+                )
+                .pointerInput(item.productId) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            // Similar to ItemTouchHelper onSwiped behavior
+                            if (offsetX < -swipeThreshold) {
+                                // Swipe threshold reached - remove item (like ItemTouchHelper.LEFT)
+                                onRemove()
+                            } else {
+                                // Snap back to original position (like ItemTouchHelper animation)
+                                offsetX = 0f
+                            }
+                        }) { _, dragAmount ->
+                        // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
+                        // Allow more aggressive swiping for better detection
+                        val newOffset =
+                            (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f)
+                                .coerceAtMost(0f)
+                        offsetX = newOffset
+                    }
                 }
-            }
-            .clickable { onUpdate(item) }
-            .padding(8.dp),
+                .clickable { onUpdate(item) }
+                .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             // Product Image - Left most
@@ -1088,21 +1098,21 @@ fun PaymentInput(
                     color = colorResource(id = R.color.borderOutline),
                     shape = RoundedCornerShape(4.dp)
                 )
-                .height(35.dp)
+                .height(40.dp)
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
                 value = paymentAmount, onValueChange = { newValue ->
-                // Prevent deletion below 0.00
-                val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
+                    // Prevent deletion below 0.00
+                    val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                    val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
 
-                // Only allow changes if the new amount is not less than 0.00
-                if (newAmount >= 0.0) {
-                    onPaymentAmountChange(newValue)
-                }
-            }, modifier = Modifier
+                    // Only allow changes if the new amount is not less than 0.00
+                    if (newAmount >= 0.0) {
+                        onPaymentAmountChange(newValue)
+                    }
+                }, modifier = Modifier
                     .weight(1f)
                     .pointerInput(Unit) {
                         // Prevent keyboard from opening by consuming all pointer events
@@ -1112,12 +1122,12 @@ fun PaymentInput(
                             }
                         }
                     }, textStyle = TextStyle(
-                fontFamily = GeneralSans, fontSize = 12.sp, color = Color.Black
-            ), cursorBrush = SolidColor(Color.Transparent), // Hide cursor
-                           readOnly = true, // Prevent keyboard from opening
-                           decorationBox = { innerTextField ->
-                               innerTextField()
-                           })
+                    fontFamily = GeneralSans, fontSize = 14.sp, color = Color.Black
+                ), cursorBrush = SolidColor(Color.Transparent), // Hide cursor
+                readOnly = true, // Prevent keyboard from opening
+                decorationBox = { innerTextField ->
+                    innerTextField()
+                })
 
             IconButton(
                 onClick = {
@@ -1691,7 +1701,8 @@ fun ProductLevelDiscountDialog(
         }
     }, text = {
         Column(
-            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Product Name
             BaseText(
@@ -1946,7 +1957,7 @@ fun ProductLevelDiscountDialog(
                 )
             }
         }
-    })
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2012,7 +2023,8 @@ fun OrderLevelDiscountDialog(
         }
     }, text = {
         Column(
-            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Reason Selection
             BaseText(
@@ -2029,23 +2041,21 @@ fun OrderLevelDiscountDialog(
                 expanded = expanded, onExpandedChange = { expanded = !expanded }) {
                 OutlinedTextField(
                     value = selectedReason,
-                                  onValueChange = { },
-                                  readOnly = true,
-                                  trailingIcon = {
-                                      ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                                  },
-                                  modifier = Modifier
-                                      .fillMaxWidth()
-                                      .menuAnchor(),
-                                  colors = OutlinedTextFieldDefaults.colors(
-                                      focusedContainerColor = Color.White,
-                                      unfocusedContainerColor = Color.White
-                                  ),
-                                  textStyle = TextStyle(
-                                      fontSize = 12.sp,
-                                      fontFamily = GeneralSans,
-                                      color = Color.Black
-                                  )
+                    onValueChange = { },
+                    readOnly = true,
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    ),
+                    textStyle = TextStyle(
+                        fontSize = 12.sp, fontFamily = GeneralSans, color = Color.Black
+                    )
                 )
                 ExposedDropdownMenu(
                     expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -2355,29 +2365,29 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = firstName,
-                                          onValueChange = {
-                                              firstName = it
-                                              firstNameError = ""
-                                          },
-                                          placeholder = {
-                                              BaseText(
-                                                  text = "Enter First Name",
-                                                  fontSize = 13f,
-                                                  fontFamily = GeneralSans
-                                              )
-                                          },
-                                          isError = firstNameError.isNotEmpty(),
-                                          singleLine = true,
-                                          modifier = Modifier
-                                              .fillMaxWidth()
-                                              .height(56.dp),
-                                          colors = OutlinedTextFieldDefaults.colors(
-                                              focusedBorderColor = colorResource(id = R.color.primary),
-                                              unfocusedBorderColor = Color.Gray
-                                          ),
-                                          textStyle = TextStyle(
-                                              fontSize = 13.sp, fontFamily = GeneralSans
-                                          )
+                            onValueChange = {
+                                firstName = it
+                                firstNameError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter First Name",
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans
+                                )
+                            },
+                            isError = firstNameError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp, fontFamily = GeneralSans
+                            )
                         )
                         if (firstNameError.isNotEmpty()) {
                             BaseText(
@@ -2401,29 +2411,29 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = lastName,
-                                          onValueChange = {
-                                              lastName = it
-                                              lastNameError = ""
-                                          },
-                                          placeholder = {
-                                              BaseText(
-                                                  text = "Enter Last Name",
-                                                  fontSize = 13f,
-                                                  fontFamily = GeneralSans
-                                              )
-                                          },
-                                          isError = lastNameError.isNotEmpty(),
-                                          singleLine = true,
-                                          modifier = Modifier
-                                              .fillMaxWidth()
-                                              .height(56.dp),
-                                          colors = OutlinedTextFieldDefaults.colors(
-                                              focusedBorderColor = colorResource(id = R.color.primary),
-                                              unfocusedBorderColor = Color.Gray
-                                          ),
-                                          textStyle = TextStyle(
-                                              fontSize = 13.sp, fontFamily = GeneralSans
-                                          )
+                            onValueChange = {
+                                lastName = it
+                                lastNameError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter Last Name",
+                                    fontSize = 13f,
+                                    fontFamily = GeneralSans
+                                )
+                            },
+                            isError = lastNameError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp, fontFamily = GeneralSans
+                            )
                         )
                         if (lastNameError.isNotEmpty()) {
                             BaseText(
@@ -2453,30 +2463,28 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = email,
-                                          onValueChange = {
-                                              email = it
-                                              emailError = ""
-                                          },
-                                          placeholder = {
-                                              BaseText(
-                                                  text = "Enter Email",
-                                                  fontSize = 13f,
-                                                  fontFamily = GeneralSans
-                                              )
-                                          },
-                                          isError = emailError.isNotEmpty(),
-                                          singleLine = true,
-                                          modifier = Modifier
-                                              .fillMaxWidth()
-                                              .height(56.dp),
-                                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                                          colors = OutlinedTextFieldDefaults.colors(
-                                              focusedBorderColor = colorResource(id = R.color.primary),
-                                              unfocusedBorderColor = Color.Gray
-                                          ),
-                                          textStyle = TextStyle(
-                                              fontSize = 13.sp, fontFamily = GeneralSans
-                                          )
+                            onValueChange = {
+                                email = it
+                                emailError = ""
+                            },
+                            placeholder = {
+                                BaseText(
+                                    text = "Enter Email", fontSize = 13f, fontFamily = GeneralSans
+                                )
+                            },
+                            isError = emailError.isNotEmpty(),
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = colorResource(id = R.color.primary),
+                                unfocusedBorderColor = Color.Gray
+                            ),
+                            textStyle = TextStyle(
+                                fontSize = 13.sp, fontFamily = GeneralSans
+                            )
                         )
                         if (emailError.isNotEmpty()) {
                             BaseText(
@@ -2661,7 +2669,8 @@ fun VariantSelectionDialog(
                             modifier = Modifier
                                 .size(50.dp)
                                 .background(Color.White, RoundedCornerShape(4.dp))
-                                .clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentAlignment = Alignment.Center
                         ) {
                             if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
                                 AsyncImage(

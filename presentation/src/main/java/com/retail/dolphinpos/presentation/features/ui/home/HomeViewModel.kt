@@ -8,6 +8,7 @@ import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.retail.dolphinpos.data.repository.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
@@ -399,6 +400,9 @@ class HomeViewModel @Inject constructor(
 
     fun resetOrderDiscountValues() {
         preferenceManager.clearOrderDiscountValues()
+        _orderLevelDiscounts.value = emptyList()
+        // Recalculate subtotal to reflect discount removal
+        calculateSubtotal(_cartItems.value)
     }
 
     fun removeAllOrderDiscounts() {
@@ -791,6 +795,8 @@ class HomeViewModel @Inject constructor(
                 android.util.Log.e("Order", "Failed to create order: ${e.message}")
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
+                // Reset order level discounts when order fails
+                resetOrderDiscountValues()
             }
         }
     }

@@ -3,9 +3,11 @@ package com.retail.dolphinpos.domain.repositories.auth
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterData
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterData
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductImage
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
@@ -16,10 +18,12 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Vendor
 
 interface StoreRegistersRepository {
     suspend fun updateStoreRegister(updateStoreRegisterRequest: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse
+    suspend fun verifyStoreRegister(verifyRegisterRequest: VerifyRegisterRequest): VerifyRegisterResponse
     suspend fun getProducts(storeID: Int, locationID: Int): ProductsResponse
     suspend fun logout(): LogoutResponse
     suspend fun getLocations(storeID: Int): List<Locations>
     suspend fun getRegistersByLocationID(locationID: Int): List<Registers>
+    suspend fun insertRegisterIntoLocalDB(register: Registers)
     suspend fun insertRegisterStatusDetailsIntoLocalDB(updateStoreRegisterData: UpdateStoreRegisterData)
     suspend fun getRegisterStatus(): UpdateStoreRegisterData
     suspend fun insertCategoriesIntoLocalDB(categoryList: List<CategoryData>)

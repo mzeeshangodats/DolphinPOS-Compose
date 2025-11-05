@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.presentation.features.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,6 +18,18 @@ import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrde
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
     val navController = rememberNavController()
+
+    // Check if we need to navigate to selectRegister (after register verification failure)
+    LaunchedEffect(Unit) {
+        // Check if flag is set (set by background worker when register is not occupied)
+        if (preferenceManager.getForceRegisterSelection()) {
+            preferenceManager.clearForceRegisterSelection()
+            // Navigate to selectRegister
+            navController.navigate("selectRegister") {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     NavHost(
         navController = navController,

@@ -23,10 +23,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -53,6 +55,7 @@ import com.retail.dolphinpos.presentation.features.ui.orders.OrdersScreen
 import com.retail.dolphinpos.presentation.features.ui.products.ProductsScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.ReportsScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.HardwareSetupScreen
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import android.app.Activity
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +88,47 @@ fun MainLayout(
     // Handle back press
     BackHandler(enabled = !showExitDialog) {
         showExitDialog = true
+    }
+
+    // Check for logout/register verification failure and navigate accordingly
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(2000) // Check every 2 seconds
+            
+            // Check if force register selection flag is set (from background worker)
+            if (preferenceManager.getForceRegisterSelection()) {
+                preferenceManager.clearForceRegisterSelection()
+                // Show dialog first (non-cancelable, no close button), then navigate
+                DialogHandler.showDialog(
+                    message = "The current register you're using has been released by somebody",
+                    buttonText = "OK",
+                    iconRes = R.drawable.info_icon,
+                    cancellable = false
+                ) {
+                    // Navigate to login screen after OK button is clicked
+                    navController.navigate("login") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+                break
+            }
+            
+            // Check if user is logged out
+            if (!preferenceManager.isLogin()) {
+                navController.navigate("login") {
+                    popUpTo(0) { inclusive = true }
+                }
+                break
+            }
+            
+            // Check if register is not selected
+            if (!preferenceManager.getRegister()) {
+                navController.navigate("selectRegister") {
+                    popUpTo(0) { inclusive = true }
+                }
+                break
+            }
+        }
     }
 
     Column(
@@ -137,6 +181,7 @@ fun MainLayout(
                             // reselecting the same item
                             launchSingleTop = true
                             // Restore state when reselecting a previously selected item
+                            // This ensures navigation works consistently across all screens
                             restoreState = true
                         }
                     }

@@ -13,17 +13,17 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.util.concurrent.TimeUnit
 
-object BatchSyncWorkerConfiguration {
+object WorkManagerConfiguration {
 
     fun initializeWorkManager(context: Context) {
         // Get Hilt entry point to access HiltWorkerFactory
         val entryPoint = EntryPointAccessors.fromApplication(
             context.applicationContext,
-            BatchSyncWorkerEntryPoint::class.java
+            WorkManagerEntryPoint::class.java
         )
 
         val configuration = Configuration.Builder()
-            .setWorkerFactory(entryPoint.batchSyncWorkerFactory())
+            .setWorkerFactory(entryPoint.workerFactory())
             .build()
 
         WorkManager.initialize(context, configuration)
@@ -31,6 +31,7 @@ object BatchSyncWorkerConfiguration {
         // Enqueue periodic sync work when internet is available
         enqueueBatchSyncWork(context)
         enqueueOrderSyncWork(context)
+        enqueueRegisterVerificationWork(context)
     }
 
     private fun enqueueBatchSyncWork(context: Context) {
@@ -66,11 +67,28 @@ object BatchSyncWorkerConfiguration {
 
         WorkManager.getInstance(context).enqueue(syncRequest)
     }
+
+    private fun enqueueRegisterVerificationWork(context: Context) {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        // Verify register status every 15 minutes
+        val verificationRequest = PeriodicWorkRequestBuilder<RegisterVerificationWorker>(
+            15, TimeUnit.MINUTES, // Repeat every 15 minutes
+            5, TimeUnit.MINUTES // With a 5-minute flex interval
+        )
+            .setConstraints(constraints)
+            .addTag("REGISTER_VERIFICATION")
+            .build()
+
+        WorkManager.getInstance(context).enqueue(verificationRequest)
+    }
 }
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-interface BatchSyncWorkerEntryPoint {
-    fun batchSyncWorkerFactory(): HiltWorkerFactory
+interface WorkManagerEntryPoint {
+    fun workerFactory(): HiltWorkerFactory
 }
 

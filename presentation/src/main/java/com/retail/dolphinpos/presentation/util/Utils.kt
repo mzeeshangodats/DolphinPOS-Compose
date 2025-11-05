@@ -97,7 +97,8 @@ object Utils {
                     buttonText = buttonText,
                     iconRes = iconRes,
                     onDismiss = onDismiss,
-                    onActionClick = onActionClick
+                    onActionClick = onActionClick,
+                    showCloseButton = false
                 )
             }
         } else {
@@ -107,7 +108,8 @@ object Utils {
                     buttonText = buttonText,
                     iconRes = iconRes,
                     onDismiss = onDismiss,
-                    onActionClick = onActionClick
+                    onActionClick = onActionClick,
+                    showCloseButton = true
                 )
             }
         }
@@ -119,7 +121,8 @@ object Utils {
         buttonText: String,
         iconRes: Int,
         onDismiss: () -> Unit,
-        onActionClick: (() -> Unit)? = null
+        onActionClick: (() -> Unit)? = null,
+        showCloseButton: Boolean = true
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -132,17 +135,19 @@ object Utils {
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Close button (top-right)
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    IconButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.close_icon),
-                            contentDescription = "Close",
-                            tint = Color.Gray
-                        )
+                // Close button (top-right) - only show if showCloseButton is true
+                if (showCloseButton) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.close_icon),
+                                contentDescription = "Close",
+                                tint = Color.Gray
+                            )
+                        }
                     }
                 }
 

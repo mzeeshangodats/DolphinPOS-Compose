@@ -23,11 +23,14 @@ object Constants {
     
     // Customer persistence
     const val CUSTOMER_ID = "customer_id"
-    
+
+    // Force register selection flag
+    const val FORCE_REGISTER_SELECTION = "force_register_selection"
+
     // Barcode scanner constants
     const val IS_QR_CODE_MODE = "is_qr_code_mode"
     const val SCANNED_CODE = "scanned_code"
-    
+
     // Hardware setup preferences
     const val SHARED_PREFS_FILE_NAME = "Dolphin-Preference"
     const val LOGIN_DETAIL_KEY = "login-detail"

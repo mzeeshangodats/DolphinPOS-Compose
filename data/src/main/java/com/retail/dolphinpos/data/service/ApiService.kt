@@ -10,13 +10,15 @@ import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutResponse
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.LoginResponse
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
-import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.UpdateStoreRegisterResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.storeRegisters.StoreRegistersResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse
+import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
-import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -40,8 +42,16 @@ interface ApiService {
         @Query("userId") userId: Int,
     ): ClockInOutHistoryResponse
 
+    @GET("store-registers")
+    suspend fun getStoreRegisters(
+        @Query("storeId") storeId: Int, @Query("locationId") locationId: Int
+    ): StoreRegistersResponse
+
     @POST("offline-registers/occupy")
     suspend fun updateStoreRegister(@Body request: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse
+
+    @POST("offline-registers/verify")
+    suspend fun verifyStoreRegister(@Body request: VerifyRegisterRequest): VerifyRegisterResponse
 
     @GET("product/offline-download")
     suspend fun getProducts(
