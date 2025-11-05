@@ -1215,7 +1215,8 @@ fun Keypad(
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
             onClear = onClear,
-            onNext = onNext
+            onNext = onNext,
+            isRow4 = true
         )
 
         // Row 5: Empty, 00, Clear, Card
@@ -1246,7 +1247,8 @@ fun KeypadRow(
     onCardSelected: (() -> Unit)? = null,
     onClear: (() -> Unit)? = null,
     onNext: (() -> Unit)? = null,
-    isLastRow: Boolean = false
+    isLastRow: Boolean = false,
+    isRow4: Boolean = false
 ) {
     val strExact = stringResource(id = R.string.exact)
     val cash = stringResource(id = R.string.cash)
@@ -1257,15 +1259,20 @@ fun KeypadRow(
     Row(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        buttons.forEach { button ->
+        buttons.forEachIndexed { index, button ->
+            // Calculate weight for Row 4: first 3 buttons (Exact, 0, Next) = 1f (same as buttons 1, 2, 3 in Row 3)
+            // Last button (Cash) = 2f (double width)
+            val buttonWeight = when {
+                button.contains("$") -> 1.2f
+                isRow4 && index == buttons.size - 1 && button == stringResource(id = R.string.cash) -> 2.2f
+                isRow4 && index < buttons.size - 1 -> 0.9f // First 3 buttons in Row 4 (Exact, 0, Next) - same weight as buttons 1, 2 in Row 3
+                isLastRow && button == stringResource(id = R.string.cash) -> 2.2f
+                else -> 1f // Default weight for regular buttons (like 1, 2, 3 in Row 3)
+            }
+            
             KeypadButton(
                 text = button,
-                modifier = Modifier.weight(
-                    if (button.contains("$")) 1.2f else if (isLastRow && button == stringResource(
-                            id = R.string.cash
-                        )
-                    ) 2f else 1f
-                ),
+                modifier = Modifier.weight(buttonWeight),
                 onClick = {
                     when {
                         button.contains("$") -> {
@@ -1330,7 +1337,7 @@ fun KeypadButton(
 
     Button(
         onClick = onClick,
-        modifier = modifier.height(50.dp),
+        modifier = modifier.height(60.dp),
         colors = ButtonDefaults.buttonColors(containerColor = backgroundColor),
         shape = RoundedCornerShape(4.dp),
         contentPadding = PaddingValues(horizontal = 2.dp, vertical = 2.dp)
