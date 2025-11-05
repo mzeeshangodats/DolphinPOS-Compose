@@ -25,6 +25,7 @@ import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.setup.payment.CreditCardProcessingScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
 
 @Composable
 fun HardwareSetupScreen(
@@ -45,6 +46,7 @@ fun HardwareSetupScreen(
         ) {
             when (selectedIndex) {
                 2 -> CreditCardProcessingScreen(navController = navController)
+                4 -> PrinterSetupScreen(navController = navController)
                 else -> {
                     Box(
                         modifier = Modifier
