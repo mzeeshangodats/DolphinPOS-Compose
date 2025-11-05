@@ -7,7 +7,6 @@ import android.graphics.Paint
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
-import com.lingeriepos.common.usecases.printer.DownloadAndUpdateCachedImageUseCase
 import com.starmicronics.stario10.starxpandcommand.DocumentBuilder
 import com.starmicronics.stario10.starxpandcommand.MagnificationParameter
 import com.starmicronics.stario10.starxpandcommand.PrinterBuilder
@@ -21,7 +20,11 @@ import com.starmicronics.stario10.starxpandcommand.printer.InternationalCharacte
 import com.starmicronics.stario10.starxpandcommand.printer.RuledLineParameter
 import javax.inject.Inject
 
-class TestPrintUseCase @Inject constructor(
+/**
+ * Data layer implementation for test print.
+ * This is used internally by TestPrintUseCaseImpl.
+ */
+class TestPrintUseCaseData @Inject constructor(
     val getAppLogo: GetAppLogoUseCase,
     val createImageParameterFromText: CreateImageParameterFromTextUseCase,
     val downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase

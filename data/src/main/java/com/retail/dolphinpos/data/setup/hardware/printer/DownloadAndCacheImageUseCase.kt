@@ -1,11 +1,11 @@
-package com.lingeriepos.common.usecases.printer
+package com.retail.dolphinpos.data.setup.hardware.printer
 
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
-import com.lingeriepos.preferences.getStringInSharedPreference
-import com.lingeriepos.preferences.saveStringInSharedPreference
+import com.retail.dolphinpos.common.utils.preferences.getStringInSharedPreference
+import com.retail.dolphinpos.common.utils.preferences.saveStringInSharedPreference
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -6,8 +6,15 @@ import com.retail.dolphinpos.common.utils.preferences.getObjectFromSharedPrefere
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-class GetPrinterDetailsUseCase @Inject constructor(@param:ApplicationContext val context: Context) {
+/**
+ * Old data layer use case - kept for backward compatibility.
+ * Use GetPrinterDetailsUseCaseImpl instead.
+ * @deprecated Use domain interface GetPrinterDetailsUseCase
+ */
+class GetPrinterDetailsUseCaseData @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
-    operator fun invoke() = context.getObjectFromSharedPreference<PrinterDetails>(PRINTER_DETAIL)
+    operator fun invoke() = context.getObjectFromSharedPreference<PrinterDetailsData>(PRINTER_DETAIL)
 
 }

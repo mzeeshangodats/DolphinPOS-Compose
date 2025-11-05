@@ -6,9 +6,16 @@ import com.retail.dolphinpos.common.utils.preferences.saveObjectToSharedPreferen
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
-class SavePrinterDetailsUseCase @Inject constructor(@param:ApplicationContext val context: Context) {
+/**
+ * Old data layer use case - kept for backward compatibility.
+ * Use SavePrinterDetailsUseCaseImpl instead.
+ * @deprecated Use domain interface SavePrinterDetailsUseCase
+ */
+class SavePrinterDetailsUseCaseData @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
 
-    operator fun invoke(printerDetails: PrinterDetails) {
+    operator fun invoke(printerDetails: PrinterDetailsData) {
         context.saveObjectToSharedPreference(
             PRINTER_DETAIL,
             printerDetails

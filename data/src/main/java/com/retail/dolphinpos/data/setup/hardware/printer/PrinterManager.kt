@@ -2,6 +2,7 @@ package com.retail.dolphinpos.data.setup.hardware.printer
 
 import android.content.Context
 import android.util.Log
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.GetPrinterDetailsUseCase
 import com.starmicronics.stario10.PrinterDelegate
 import com.starmicronics.stario10.StarConnectionSettings
 import com.starmicronics.stario10.StarIO10Exception
@@ -11,6 +12,7 @@ import com.starmicronics.stario10.starxpandcommand.DrawerBuilder
 import com.starmicronics.stario10.starxpandcommand.StarXpandCommandBuilder
 import com.starmicronics.stario10.starxpandcommand.drawer.Channel
 import com.starmicronics.stario10.starxpandcommand.drawer.OpenParameter
+import com.starmicronics.stario10.InterfaceType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,16 +24,14 @@ import javax.inject.Singleton
 
 @Singleton
 class PrinterManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
-    private val savePrinterDetailsUseCase: SavePrinterDetailsUseCase
+    @ApplicationContext private val context: Context
 ) {
 
     private var printer: StarPrinter? = null
     private var isMonitoring: Boolean = false
 
     suspend fun connectAndSavePrinterDetails(
-        printerDetails: PrinterDetails,
+        printerDetails: PrinterDetailsData,
         statusCallback: (String) -> Unit
     ): Boolean {
         val settings = StarConnectionSettings(printerDetails.connectionType, printerDetails.address)
@@ -42,7 +42,6 @@ class PrinterManager @Inject constructor(
             }
 
             printer?.openAsync()?.await()
-            savePrinterDetailsUseCase(printerDetails)
 
             isMonitoring = true
             statusCallback("Printer connected and details saved successfully.")
@@ -53,23 +52,36 @@ class PrinterManager @Inject constructor(
         }
     }
 
-    private suspend fun reconnectToPrinter(statusCallback: (String) -> Unit): Boolean {
+    suspend fun reconnectToPrinter(
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
+        statusCallback: (String) -> Unit
+    ): Boolean {
         if (printer != null) {
             statusCallback("Reusing existing printer connection.")
             return true
         }
 
-        val printerDetails = getPrinterDetailsUseCase.invoke()
-            ?: return false.also { statusCallback("No printer details saved. Please set up the printer again.") }
+        val printerDetails = getPrinterDetailsUseCase()?.let { domainPrinter ->
+            // Convert domain to data
+            PrinterDetailsData(
+                name = domainPrinter.name,
+                address = domainPrinter.address,
+                connectionType = domainPrinter.connectionType.toInterfaceType(),
+                isGraphic = domainPrinter.isGraphic,
+                isAutoPrintReceiptEnabled = domainPrinter.isAutoPrintReceiptEnabled,
+                isAutoOpenDrawerEnabled = domainPrinter.isAutoOpenDrawerEnabled
+            )
+        } ?: return false.also { statusCallback("No printer details saved. Please set up the printer again.") }
 
         return connectAndSavePrinterDetails(printerDetails, statusCallback)
     }
 
     suspend fun sendPrintCommand(
         data: String,
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
         statusCallback: (String) -> Unit
     ) {
-        if (reconnectToPrinter(statusCallback)) {
+        if (reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
             try {
                 printer?.printAsync(data)?.await()
                 statusCallback("Print command sent successfully.")
@@ -81,28 +93,27 @@ class PrinterManager @Inject constructor(
         }
     }
 
-    fun sendTestPrintCommand(
-        template : String,
+    suspend fun sendTestPrintCommand(
+        template: String,
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
         statusCallback: (String) -> Unit
     ) {
-        val job = SupervisorJob()
-        val scope = CoroutineScope(Dispatchers.Default + job)
-
-        scope.launch {
-            try {
-                reconnectToPrinter(statusCallback)
-                printer?.printAsync(template)?.await()
-                statusCallback("Test print command sent successfully.")
-            } catch (e: Exception) {
-                Log.e(TAG, "sendTestPrintCommand: "+e.printStackTrace())
-                statusCallback("Error during test print: ${e.localizedMessage}")
-            }
+        try {
+            reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)
+            printer?.printAsync(template)?.await()
+            statusCallback("Test print command sent successfully.")
+        } catch (e: Exception) {
+            Log.e(TAG, "sendTestPrintCommand: ${e.message}", e)
+            statusCallback("Error during test print: ${e.localizedMessage}")
         }
     }
 
-    suspend fun openCashDrawer(statusCallback: (String) -> Unit): Pair<Boolean, String> {
+    suspend fun openCashDrawer(
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
+        statusCallback: (String) -> Unit
+    ): Pair<Boolean, String> {
         statusCallback("Attempting to reconnect to printer...")
-        return if (reconnectToPrinter(statusCallback)) {
+        return if (reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
             try {
                 withContext(Dispatchers.IO) {
                     printer?.printAsync(getCommandsForOpenCashDrawer())?.await()
@@ -139,9 +150,10 @@ class PrinterManager @Inject constructor(
 
     suspend fun sendPrintCommands(
         dataList: List<String>,
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
         statusCallback: (String) -> Unit
     ): Boolean {
-        if (!reconnectToPrinter(statusCallback)) {
+        if (!reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
             statusCallback("Printer connection failed. Cannot send print commands.")
             return false
         }
@@ -184,6 +196,15 @@ class PrinterManager @Inject constructor(
         override fun onError() = statusCallback("Printer encountered an Error")
         override fun onCommunicationError(e: StarIO10Exception) = statusCallback("Communication Error: ${e.message}")
         override fun onPaperEmpty() = statusCallback("Printer is out of Paper")
+    }
+
+    private fun com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType.toInterfaceType(): InterfaceType {
+        return when (this) {
+            com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType.LAN -> InterfaceType.Lan
+            com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType.BLUETOOTH -> InterfaceType.Bluetooth
+            com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType.USB -> InterfaceType.Usb
+            com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType.UNKNOWN -> InterfaceType.Unknown
+        }
     }
 
     companion object {
