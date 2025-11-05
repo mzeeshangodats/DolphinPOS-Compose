@@ -238,7 +238,7 @@ fun HomeScreen(
             ) {
                 // Column 1 - Cart (25% width, full height)
                 CartPanel(
-                    modifier = Modifier.weight(0.3f),
+                    modifier = Modifier.weight(0.28f),
                     cartItems = cartItems,
                     holdCartCount = holdCartCount,
                     onRemoveFromCart = { productId, variantId ->
@@ -258,7 +258,7 @@ fun HomeScreen(
                 // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
                 Column(
                     modifier = Modifier
-                        .weight(0.25f)
+                        .weight(0.3f)
                         .background(colorResource(id = R.color.light_grey))
                         .padding(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -322,7 +322,7 @@ fun HomeScreen(
 
                 // Column 3 - Categories (25% width, full height)
                 CategoriesPanel(
-                    modifier = Modifier.weight(0.15f),
+                    modifier = Modifier.weight(0.12f),
                     categories = categories,
                     selectedCategory = selectedCategory,
                     onCategorySelected = { category ->
@@ -752,14 +752,14 @@ fun PricingSummary(
             BaseText(
                 text = "Total:",
                 color = colorResource(id = R.color.primary),
-                fontSize = 14f,
+                fontSize = 18f,
                 fontFamily = GeneralSans,
                 fontWeight = FontWeight.Bold
             )
             BaseText(
                 text = String.format(Locale.US, "$%.2f", totalAmount),
                 color = colorResource(id = R.color.primary),
-                fontSize = 14f,
+                fontSize = 18f,
                 fontFamily = GeneralSans,
                 fontWeight = FontWeight.Bold
             )
@@ -1701,8 +1701,7 @@ fun ProductLevelDiscountDialog(
         }
     }, text = {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Product Name
             BaseText(
@@ -2023,8 +2022,7 @@ fun OrderLevelDiscountDialog(
         }
     }, text = {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Reason Selection
             BaseText(
@@ -2050,8 +2048,7 @@ fun OrderLevelDiscountDialog(
                         .fillMaxWidth()
                         .menuAnchor(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color.White,
-                        unfocusedContainerColor = Color.White
+                        focusedContainerColor = Color.White, unfocusedContainerColor = Color.White
                     ),
                     textStyle = TextStyle(
                         fontSize = 12.sp, fontFamily = GeneralSans, color = Color.Black
@@ -2669,8 +2666,7 @@ fun VariantSelectionDialog(
                             modifier = Modifier
                                 .size(50.dp)
                                 .background(Color.White, RoundedCornerShape(4.dp))
-                                .clip(RoundedCornerShape(4.dp)),
-                            contentAlignment = Alignment.Center
+                                .clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center
                         ) {
                             if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
                                 AsyncImage(
