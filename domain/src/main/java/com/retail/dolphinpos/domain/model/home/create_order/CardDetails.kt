@@ -9,5 +9,9 @@ data class CardDetails(
     val last4: String? = null,
     val entryMethod: String? = null,
     val merchantId: String? = null,
-    val terminalId: String? = null
+    val terminalId: String? = null,
+    val paxBatchNo: String? = null,
+    val originalReferenceNo: String? = null,
+    val ecrReference: String? = null,
+    val edcType: String? = null,
 )

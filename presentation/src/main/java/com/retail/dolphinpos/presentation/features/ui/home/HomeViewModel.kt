@@ -22,9 +22,13 @@ import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -46,7 +50,10 @@ class HomeViewModel @Inject constructor(
     private val pendingOrderRepository: PendingOrderRepositoryImpl,
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
-    private val verifyPinRepository: VerifyPinRepository
+    private val verifyPinRepository: VerifyPinRepository,
+    private val initializeTerminalUseCase: InitializeTerminalUseCase,
+    private val processTransactionUseCase: ProcessTransactionUseCase,
+    private val cancelTransactionUseCase: CancelTransactionUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -97,6 +104,9 @@ class HomeViewModel @Inject constructor(
 
     private val _holdCartCount = MutableStateFlow(0)
     val holdCartCount: StateFlow<Int> = _holdCartCount.asStateFlow()
+
+    // PAX Terminal Session ID (stored as domain model, not SDK type)
+    private var currentSessionId: String? = null
 
     init {
         loadCategories()
@@ -319,7 +329,7 @@ class HomeViewModel @Inject constructor(
             _cashDiscountTotal.value = 0.0
             return
         }
-        
+
         if (isCashSelected) {
             // Calculate cash discount as the difference between card-based subtotal and cash-based subtotal
             val cardBasedSubtotal = cartItems.sumOf { cartItem ->
@@ -444,10 +454,10 @@ class HomeViewModel @Inject constructor(
 
             // 4️⃣ Recalculate cash discount first (before using it in calculation)
             calculateCashDiscount(cartItems)
-            
+
             // Get the current cash discount value after recalculation
             val currentCashDiscount = _cashDiscountTotal.value
-            
+
             // 5️⃣ Apply cash discount (after order-level discounts)
             val finalSubtotal = discountedSubtotal - currentCashDiscount
 
@@ -637,12 +647,13 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun createOrder(paymentMethod: String) {
+    fun createOrder(paymentMethod: String, cardDetails: CardDetails? = null) {
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // Show loading dialog
                 _homeUiEvent.emit(HomeUiEvent.ShowLoading)
-                
+
                 val storeId = preferenceManager.getStoreID()
                 val userId = preferenceManager.getUserID()
                 val registerId = preferenceManager.getOccupiedRegisterID()
@@ -654,7 +665,7 @@ class HomeViewModel @Inject constructor(
 
                 // Generate order number
                 val orderNumber = generateOrderNumber()
-                
+
                 // Capture current values before clearing cart
                 val finalSubtotal = _subtotal.value
                 val finalCashDiscount = _cashDiscountTotal.value
@@ -666,10 +677,13 @@ class HomeViewModel @Inject constructor(
                 val orderItems = _cartItems.value.map { cartItem ->
                     val selectedPrice =
                         if (paymentMethod == "cash") cartItem.cashPrice else cartItem.cardPrice
-                    val hasProductDiscount = cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
-                    val discountedPrice = if (hasProductDiscount) cartItem.getProductDiscountedPrice() else selectedPrice
-                    val discountAmount = if (hasProductDiscount) cartItem.getProductDiscountAmount() else 0.0
-                    
+                    val hasProductDiscount =
+                        cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                    val discountedPrice =
+                        if (hasProductDiscount) cartItem.getProductDiscountedPrice() else selectedPrice
+                    val discountAmount =
+                        if (hasProductDiscount) cartItem.getProductDiscountAmount() else 0.0
+
                     CheckOutOrderItem(
                         productId = cartItem.productId,
                         quantity = cartItem.quantity,
@@ -701,7 +715,7 @@ class HomeViewModel @Inject constructor(
                 }
 
                 // Create dummy card details if card payment is selected
-                val cardDetails = if (paymentMethod != "cash") {
+                if (cardDetails == null) {
                     CardDetails(
                         terminalInvoiceNo = "Dummy${orderNumber}",
                         transactionId = "TXN${System.currentTimeMillis()}",
@@ -711,10 +725,8 @@ class HomeViewModel @Inject constructor(
                         last4 = "1234",
                         entryMethod = "SWIPE",
                         merchantId = "MERCH${storeId}",
-                        terminalId = "TERM${registerId}"
+                        terminalId = "TERM${registerId}",
                     )
-                } else {
-                    null
                 }
 
                 // Create order request using captured values
@@ -788,6 +800,102 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun initCardPayment() {
+
+        viewModelScope.launch {
+
+            if (!networkMonitor.isNetworkConnected()) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("No internet connection"))
+                return@launch
+            }
+
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+
+            initializeTerminalUseCase { result ->
+                viewModelScope.launch(Dispatchers.Main) {
+                    if (result.isSuccess && result.session != null) {
+                        currentSessionId = result.session?.sessionId
+                        processTransaction(
+                            sessionId = result.session?.sessionId ?: "session_id_default",
+                            amount = _totalAmount.value.toString()
+                        )
+                    } else {
+                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                        _homeUiEvent.emit(
+                            HomeUiEvent.ShowError(
+                                result.message ?: "Failed to initialize terminal"
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun processTransaction(sessionId: String, amount: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(
+                HomeUiEvent.ShowSuccess("Please check Pax Terminal Screen and Pay with Card to Proceed")
+            )
+
+            processTransactionUseCase(
+                sessionId = sessionId,
+                amount = amount
+            ) { result ->
+                viewModelScope.launch(Dispatchers.Main) {
+                    if (result.isSuccess && result.cardDetails != null) {
+                        handleTransactionSuccess(result.cardDetails ?: CardDetails())
+                    } else {
+                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                        _homeUiEvent.emit(
+                            HomeUiEvent.ShowError(result.message ?: "Transaction failed")
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun handleTransactionSuccess(cardDetails: CardDetails) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(
+                HomeUiEvent.ShowSuccess("Transaction Successful!")
+            )
+            delay(100)
+            createOrder("card", cardDetails)
+        }
+    }
+
+    private fun cancelTransaction() {
+        viewModelScope.launch {
+            val sessionId = currentSessionId
+            if (sessionId != null) {
+                cancelTransactionUseCase(sessionId)
+                currentSessionId = null
+            }
+        }
+    }
+
+    fun logout() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val response = storeRegistersRepository.logout()
+                response.message.let {
+                    preferenceManager.setLogin(false)
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.NavigateToLogin)
+                }
+
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Something went wrong")
+                )
+            }
+        }
+    }
+
     /**
      * Generates a unique order number based on store, location, register, user IDs and timestamp
      * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
@@ -799,7 +907,7 @@ class HomeViewModel @Inject constructor(
         val registerId = preferenceManager.getOccupiedRegisterID()
         val userId = preferenceManager.getUserID()
         val epochMillis = System.currentTimeMillis()
-        
+
         return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 
@@ -812,21 +920,21 @@ class HomeViewModel @Inject constructor(
             try {
                 val locationId = preferenceManager.getOccupiedLocationID()
                 val user = verifyPinRepository.getUser(pin, locationId)
-                
+
                 if (user == null) {
                     _homeUiEvent.emit(HomeUiEvent.HideLoading)
                     _homeUiEvent.emit(HomeUiEvent.ShowError("Invalid PIN"))
                     return@launch
                 }
-                
+
                 // Set clock in time and status
                 val currentTime = System.currentTimeMillis()
                 preferenceManager.setClockInTime(currentTime)
                 preferenceManager.setClockInStatus(true)
-                
+
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked In Successfully"))
-                
+
             } catch (e: Exception) {
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(
@@ -845,19 +953,19 @@ class HomeViewModel @Inject constructor(
             try {
                 val locationId = preferenceManager.getOccupiedLocationID()
                 val user = verifyPinRepository.getUser(pin, locationId)
-                
+
                 if (user == null) {
                     _homeUiEvent.emit(HomeUiEvent.HideLoading)
                     _homeUiEvent.emit(HomeUiEvent.ShowError("No user found with this PIN"))
                     return@launch
                 }
-                
+
                 // Clear clock in time and set status to false
                 preferenceManager.clockOut()
-                
+
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked Out Successfully"))
-                
+
             } catch (e: Exception) {
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(

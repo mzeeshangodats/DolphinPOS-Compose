@@ -23,7 +23,23 @@ object Constants {
     
     // Customer persistence
     const val CUSTOMER_ID = "customer_id"
-    
+
     // Force register selection flag
     const val FORCE_REGISTER_SELECTION = "force_register_selection"
+
+    // Barcode scanner constants
+    const val IS_QR_CODE_MODE = "is_qr_code_mode"
+    const val SCANNED_CODE = "scanned_code"
+
+    // Hardware setup preferences
+    const val SHARED_PREFS_FILE_NAME = "Dolphin-Preference"
+    const val LOGIN_DETAIL_KEY = "login-detail"
+    const val SHARED_PREF_USER_DETAIL_KEY = "user-detail"
+    const val PAX_DETAIL = "pax_detail"
+    const val PAX_DEFAULT_CONNECTION_TIME_OUT = 60000
+    const val PRINTER_DETAIL = "printer_detail"
+    const val CUSTOMER_FACING_DISPLAY_DETAIL = "customer_facing_display_details"
+    const val USER_PREFERENCE_KEY = "user_preference"
+    const val SHOW_IS_LOYALTY_DIALOG = "is_loyalty_member_dialog"
+
 }

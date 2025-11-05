@@ -60,6 +60,9 @@ interface UserDao {
     @Query("SELECT * FROM active_user_details WHERE pin = :pin")
     suspend fun getActiveUserDetailsByPin(pin: String): ActiveUserDetailsEntity
 
+    @Query("SELECT * FROM active_user_details LIMIT 1")
+    suspend fun getActiveUserDetails(): ActiveUserDetailsEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBatchDetails(batchEntity: BatchEntity)
 

@@ -1,0 +1,1444 @@
+Index: presentation/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\r\n    alias(libs.plugins.android.library)\r\n    alias(libs.plugins.kotlin.android)\r\n    alias(libs.plugins.kotlin.kapt)\r\n    alias(libs.plugins.hilt)\r\n    alias(libs.plugins.safe.args.gradle.plugin)\r\n    alias(libs.plugins.compose.compiler)\r\n}\r\n\r\nandroid {\r\n    namespace = \"com.retail.dolphinpos.presentation\"\r\n    compileSdk = 36\r\n\r\n    defaultConfig {\r\n        minSdk = 26\r\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\r\n        testInstrumentationRunner = \"dagger.hilt.android.testing.HiltTestRunner\"\r\n    }\r\n\r\n    buildTypes {\r\n        release {\r\n            isMinifyEnabled = false\r\n            proguardFiles(\r\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\r\n                \"proguard-rules.pro\"\r\n            )\r\n        }\r\n    }\r\n    compileOptions {\r\n        sourceCompatibility = JavaVersion.VERSION_11\r\n        targetCompatibility = JavaVersion.VERSION_11\r\n    }\r\n    kotlinOptions {\r\n        jvmTarget = \"11\"\r\n    }\r\n    buildFeatures {\r\n        viewBinding = true\r\n        compose = true\r\n    }\r\n}\r\n\r\ndependencies {\r\n\r\n    implementation(libs.androidx.core.ktx)\r\n    implementation(libs.androidx.appcompat)\r\n    implementation(libs.material)\r\n    implementation(libs.androidx.activity)\r\n    implementation(libs.androidx.constraintlayout)\r\n    implementation(libs.androidx.navigation.fragment.ktx)\r\n    implementation(libs.androidx.navigation.ui.ktx)\r\n    implementation(libs.sdp)\r\n    implementation(libs.swipe.refresh)\r\n    implementation(libs.androidx.navigation.testing)\r\n    implementation(libs.androidx.runtime.livedata)\r\n\r\n    testImplementation(libs.junit)\r\n    androidTestImplementation(libs.androidx.junit)\r\n    androidTestImplementation(libs.androidx.espresso.core)\r\n\r\n    implementation(libs.hilt)\r\n    implementation(libs.androidx.lifecycle.livedata.ktx)\r\n    implementation(libs.androidx.lifecycle.viewmodel.ktx)\r\n    implementation(libs.androidx.lifecycle.runtime.ktx)\r\n\r\n    implementation(libs.google.flexbox)\r\n\r\n    kapt(libs.hilt.compiler)\r\n\r\n    // Compose\r\n    implementation(platform(libs.compose.bom))\r\n    implementation(libs.compose.ui)\r\n    implementation(libs.compose.ui.graphics)\r\n    implementation(libs.compose.ui.tooling.preview)\r\n    implementation(libs.compose.material3)\r\n    implementation(libs.compose.material.icons.extended)\r\n    implementation(libs.androidx.activity.compose)\r\n    implementation(libs.androidx.navigation.compose)\r\n    implementation(libs.androidx.lifecycle.runtime.compose)\r\n    implementation(libs.androidx.lifecycle.viewmodel.compose)\r\n    implementation(libs.androidx.hilt.navigation.compose)\r\n    implementation(libs.coil.compose)\r\n    implementation(libs.accompanist.systemuicontroller)\r\n    implementation(libs.refrofit.gson)\r\n\r\n    debugImplementation(libs.compose.ui.tooling)\r\n    debugImplementation(libs.compose.ui.test.manifest)\r\n    \r\n    androidTestImplementation(platform(libs.compose.bom))\r\n    androidTestImplementation(libs.compose.ui.test.junit4)\r\n\r\n    implementation(project(\":data\"))\r\n    implementation(project(\":domain\"))\r\n    implementation(project(\":common\"))\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/build.gradle.kts b/presentation/build.gradle.kts
+--- a/presentation/build.gradle.kts	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/presentation/build.gradle.kts	(date 1762086087935)
+@@ -88,6 +88,13 @@
+     androidTestImplementation(platform(libs.compose.bom))
+     androidTestImplementation(libs.compose.ui.test.junit4)
+ 
++    implementation(libs.camera)
++    implementation(libs.camera.core)
++    implementation(libs.camera.view)
++    implementation(libs.camera.extension)
++    implementation(libs.camera.lifecycle)
++    implementation(libs.mlkit.barcode)
++
+     implementation(project(":data"))
+     implementation(project(":domain"))
+     implementation(project(":common"))
+Index: presentation/src/main/res/layout/custom_snackbar.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/res/layout/custom_snackbar.xml b/presentation/src/main/res/layout/custom_snackbar.xml
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/res/layout/custom_snackbar.xml	(date 1762086087935)
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:padding="16dp"
++    android:background="#4CAF50">
++
++    <TextView
++        android:id="@+id/snackbar_message"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textColor="#FFFFFF"
++        tools:text="This is a custom snackbar message."
++        android:textSize="@dimen/normal_text_size"
++        android:fontFamily="@font/general_sans_medium" />
++</FrameLayout>
+Index: data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/BarcodeHandler.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/BarcodeHandler.kt b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/BarcodeHandler.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/BarcodeHandler.kt	(date 1762086087935)
+@@ -0,0 +1,5 @@
++package com.retail.dolphinpos.data.setup.hardware.barcode
++
++interface BarcodeHandler {
++    fun onScannedCode(scannedValue: String)
++}
+\ No newline at end of file
+Index: data/src/main/java/com/retail/dolphinpos/data/di/BarcodeModule.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/java/com/retail/dolphinpos/data/di/BarcodeModule.kt b/data/src/main/java/com/retail/dolphinpos/data/di/BarcodeModule.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/java/com/retail/dolphinpos/data/di/BarcodeModule.kt	(date 1762086087935)
+@@ -0,0 +1,25 @@
++package com.retail.dolphinpos.data.di
++
++import com.google.mlkit.vision.barcode.BarcodeScanner
++import com.google.mlkit.vision.barcode.BarcodeScannerOptions
++import com.google.mlkit.vision.barcode.BarcodeScanning
++import com.google.mlkit.vision.barcode.common.Barcode
++import dagger.Module
++import dagger.Provides
++import dagger.hilt.InstallIn
++import dagger.hilt.components.SingletonComponent
++import javax.inject.Singleton
++
++@Module
++@InstallIn(SingletonComponent::class)
++object BarcodeModule {
++    @Provides
++    @Singleton
++    fun provideBarcodeScanner(): BarcodeScanner {
++        val options = BarcodeScannerOptions.Builder()
++            .setBarcodeFormats(Barcode.FORMAT_ALL_FORMATS)
++            .build()
++        val barcodeScanner = BarcodeScanning.getClient(options)
++        return barcodeScanner
++    }
++}
+\ No newline at end of file
+Index: data/src/main/res/layout/activity_barcode.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/res/layout/activity_barcode.xml b/data/src/main/res/layout/activity_barcode.xml
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/res/layout/activity_barcode.xml	(date 1762086087935)
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    xmlns:tools="http://schemas.android.com/tools"
++    tools:context=".features.ui.setup.barcode.BarcodeActivity">
++
++    <androidx.camera.view.PreviewView
++        android:id="@+id/previewView"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent" />
++
++    <FrameLayout
++        android:id="@+id/cameraOverlay"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent">
++
++        <com.retail.dolphinpos.data.setup.hardware.barcode.TransparentOverlayView
++            android:id="@+id/overlay"
++            android:layout_width="match_parent"
++            android:layout_height="match_parent"
++            android:background="@android:color/transparent" />
++
++    </FrameLayout>
++
++</androidx.constraintlayout.widget.ConstraintLayout>
+Index: data/src/main/res/layout/custom_snackbar.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/res/layout/custom_snackbar.xml b/data/src/main/res/layout/custom_snackbar.xml
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/res/layout/custom_snackbar.xml	(date 1762086087935)
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:padding="16dp"
++    android:background="#4CAF50">
++
++    <TextView
++        android:id="@+id/snackbar_message"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textColor="#FFFFFF"
++        tools:text="This is a custom snackbar message."
++        android:textSize="@dimen/normal_text_size"
++        android:fontFamily="@font/general_sans_medium" />
++</FrameLayout>
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/HardwareSetupScreen.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.retail.dolphinpos.presentation.features.ui.setup\r\n\r\nimport androidx.compose.foundation.background\r\nimport androidx.compose.foundation.layout.Arrangement\r\nimport androidx.compose.foundation.layout.Column\r\nimport androidx.compose.foundation.layout.Spacer\r\nimport androidx.compose.foundation.layout.fillMaxSize\r\nimport androidx.compose.foundation.layout.height\r\nimport androidx.compose.foundation.layout.padding\r\nimport androidx.compose.material3.Button\r\nimport androidx.compose.material3.ButtonDefaults\r\nimport androidx.compose.runtime.Composable\r\nimport androidx.compose.runtime.collectAsState\r\nimport androidx.compose.runtime.getValue\r\nimport androidx.compose.ui.Alignment\r\nimport androidx.compose.ui.Modifier\r\nimport androidx.compose.ui.graphics.Color\r\nimport androidx.compose.ui.res.colorResource\r\nimport androidx.compose.ui.text.font.FontWeight\r\nimport androidx.compose.ui.unit.dp\r\nimport androidx.hilt.navigation.compose.hiltViewModel\r\nimport androidx.navigation.NavController\r\nimport com.retail.dolphinpos.common.components.BaseText\r\nimport com.retail.dolphinpos.common.components.BottomNavigationBar\r\nimport com.retail.dolphinpos.common.utils.GeneralSans\r\nimport com.retail.dolphinpos.presentation.R\r\n\r\n@Composable\r\nfun HardwareSetupScreen(\r\n    navController: NavController,\r\n    viewModel: HardwareSetupViewModel = hiltViewModel()\r\n) {\r\n    val menus by viewModel.menus.collectAsState()\r\n    val selectedIndex by viewModel.selectedMenuIndex.collectAsState()\r\n\r\n    Column(\r\n        modifier = Modifier\r\n            .fillMaxSize()\r\n            .background(colorResource(id = R.color.light_grey))\r\n    ) {\r\n        // Content area\r\n        Box(\r\n            modifier = Modifier\r\n                .weight(1f)\r\n                .padding(16.dp),\r\n            contentAlignment = Alignment.Center\r\n        ) {\r\n            Column(\r\n                horizontalAlignment = Alignment.CenterHorizontally,\r\n                verticalArrangement = Arrangement.Center\r\n            ) {\r\n                BaseText(\r\n                    text = \"Hardware Setup Screen\",\r\n                    color = Color.Black,\r\n                    fontSize = 24f,\r\n                    fontFamily = GeneralSans,\r\n                    fontWeight = FontWeight.Bold\r\n                )\r\n                \r\n                Spacer(modifier = Modifier.height(16.dp))\r\n                \r\n                BaseText(\r\n                    text = \"This is the Hardware Setup screen where you can configure hardware devices.\",\r\n                    color = Color.Gray,\r\n                    fontSize = 16f,\r\n                    fontFamily = GeneralSans\r\n                )\r\n            }\r\n        }\r\n\r\n        // Bottom Navigation Bar (nested within HardwareSetupScreen)\r\n        BottomNavigationBar(\r\n            menus = menus,\r\n            selectedIndex = selectedIndex,\r\n            onMenuClick = { menu ->\r\n                val index = menus.indexOf(menu)\r\n                if (index >= 0) {\r\n                    // If Home button is clicked (index 0), navigate to home\r\n                    if (index == 0) {\r\n                        navController.navigate(\"home\") {\r\n                            popUpTo(\"home\") { inclusive = true }\r\n                            launchSingleTop = true\r\n                            restoreState = true\r\n                        }\r\n                    } else {\r\n                        // Handle sub-navigation for Setup (Printer/Cash Drawer/Scanner setup)\r\n                        viewModel.selectMenu(index)\r\n                    }\r\n                }\r\n            }\r\n        )\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/HardwareSetupScreen.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/HardwareSetupScreen.kt
+--- a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/HardwareSetupScreen.kt	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/HardwareSetupScreen.kt	(date 1762086087935)
+@@ -2,13 +2,12 @@
+ 
+ import androidx.compose.foundation.background
+ import androidx.compose.foundation.layout.Arrangement
++import androidx.compose.foundation.layout.Box
+ import androidx.compose.foundation.layout.Column
+ import androidx.compose.foundation.layout.Spacer
+ import androidx.compose.foundation.layout.fillMaxSize
+ import androidx.compose.foundation.layout.height
+ import androidx.compose.foundation.layout.padding
+-import androidx.compose.material3.Button
+-import androidx.compose.material3.ButtonDefaults
+ import androidx.compose.runtime.Composable
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+Index: .idea/appInsightsSettings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/appInsightsSettings.xml b/.idea/appInsightsSettings.xml
+new file mode 100644
+--- /dev/null	(date 1762086087928)
++++ b/.idea/appInsightsSettings.xml	(date 1762086087928)
+@@ -0,0 +1,26 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="AppInsightsSettings">
++    <option name="tabSettings">
++      <map>
++        <entry key="Firebase Crashlytics">
++          <value>
++            <InsightsFilterSettings>
++              <option name="connection">
++                <ConnectionSetting>
++                  <option name="appId" value="PLACEHOLDER" />
++                  <option name="mobileSdkAppId" value="" />
++                  <option name="projectId" value="" />
++                  <option name="projectNumber" value="" />
++                </ConnectionSetting>
++              </option>
++              <option name="signal" value="SIGNAL_UNSPECIFIED" />
++              <option name="timeIntervalDays" value="THIRTY_DAYS" />
++              <option name="visibilityType" value="ALL" />
++            </InsightsFilterSettings>
++          </value>
++        </entry>
++      </map>
++    </option>
++  </component>
++</project>
+\ No newline at end of file
+Index: common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/SnackBarManager.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/SnackBarManager.kt b/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/SnackBarManager.kt
+new file mode 100644
+--- /dev/null	(date 1762086087928)
++++ b/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/SnackBarManager.kt	(date 1762086087928)
+@@ -0,0 +1,152 @@
++package com.lingeriepos.common.snackbar
++
++import android.annotation.SuppressLint
++import android.graphics.Color
++import android.graphics.Typeface
++import android.view.Gravity
++import android.view.MotionEvent
++import android.view.View
++import android.view.ViewGroup
++import android.widget.TextView
++import androidx.appcompat.app.ActionBar.LayoutParams
++import androidx.core.content.res.ResourcesCompat.getFont
++import com.google.android.material.snackbar.Snackbar
++import com.lingeriepos.R
++import javax.inject.Inject
++import javax.inject.Singleton
++import kotlin.math.abs
++
++
++private var initialX = 0f
++private var initialY = 0f
++private val SWIPE_THRESHOLD = 100
++
++@Singleton
++class SnackBarManager @Inject constructor() {
++
++    enum class SnackBarType(val backgroundColor: Int) {
++        SUCCESS(Color.parseColor("#4CAF50")),
++        ERROR(Color.parseColor("#F44336")),
++        INFO(Color.parseColor("#2196F3")),
++        WARNING(Color.parseColor("#FFC107"))
++    }
++
++    private var currentSnackbar: Snackbar? = null
++
++    fun showErrorSnackBar(rootView: View, message: String, duration: Int = Snackbar.LENGTH_LONG) {
++        showSnackBar(rootView, message, SnackBarType.ERROR, duration = duration)
++    }
++
++    fun showSuccessSnackBar(
++        rootView: View,
++        message: String,
++        duration: Int = Snackbar.LENGTH_SHORT
++    ) {
++        showSnackBar(rootView, message, SnackBarType.SUCCESS, duration = duration)
++    }
++
++    fun showInfoSnackBar(rootView: View, message: String, duration: Int = Snackbar.LENGTH_SHORT) {
++        showSnackBar(rootView, message, SnackBarType.INFO, duration = duration)
++    }
++
++    fun showWarningSnackBar(
++        rootView: View,
++        message: String,
++        duration: Int = Snackbar.LENGTH_LONG
++    ) {
++        showSnackBar(rootView, message, SnackBarType.WARNING, duration = duration)
++    }
++
++    @SuppressLint("ClickableViewAccessibility")
++    fun showSnackBar(
++        rootView: View,
++        message: String,
++        type: SnackBarType = SnackBarType.INFO,
++        duration: Int = Snackbar.LENGTH_SHORT,
++        actionText: String? = null,
++        action: (() -> Unit)? = null,
++        fontResId: Int? = R.font.satoshi_medium,
++        isMultiline: Boolean = true
++
++    ) {
++        currentSnackbar?.dismiss()
++
++        currentSnackbar = Snackbar.make(rootView, message, duration).apply {
++            setBackgroundTint(type.backgroundColor)
++
++            actionText?.let {
++                setAction(it) { action?.invoke() }
++                setActionTextColor(Color.WHITE)
++            }
++
++            val snackBarView = this.view
++            val snackBarText =
++                snackBarView.findViewById<TextView>(com.google.android.material.R.id.snackbar_text)
++            snackBarText.setTextColor(Color.WHITE)
++            snackBarText.textSize = 16f
++
++            fontResId?.let {
++                val typeface = Typeface.create(getFont(context, it), Typeface.NORMAL)
++                snackBarText.typeface = typeface
++            }
++
++            if (isMultiline) {
++                snackBarText.maxLines = 5
++                snackBarText.isSingleLine = false
++            }
++
++            snackBarText.gravity = Gravity.CENTER_VERTICAL
++            snackBarText.setPadding(16, 0, 16, 0)
++            snackBarText.typeface = snackBarText.typeface
++
++
++            val params = snackBarView.layoutParams
++            if (params is ViewGroup.MarginLayoutParams) {
++                params.topMargin = 50
++                snackBarView.layoutParams = params
++            }
++
++            snackBarView.translationY = -snackBarView.height.toFloat()
++            snackBarView.requestLayout()
++
++            snackBarView.setOnTouchListener { _, event ->
++                when (event.action) {
++                    MotionEvent.ACTION_DOWN -> {
++                        initialX = event.rawX
++                        initialY = event.rawY
++                        true
++                    }
++                    MotionEvent.ACTION_MOVE -> {
++                        val deltaX = event.rawX - initialX
++                        val deltaY = event.rawY - initialY
++
++                        if (abs(deltaX) > SWIPE_THRESHOLD) {
++                            dismiss()
++                            true
++                        } else {
++                            false
++                        }
++                    }
++                    else -> false
++                }
++            }
++
++            addCallback(object : Snackbar.Callback() {
++                override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
++                    if (currentSnackbar == transientBottomBar) {
++                        currentSnackbar = null
++                    }
++                }
++            })
++
++            addCallback(object : Snackbar.Callback() {
++                override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
++                    if (currentSnackbar == transientBottomBar) {
++                        currentSnackbar = null
++                    }
++                }
++            })
++            show()
++        }
++    }
++}
+Index: data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/CameraXManager.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/CameraXManager.kt b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/CameraXManager.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/CameraXManager.kt	(date 1762086087935)
+@@ -0,0 +1,131 @@
++package com.retail.dolphinpos.data.setup.hardware.barcode
++
++import android.content.Context
++import android.graphics.Rect
++import androidx.annotation.OptIn
++import androidx.camera.core.CameraSelector
++import androidx.camera.core.ExperimentalGetImage
++import androidx.camera.core.ImageAnalysis
++import androidx.camera.core.ImageProxy
++import androidx.camera.core.Preview
++import androidx.camera.lifecycle.ProcessCameraProvider
++import androidx.camera.view.PreviewView
++import androidx.core.content.ContextCompat
++import androidx.lifecycle.LifecycleOwner
++import com.google.mlkit.vision.barcode.BarcodeScanner
++import com.google.mlkit.vision.common.InputImage
++import dagger.hilt.android.qualifiers.ApplicationContext
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.Executors
++import javax.inject.Inject
++
++open class CameraXManager @Inject constructor(
++    @ApplicationContext private val context: Context,
++    private val barcodeScanner: BarcodeScanner
++) {
++
++    private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
++
++
++    fun startCamera(
++        lifecycleOwner: LifecycleOwner,
++        previewView: PreviewView,
++        cameraOverlay: TransparentOverlayView,
++        onBarcodeScanned: (String) -> Unit
++    ) {
++
++        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
++        cameraProviderFuture.addListener({
++                                             val cameraProvider = cameraProviderFuture.get()
++
++                                             val preview = Preview.Builder()
++                                                 .build().apply {
++                                                     surfaceProvider = previewView.surfaceProvider
++                                                 }
++
++                                             val analysisUseCase = ImageAnalysis.Builder()
++                                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
++                                                 .build()
++
++                                             analysisUseCase.setAnalyzer(analysisExecutor) { imageProxy ->
++                                                 processImageProxy(
++                                                     imageProxy,
++                                                     cameraOverlay,
++                                                     onBarcodeScanned
++                                                 )
++                                             }
++
++                                             val hasBackCamera = CameraSelector.DEFAULT_BACK_CAMERA
++                                                 .filter(cameraProvider.availableCameraInfos)
++                                                 .isNotEmpty()
++
++                                             val cameraSelector = if (hasBackCamera) {
++                                                 CameraSelector.DEFAULT_BACK_CAMERA
++                                             } else {
++                                                 CameraSelector.DEFAULT_FRONT_CAMERA
++                                             }
++
++                                             try {
++                                                 cameraProvider.unbindAll()
++                                                 cameraProvider.bindToLifecycle(
++                                                     lifecycleOwner,
++                                                     cameraSelector,
++                                                     preview,
++                                                     analysisUseCase
++                                                 )
++                                             } catch (e: Exception) {
++                                                 e.printStackTrace()
++                                             }
++                                         }, ContextCompat.getMainExecutor(context))
++    }
++
++    @OptIn(ExperimentalGetImage::class)
++    private fun processImageProxy(
++        imageProxy: ImageProxy,
++        cameraOverlay: TransparentOverlayView,
++        onBarcodeScanned: (String) -> Unit
++    ) {
++        val mediaImage = imageProxy.image ?: run {
++            imageProxy.close()
++            return
++        }
++
++        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
++
++        val overlayRect = getOverlayBounds(cameraOverlay)
++
++        barcodeScanner.process(image)
++            .addOnSuccessListener { barcodes ->
++                barcodes.forEach { barcode ->
++                    // TODO Temporarily disabled.
++//                    val boundingBox = barcode.boundingBox
++//                    if (boundingBox != null && overlayRect.contains(boundingBox)) {
++//                        barcode.displayValue?.let { onBarcodeScanned(it) }
++//                    }
++                    barcode.displayValue?.let { onBarcodeScanned(it) }
++
++                }
++            }
++            .addOnFailureListener { e ->
++
++                e.printStackTrace()
++            }
++            .addOnCompleteListener {
++                imageProxy.close()
++            }
++    }
++
++    private fun getOverlayBounds(overlay: TransparentOverlayView): Rect {
++        val rectF = overlay.getTransparentRect()
++        return Rect(
++            rectF.left.toInt(),
++            rectF.top.toInt(),
++            rectF.right.toInt(),
++            rectF.bottom.toInt()
++        )
++    }
++
++    fun shutdown() {
++        analysisExecutor.shutdown()
++    }
++}
+\ No newline at end of file
+Index: data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/TransparentBarcodeOverlayView.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/TransparentBarcodeOverlayView.kt b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/TransparentBarcodeOverlayView.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/data/src/main/java/com/retail/dolphinpos/data/setup/hardware/barcode/TransparentBarcodeOverlayView.kt	(date 1762086087935)
+@@ -0,0 +1,79 @@
++package com.retail.dolphinpos.data.setup.hardware.barcode
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.PorterDuff
++import android.graphics.PorterDuffXfermode
++import android.graphics.RectF
++import android.util.AttributeSet
++import android.view.View
++import androidx.core.content.ContextCompat
++
++open class TransparentOverlayView @JvmOverloads constructor(
++    context: Context,
++    attrs: AttributeSet? = null,
++    defStyleAttr: Int = 0
++) : View(context, attrs, defStyleAttr) {
++
++    enum class OverlayShape {
++        RECTANGLE, SQUARE
++    }
++
++    private val overlayPaint = Paint().apply {
++        color = ContextCompat.getColor(context, android.R.color.black)
++        alpha = 150
++    }
++
++    private val transparentPaint = Paint().apply {
++        xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
++    }
++
++    private val rectBounds = RectF()
++    private val cornerRadius = 30f
++
++    var overlayShape: OverlayShape = OverlayShape.RECTANGLE
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    override fun onDraw(canvas: Canvas) {
++        super.onDraw(canvas)
++
++        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
++
++        when (overlayShape) {
++            OverlayShape.RECTANGLE -> drawRectangleOverlay(canvas)
++            OverlayShape.SQUARE -> drawSquareOverlay(canvas)
++        }
++    }
++
++    private fun drawRectangleOverlay(canvas: Canvas) {
++        val rectWidth = width * 0.7f
++        val rectHeight = height * 0.3f
++        val left = (width - rectWidth) / 2
++        val top = (height - rectHeight) / 2
++        val right = left + rectWidth
++        val bottom = top + rectHeight
++        rectBounds.set(left, top, right, bottom)
++
++        canvas.drawRoundRect(rectBounds, cornerRadius, cornerRadius, transparentPaint)
++    }
++
++    private fun drawSquareOverlay(canvas: Canvas) {
++        val squareSize = minOf(width, height) * 0.5f
++        val left = (width - squareSize) / 2
++        val top = (height - squareSize) / 2
++        val right = left + squareSize
++        val bottom = top + squareSize
++        rectBounds.set(left, top, right, bottom)
++
++        canvas.drawRoundRect(rectBounds, cornerRadius, cornerRadius, transparentPaint)
++    }
++
++    fun getTransparentRect(): RectF {
++        return rectBounds
++    }
++}
++
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/BarcodeActivity.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/BarcodeActivity.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/BarcodeActivity.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/BarcodeActivity.kt	(date 1762086087935)
+@@ -0,0 +1,127 @@
++package com.retail.dolphinpos.presentation.features.ui.setup.barcode
++
++import android.Manifest
++import android.content.Intent
++import android.content.pm.PackageManager
++import android.net.Uri
++import android.os.Bundle
++import android.provider.Settings
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.appcompat.app.AlertDialog
++import androidx.appcompat.app.AppCompatActivity
++import androidx.core.content.ContextCompat
++import com.lingeriepos.common.snackbar.SnackBarManager
++import com.retail.dolphinpos.common.utils.Constants
++import com.retail.dolphinpos.data.setup.hardware.barcode.CameraXManager
++import com.retail.dolphinpos.data.setup.hardware.barcode.TransparentOverlayView
++import com.retail.dolphinpos.presentation.R
++import com.retail.dolphinpos.presentation.databinding.ActivityBarcodeBinding
++import com.retail.dolphinpos.presentation.features.base.viewBinding
++import dagger.hilt.android.AndroidEntryPoint
++import javax.inject.Inject
++
++@AndroidEntryPoint
++class BarcodeActivity : AppCompatActivity() {
++
++    @Inject
++    lateinit var cameraXManager: CameraXManager
++
++    @Inject
++    lateinit var snackBarManager: SnackBarManager
++
++    private val binding by viewBinding(ActivityBarcodeBinding::inflate)
++
++    private val requestPermissionLauncher =
++        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
++            if (isGranted) {
++                startCamera()
++            } else {
++                showPermissionDeniedDialog()
++            }
++        }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setContentView(binding.root)
++
++        checkCameraPermission()
++    }
++
++    private fun checkCameraPermission() {
++        when {
++            ContextCompat.checkSelfPermission(
++                this,
++                Manifest.permission.CAMERA
++            ) == PackageManager.PERMISSION_GRANTED -> {
++                startCamera()
++            }
++
++            shouldShowRequestPermissionRationale(Manifest.permission.CAMERA) -> {
++                showPermissionRationaleDialog()
++            }
++
++            else -> {
++                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
++            }
++        }
++    }
++
++    private fun showPermissionRationaleDialog() {
++        AlertDialog.Builder(this)
++            .setTitle(getString(R.string.camera_permission_title))
++            .setMessage(getString(R.string.camera_permission_description))
++            .setPositiveButton(getString(R.string.allow)) { _, _ ->
++                requestPermissionLauncher.launch(Manifest.permission.CAMERA)
++            }
++            .setNegativeButton(getString(R.string.cancel)) { dialog, _ ->
++                dialog.dismiss()
++            }
++            .show()
++    }
++
++    private fun showPermissionDeniedDialog() {
++        AlertDialog.Builder(this)
++            .setTitle(getString(R.string.camera_permission_denied))
++            .setMessage(getString(R.string.camera_permission_denied_description))
++            .setPositiveButton(getString(R.string.settings)) { _, _ ->
++                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
++                val uri = Uri.fromParts("package", packageName, null)
++                intent.data = uri
++                startActivity(intent)
++            }
++            .setNegativeButton(getString(R.string.cancel)) { dialog, _ ->
++                dialog.dismiss()
++            }
++            .show()
++    }
++
++    private fun startCamera() {
++
++        val isQRCodeMode = intent.getBooleanExtra(Constants.IS_QR_CODE_MODE, false)
++        if (isQRCodeMode) {
++            binding.overlay.overlayShape = TransparentOverlayView.OverlayShape.SQUARE
++        } else {
++            binding.overlay.overlayShape = TransparentOverlayView.OverlayShape.RECTANGLE
++        }
++
++        cameraXManager.startCamera(
++            lifecycleOwner = this,
++            previewView = binding.previewView,
++            cameraOverlay = binding.overlay,
++            onBarcodeScanned = { barcode ->
++                val resultIntent = Intent().apply {
++                    putExtra(Constants.SCANNED_CODE, barcode)
++                }
++                setResult(RESULT_OK, resultIntent)
++
++                snackBarManager.showInfoSnackBar(binding.root, "Scanned: $barcode")
++                finish()
++            }
++        )
++    }
++
++    override fun onDestroy() {
++        super.onDestroy()
++        cameraXManager.shutdown()
++    }
++}
+\ No newline at end of file
+Index: presentation/src/main/res/layout/activity_barcode.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/res/layout/activity_barcode.xml b/presentation/src/main/res/layout/activity_barcode.xml
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/res/layout/activity_barcode.xml	(date 1762086087935)
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    xmlns:tools="http://schemas.android.com/tools"
++    tools:context=".features.ui.setup.barcode.BarcodeActivity">
++
++    <androidx.camera.view.PreviewView
++        android:id="@+id/previewView"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent" />
++
++    <FrameLayout
++        android:id="@+id/cameraOverlay"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent">
++
++        <com.retail.dolphinpos.data.setup.hardware.barcode.TransparentOverlayView
++            android:id="@+id/overlay"
++            android:layout_width="match_parent"
++            android:layout_height="match_parent"
++            android:background="@android:color/transparent" />
++
++    </FrameLayout>
++
++</androidx.constraintlayout.widget.ConstraintLayout>
+Index: common/src/main/res/layout/custom_snackbar.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/common/src/main/res/layout/custom_snackbar.xml b/common/src/main/res/layout/custom_snackbar.xml
+new file mode 100644
+--- /dev/null	(date 1762086087934)
++++ b/common/src/main/res/layout/custom_snackbar.xml	(date 1762086087934)
+@@ -0,0 +1,17 @@
++<?xml version="1.0" encoding="utf-8"?>
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="wrap_content"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:padding="16dp"
++    android:background="#4CAF50">
++
++    <TextView
++        android:id="@+id/snackbar_message"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textColor="#FFFFFF"
++        tools:text="This is a custom snackbar message."
++        android:textSize="@dimen/normal_text_size"
++        android:fontFamily="@font/general_sans_medium" />
++</FrameLayout>
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/CameraXManager.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/CameraXManager.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/CameraXManager.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/CameraXManager.kt	(date 1762086087935)
+@@ -0,0 +1,131 @@
++package com.retail.dolphinpos.presentation.features.ui.setup.barcode.barcode
++
++import android.content.Context
++import android.graphics.Rect
++import androidx.annotation.OptIn
++import androidx.camera.core.CameraSelector
++import androidx.camera.core.ExperimentalGetImage
++import androidx.camera.core.ImageAnalysis
++import androidx.camera.core.ImageProxy
++import androidx.camera.core.Preview
++import androidx.camera.lifecycle.ProcessCameraProvider
++import androidx.camera.view.PreviewView
++import androidx.core.content.ContextCompat
++import androidx.lifecycle.LifecycleOwner
++import com.google.mlkit.vision.barcode.BarcodeScanner
++import com.google.mlkit.vision.common.InputImage
++import dagger.hilt.android.qualifiers.ApplicationContext
++import java.util.concurrent.ExecutorService
++import java.util.concurrent.Executors
++import javax.inject.Inject
++
++open class CameraXManager @Inject constructor(
++    @ApplicationContext private val context: Context,
++    private val barcodeScanner: BarcodeScanner
++) {
++
++    private val analysisExecutor: ExecutorService = Executors.newSingleThreadExecutor()
++
++
++    fun startCamera(
++        lifecycleOwner: LifecycleOwner,
++        previewView: PreviewView,
++        cameraOverlay: TransparentOverlayView,
++        onBarcodeScanned: (String) -> Unit
++    ) {
++
++        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
++        cameraProviderFuture.addListener({
++                                             val cameraProvider = cameraProviderFuture.get()
++
++                                             val preview = Preview.Builder()
++                                                 .build().apply {
++                                                     surfaceProvider = previewView.surfaceProvider
++                                                 }
++
++                                             val analysisUseCase = ImageAnalysis.Builder()
++                                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
++                                                 .build()
++
++                                             analysisUseCase.setAnalyzer(analysisExecutor) { imageProxy ->
++                                                 processImageProxy(
++                                                     imageProxy,
++                                                     cameraOverlay,
++                                                     onBarcodeScanned
++                                                 )
++                                             }
++
++                                             val hasBackCamera = CameraSelector.DEFAULT_BACK_CAMERA
++                                                 .filter(cameraProvider.availableCameraInfos)
++                                                 .isNotEmpty()
++
++                                             val cameraSelector = if (hasBackCamera) {
++                                                 CameraSelector.DEFAULT_BACK_CAMERA
++                                             } else {
++                                                 CameraSelector.DEFAULT_FRONT_CAMERA
++                                             }
++
++                                             try {
++                                                 cameraProvider.unbindAll()
++                                                 cameraProvider.bindToLifecycle(
++                                                     lifecycleOwner,
++                                                     cameraSelector,
++                                                     preview,
++                                                     analysisUseCase
++                                                 )
++                                             } catch (e: Exception) {
++                                                 e.printStackTrace()
++                                             }
++                                         }, ContextCompat.getMainExecutor(context))
++    }
++
++    @OptIn(ExperimentalGetImage::class)
++    private fun processImageProxy(
++        imageProxy: ImageProxy,
++        cameraOverlay: TransparentOverlayView,
++        onBarcodeScanned: (String) -> Unit
++    ) {
++        val mediaImage = imageProxy.image ?: run {
++            imageProxy.close()
++            return
++        }
++
++        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
++
++        val overlayRect = getOverlayBounds(cameraOverlay)
++
++        barcodeScanner.process(image)
++            .addOnSuccessListener { barcodes ->
++                barcodes.forEach { barcode ->
++                    // TODO Temporarily disabled.
++//                    val boundingBox = barcode.boundingBox
++//                    if (boundingBox != null && overlayRect.contains(boundingBox)) {
++//                        barcode.displayValue?.let { onBarcodeScanned(it) }
++//                    }
++                    barcode.displayValue?.let { onBarcodeScanned(it) }
++
++                }
++            }
++            .addOnFailureListener { e ->
++
++                e.printStackTrace()
++            }
++            .addOnCompleteListener {
++                imageProxy.close()
++            }
++    }
++
++    private fun getOverlayBounds(overlay: TransparentOverlayView): Rect {
++        val rectF = overlay.getTransparentRect()
++        return Rect(
++            rectF.left.toInt(),
++            rectF.top.toInt(),
++            rectF.right.toInt(),
++            rectF.bottom.toInt()
++        )
++    }
++
++    fun shutdown() {
++        analysisExecutor.shutdown()
++    }
++}
+\ No newline at end of file
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/BarcodeHandler.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/BarcodeHandler.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/BarcodeHandler.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/BarcodeHandler.kt	(date 1762086087935)
+@@ -0,0 +1,5 @@
++package com.retail.dolphinpos.presentation.features.ui.setup.barcode.barcode
++
++interface BarcodeHandler {
++    fun onScannedCode(scannedValue: String)
++}
+\ No newline at end of file
+Index: presentation/src/main/res/values/dimens.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<resources>\r\n\r\n\r\n        <dimen name=\"space_1\">1dp</dimen>\r\n        <dimen name=\"space_2\">2dp</dimen>\r\n        <dimen name=\"space_4\">4dp</dimen>\r\n        <dimen name=\"space_8\">8dp</dimen>\r\n        <dimen name=\"space_12\">12dp</dimen>\r\n        <dimen name=\"space_16\">16dp</dimen>\r\n        <dimen name=\"space_20\">20dp</dimen>\r\n        <dimen name=\"space_24\">24dp</dimen>\r\n        <dimen name=\"space_32\">32dp</dimen>\r\n        <dimen name=\"space_48\">48dp</dimen>\r\n\r\n        <dimen name=\"text_body_small\">12sp</dimen>\r\n        <dimen name=\"text_body_medium\">14sp</dimen>\r\n        <dimen name=\"text_body_large\">16sp</dimen>\r\n\r\n\r\n        <dimen name=\"text_heading_small\">18sp</dimen>\r\n        <dimen name=\"text_heading_medium\">20sp</dimen>\r\n        <dimen name=\"text_heading_large\">24sp</dimen>\r\n        <dimen name=\"text_heading_xlarge\">28sp</dimen>\r\n        <dimen name=\"text_heading_xxlarge\">32sp</dimen>\r\n\r\n\r\n        <dimen name=\"text_display_small\">24sp</dimen>\r\n        <dimen name=\"text_display_medium\">30sp</dimen>\r\n        <dimen name=\"text_display_large\">36sp</dimen>\r\n\r\n        <dimen name=\"button_height_standard\">48dp</dimen>\r\n        <dimen name=\"button_corner_radius\">8dp</dimen>\r\n\r\n\r\n        <dimen name=\"icon_size_small\">24dp</dimen>\r\n        <dimen name=\"icon_size_medium\">32dp</dimen>\r\n        <dimen name=\"icon_size_large\">48dp</dimen>\r\n\r\n\r\n        <dimen name=\"margin_screen\">16dp</dimen>\r\n        <dimen name=\"padding_card\">12dp</dimen>\r\n        <dimen name=\"padding_element\">8dp</dimen>\r\n\r\n        <dimen name=\"button_radius\">5dp</dimen>\r\n\r\n</resources>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/res/values/dimens.xml b/presentation/src/main/res/values/dimens.xml
+--- a/presentation/src/main/res/values/dimens.xml	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/presentation/src/main/res/values/dimens.xml	(date 1762086087935)
+@@ -44,4 +44,35 @@
+ 
+         <dimen name="button_radius">5dp</dimen>
+ 
++        <!--< Text Sizes >-->
++        <dimen name="extra_small_text_size">10sp</dimen>
++        <dimen name="small_text_size">12sp</dimen>
++        <dimen name="x_small_text_size">14sp</dimen>
++        <dimen name="normal_text_size">16sp</dimen>
++        <dimen name="medium_text_size">18sp</dimen>
++        <dimen name="large_text_size">20sp</dimen>
++        <dimen name="x_large_text_size">22sp</dimen>
++        <dimen name="xx_large_text_size">24sp</dimen>
++        <dimen name="xxx_large_text_size">26sp</dimen>
++        <dimen name="extra_large_text_size">28sp</dimen>
++        <dimen name="extra_xlarge_text_size">30sp</dimen>
++        <dimen name="extra_xx_large_text_size">34sp</dimen>
++        <dimen name="extra_xxx_large_text_size">40sp</dimen>
++        <dimen name="large_heading">120sp</dimen>
++
++        <!--< Margins >-->
++        <dimen name="extra_small_margin">4dp</dimen>
++        <dimen name="small_margin">8dp</dimen>
++        <dimen name="normal_margin">12dp</dimen>
++        <dimen name="medium_margin">16dp</dimen>
++        <dimen name="large_margin">20dp</dimen>
++        <dimen name="x_large_margin">24dp</dimen>
++        <dimen name="xx_large_margin">28dp</dimen>
++        <dimen name="xxx_large_margin">32dp</dimen>
++        <dimen name="extra_large_margin">36dp</dimen>
++        <dimen name="extra_x_large_margin">40dp</dimen>
++        <dimen name="extra_xx_large_margin">44dp</dimen>
++        <dimen name="extra_xxx_large_margin">60dp</dimen>
++        <dimen name="extreme_large_margin">80dp</dimen>
++
+ </resources>
+\ No newline at end of file
+Index: common/src/main/res/layout/activity_barcode.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/common/src/main/res/layout/activity_barcode.xml b/common/src/main/res/layout/activity_barcode.xml
+new file mode 100644
+--- /dev/null	(date 1762086087934)
++++ b/common/src/main/res/layout/activity_barcode.xml	(date 1762086087934)
+@@ -0,0 +1,35 @@
++<?xml version="1.0" encoding="utf-8"?>
++<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    xmlns:tools="http://schemas.android.com/tools"
++    tools:context=".features.ui.setup.barcode.BarcodeActivity">
++
++    <androidx.camera.view.PreviewView
++        android:id="@+id/previewView"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent" />
++
++    <FrameLayout
++        android:id="@+id/cameraOverlay"
++        android:layout_width="0dp"
++        android:layout_height="0dp"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent">
++
++        <com.retail.dolphinpos.data.setup.hardware.barcode.TransparentOverlayView
++            android:id="@+id/overlay"
++            android:layout_width="match_parent"
++            android:layout_height="match_parent"
++            android:background="@android:color/transparent" />
++
++    </FrameLayout>
++
++</androidx.constraintlayout.widget.ConstraintLayout>
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/TransparentBarcodeOverlayView.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/TransparentBarcodeOverlayView.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/TransparentBarcodeOverlayView.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/ui/setup/barcode/barcode/TransparentBarcodeOverlayView.kt	(date 1762086087935)
+@@ -0,0 +1,79 @@
++package com.retail.dolphinpos.presentation.features.ui.setup.barcode.barcode
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Paint
++import android.graphics.PorterDuff
++import android.graphics.PorterDuffXfermode
++import android.graphics.RectF
++import android.util.AttributeSet
++import android.view.View
++import androidx.core.content.ContextCompat
++
++open class TransparentOverlayView @JvmOverloads constructor(
++    context: Context,
++    attrs: AttributeSet? = null,
++    defStyleAttr: Int = 0
++) : View(context, attrs, defStyleAttr) {
++
++    enum class OverlayShape {
++        RECTANGLE, SQUARE
++    }
++
++    private val overlayPaint = Paint().apply {
++        color = ContextCompat.getColor(context, android.R.color.black)
++        alpha = 150
++    }
++
++    private val transparentPaint = Paint().apply {
++        xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
++    }
++
++    private val rectBounds = RectF()
++    private val cornerRadius = 30f
++
++    var overlayShape: OverlayShape = OverlayShape.RECTANGLE
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    override fun onDraw(canvas: Canvas) {
++        super.onDraw(canvas)
++
++        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), overlayPaint)
++
++        when (overlayShape) {
++            OverlayShape.RECTANGLE -> drawRectangleOverlay(canvas)
++            OverlayShape.SQUARE -> drawSquareOverlay(canvas)
++        }
++    }
++
++    private fun drawRectangleOverlay(canvas: Canvas) {
++        val rectWidth = width * 0.7f
++        val rectHeight = height * 0.3f
++        val left = (width - rectWidth) / 2
++        val top = (height - rectHeight) / 2
++        val right = left + rectWidth
++        val bottom = top + rectHeight
++        rectBounds.set(left, top, right, bottom)
++
++        canvas.drawRoundRect(rectBounds, cornerRadius, cornerRadius, transparentPaint)
++    }
++
++    private fun drawSquareOverlay(canvas: Canvas) {
++        val squareSize = minOf(width, height) * 0.5f
++        val left = (width - squareSize) / 2
++        val top = (height - squareSize) / 2
++        val right = left + squareSize
++        val bottom = top + squareSize
++        rectBounds.set(left, top, right, bottom)
++
++        canvas.drawRoundRect(rectBounds, cornerRadius, cornerRadius, transparentPaint)
++    }
++
++    fun getTransparentRect(): RectF {
++        return rectBounds
++    }
++}
++
+Index: common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/CustomSnackbar.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/CustomSnackbar.kt b/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/CustomSnackbar.kt
+new file mode 100644
+--- /dev/null	(date 1762086087928)
++++ b/common/src/main/java/com/retail/dolphinpos/common/utils/snackbar/CustomSnackbar.kt	(date 1762086087928)
+@@ -0,0 +1,82 @@
++package com.retail.dolphinpos.common.utils.snackbar
++
++import android.app.Activity
++import android.graphics.Color
++import android.os.Handler
++import android.os.Looper
++import android.view.Gravity
++import android.view.LayoutInflater
++import android.view.animation.Animation
++import android.view.animation.TranslateAnimation
++import android.widget.FrameLayout
++import android.widget.TextView
++import androidx.core.content.res.ResourcesCompat
++import com.retail.dolphinpos.common.R
++
++class CustomSnackbar(private val activity: Activity) {
++
++    enum class SnackbarType(val backgroundColor: Int, val textColor: Int) {
++        SUCCESS(Color.parseColor("#4CAF50"), Color.WHITE), // Green
++        ERROR(Color.parseColor("#F44336"), Color.WHITE),   // Red
++        INFO(Color.parseColor("#2196F3"), Color.WHITE),    // Blue
++        WARNING(Color.parseColor("#FFC107"), Color.BLACK)  // Yellow
++    }
++
++    private val handler = Handler(Looper.getMainLooper())
++
++    fun showSnackbar(
++        message: String,
++        type: SnackbarType = SnackbarType.INFO,
++        duration: Long = 3000L,
++        fontResId: Int? = null
++    ) {
++        val layoutInflater = LayoutInflater.from(activity)
++        val snackbarView = layoutInflater.inflate(R.layout.custom_snackbar, null)
++
++        snackbarView.setBackgroundColor(type.backgroundColor)
++
++        val messageTextView = snackbarView.findViewById<TextView>(R.id.snackbar_message)
++        messageTextView.text = message
++        messageTextView.setTextColor(type.textColor)
++
++        // Apply custom font if provided
++        fontResId?.let {
++            val typeface = ResourcesCompat.getFont(activity, it)
++            messageTextView.typeface = typeface
++        }
++
++        val decorView = activity.window.decorView as FrameLayout
++        val layoutParams = FrameLayout.LayoutParams(
++            FrameLayout.LayoutParams.MATCH_PARENT,
++            FrameLayout.LayoutParams.WRAP_CONTENT
++        ).apply {
++            gravity = Gravity.TOP
++        }
++        decorView.addView(snackbarView, layoutParams)
++
++        val slideDown = TranslateAnimation(0f, 0f, -snackbarView.height.toFloat(), 0f).apply {
++            fillAfter = true
++        }
++        snackbarView.startAnimation(slideDown)
++
++        handler.postDelayed({
++                                val slideUp = TranslateAnimation(
++                                    0f,
++                                    0f,
++                                    0f,
++                                    -snackbarView.height.toFloat()
++                                ).apply {
++                                    fillAfter = true
++                                    setAnimationListener(object : Animation.AnimationListener {
++                                        override fun onAnimationStart(animation: Animation?) {}
++                                        override fun onAnimationEnd(animation: Animation?) {
++                                            decorView.removeView(snackbarView)
++                                        }
++
++                                        override fun onAnimationRepeat(animation: Animation?) {}
++                                    })
++                                }
++                                snackbarView.startAnimation(slideUp)
++                            }, duration)
++    }
++}
+Index: presentation/src/main/java/com/retail/dolphinpos/presentation/features/base/ViewBindingDelegate.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/presentation/src/main/java/com/retail/dolphinpos/presentation/features/base/ViewBindingDelegate.kt b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/base/ViewBindingDelegate.kt
+new file mode 100644
+--- /dev/null	(date 1762086087935)
++++ b/presentation/src/main/java/com/retail/dolphinpos/presentation/features/base/ViewBindingDelegate.kt	(date 1762086087935)
+@@ -0,0 +1,89 @@
++package com.retail.dolphinpos.presentation.features.base
++
++import android.app.Dialog
++import android.view.LayoutInflater
++import android.view.View
++import androidx.appcompat.app.AppCompatActivity
++import androidx.fragment.app.Fragment
++import androidx.lifecycle.DefaultLifecycleObserver
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.LifecycleOwner
++import androidx.lifecycle.Observer
++import androidx.viewbinding.ViewBinding
++import kotlin.properties.ReadOnlyProperty
++import kotlin.reflect.KProperty
++
++
++class ViewBindingDelegate<T : ViewBinding>(
++    val fragment: Fragment,
++    val viewBindingFactory: (View) -> T
++) : ReadOnlyProperty<Fragment, T> {
++    private var binding: T? = null
++
++    init {
++        fragment.lifecycle.addObserver(object : DefaultLifecycleObserver {
++            val viewLifecycleOwnerLiveDataObserver =
++                Observer<LifecycleOwner?> {
++                    val viewLifecycleOwner = it ?: return@Observer
++
++                    viewLifecycleOwner.lifecycle.addObserver(object : DefaultLifecycleObserver {
++                        override fun onDestroy(owner: LifecycleOwner) {
++                            binding = null
++                        }
++                    })
++                }
++
++            override fun onCreate(owner: LifecycleOwner) {
++                fragment.viewLifecycleOwnerLiveData.observeForever(viewLifecycleOwnerLiveDataObserver)
++            }
++
++            override fun onDestroy(owner: LifecycleOwner) {
++                fragment.viewLifecycleOwnerLiveData.removeObserver(viewLifecycleOwnerLiveDataObserver)
++            }
++        })
++    }
++
++    override fun getValue(thisRef: Fragment, property: KProperty<*>): T {
++        val binding = binding
++        if (binding != null) {
++            return binding
++        }
++
++        val lifecycle = fragment.viewLifecycleOwner.lifecycle
++        if (!lifecycle.currentState.isAtLeast(Lifecycle.State.INITIALIZED)) {
++            throw IllegalStateException("Should not attempt to get bindings when Fragment views are destroyed.")
++        }
++
++        return viewBindingFactory(thisRef.requireView()).also { this.binding = it }
++    }
++}
++
++fun <T : ViewBinding> Fragment.viewBinding(viewBindingFactory: (View) -> T) =
++    ViewBindingDelegate(this, viewBindingFactory)
++
++inline fun <T : ViewBinding> AppCompatActivity.viewBinding(
++    crossinline bindingInflater: (LayoutInflater) -> T) =
++    lazy(LazyThreadSafetyMode.NONE) {
++        bindingInflater.invoke(layoutInflater)
++    }
++
++
++/**
++ * Shows a dialog using the provided view binding.
++ *
++ * @param inflate A lambda to inflate the view binding.
++ * @param cancelable Whether the dialog is cancelable.
++ * @param setup A lambda to configure the binding and dialog.
++ */
++fun <T : ViewBinding> Fragment.showPreviewReceiptDialog(
++    inflate: (LayoutInflater) -> T,
++    cancelable: Boolean = true,
++    setup: T.(Dialog) -> Unit
++) {
++    val dialog = Dialog(requireContext())
++    val binding = inflate.invoke(LayoutInflater.from(requireContext()))
++    dialog.setContentView(binding.root)
++    dialog.setCancelable(cancelable)
++    binding.setup(dialog)
++    dialog.show()
++}
+\ No newline at end of file
+Index: app/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\r\n    alias(libs.plugins.android.application)\r\n    alias(libs.plugins.kotlin.android)\r\n    alias(libs.plugins.kotlin.kapt)\r\n    alias(libs.plugins.kotlin.ksp)\r\n    alias(libs.plugins.kotlin.parcelize)\r\n    alias(libs.plugins.hilt)\r\n    alias(libs.plugins.safe.args.gradle.plugin)\r\n    alias(libs.plugins.kotlin.serialization)\r\n    alias(libs.plugins.compose.compiler)\r\n    alias(libs.plugins.firebase.crashlytics)\r\n    alias(libs.plugins.firebase.app.distribution)\r\n}\r\n\r\nandroid {\r\n    namespace = \"com.retail.dolphinpos\"\r\n    compileSdk = 36\r\n\r\n    defaultConfig {\r\n        applicationId = \"com.example.dolphinpos\"\r\n        minSdk = 26\r\n        targetSdk = 36\r\n        versionCode = 1\r\n        versionName = \"1.0\"\r\n\r\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\r\n        testInstrumentationRunner = \"dagger.hilt.android.testing.HiltTestRunner\"\r\n    }\r\n\r\n    buildTypes {\r\n        debug {\r\n            isMinifyEnabled = false\r\n            isDebuggable = true\r\n            signingConfig = signingConfigs.getByName(\"debug\")\r\n\r\n//            firebaseAppDistribution {\r\n//                releaseNotesFile = \"release-notes.txt\"\r\n//                groups = \"dms-internal\"\r\n//            }\r\n        }\r\n        release {\r\n            isMinifyEnabled = false\r\n            isDebuggable = false\r\n            proguardFiles(\r\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\r\n                \"proguard-rules.pro\"\r\n            )\r\n        }\r\n    }\r\n\r\n    compileOptions {\r\n        sourceCompatibility = JavaVersion.VERSION_11\r\n        targetCompatibility = JavaVersion.VERSION_11\r\n    }\r\n    kotlinOptions {\r\n        jvmTarget = \"11\"\r\n    }\r\n\r\n    buildFeatures {\r\n        viewBinding = true\r\n        compose = true\r\n        flavorDimensions += \"default\"\r\n        buildConfig = true\r\n    }\r\n\r\n    kapt {\r\n        correctErrorTypes = true\r\n    }\r\n\r\n    productFlavors {\r\n        create(\"dev\") {\r\n            applicationId = \"com.dolphin.retail.pos\"\r\n            dimension = \"default\"\r\n            resValue(\"string\", \"app_name\", \"Dolphin POS (Dev)\")\r\n            buildConfigField(\"String\", \"BUILD_TYPE\", \"\\\"DEV\\\"\")\r\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://www.dev-retail.gotmsolutions.com/api/\\\"\")\r\n            versionNameSuffix = \"-dev\"\r\n\r\n        }\r\n        create(\"uat\") {\r\n            applicationId = \"com.dolphin.retail.pos\"\r\n            dimension = \"default\"\r\n            resValue(\"string\", \"app_name\", \"Dolphin POS (Uat)\")\r\n            buildConfigField(\"String\", \"BUILD_TYPE\", \"\\\"UAT\\\"\")\r\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://uat-lingerie.gotmsolutions.com/api/\\\"\")\r\n            versionNameSuffix = \"-uat\"\r\n\r\n        }\r\n        create(\"prod\") {\r\n            applicationId = \"com.dolphin.retail.pos\"\r\n            dimension = \"default\"\r\n            resValue(\"string\", \"app_name\", \"Dolphin POS\")\r\n            buildConfigField(\"String\", \"BUILD_TYPE\", \"\\\"PROD\\\"\")\r\n            buildConfigField(\"String\", \"BASE_URL\", \"\\\"https://uat-lingerie.gotmsolutions.com/api/\\\"\")\r\n            versionNameSuffix = \"-prod\"\r\n        }\r\n    }\r\n}\r\n\r\ndependencies {\r\n\r\n    implementation(libs.androidx.core.ktx)\r\n    testImplementation(libs.junit)\r\n    androidTestImplementation(libs.androidx.junit)\r\n    androidTestImplementation(libs.androidx.espresso.core)\r\n\r\n    implementation(libs.androidx.core.ktx)\r\n    implementation(libs.androidx.appcompat)\r\n    implementation(libs.material)\r\n    implementation(libs.androidx.activity)\r\n    implementation(libs.androidx.constraintlayout)\r\n    implementation(libs.hilt)\r\n    implementation(libs.androidx.legacy.support.v4)\r\n    implementation(libs.androidx.lifecycle.livedata.ktx)\r\n    implementation(libs.androidx.lifecycle.viewmodel.ktx)\r\n    implementation(libs.androidx.fragment.ktx)\r\n    implementation(libs.androidx.fragment.testing)\r\n    kapt(libs.hilt.compiler)\r\n\r\n    implementation(libs.swipe.refresh)\r\n    implementation(libs.refrofit)\r\n    implementation(libs.refrofit.gson)\r\n    implementation(libs.square.logging)\r\n    implementation(libs.navigation.fragment)\r\n    implementation(libs.navigation.ui)\r\n\r\n    implementation(libs.room.runtime)\r\n    implementation(libs.room.pagging)\r\n    ksp(libs.room.compiler)\r\n\r\n    implementation(libs.sdp)\r\n    implementation(libs.coil)\r\n    implementation(libs.coil.network)\r\n    implementation(libs.security)\r\n    implementation(libs.starPrinter)\r\n    platform(libs.firebaseBom)\r\n    implementation(libs.camera)\r\n    implementation(libs.camera.core)\r\n    implementation(libs.camera.view)\r\n    implementation(libs.camera.extension)\r\n    implementation(libs.camera.lifecycle)\r\n    implementation(libs.mlkit.barcode)\r\n    implementation(libs.workManager)\r\n    implementation(libs.hilt.workManager)\r\n    kapt(libs.hilt.compiler.workManager)\r\n    implementation(libs.gson)\r\n    implementation(libs.zxing)\r\n    implementation(libs.timber)\r\n\r\n    // Compose\r\n    implementation(platform(libs.compose.bom))\r\n    implementation(libs.compose.ui)\r\n    implementation(libs.compose.ui.graphics)\r\n    implementation(libs.compose.ui.tooling.preview)\r\n    implementation(libs.compose.material3)\r\n    implementation(libs.compose.material.icons.extended)\r\n    implementation(libs.androidx.activity.compose)\r\n    implementation(libs.androidx.navigation.compose)\r\n    implementation(libs.androidx.lifecycle.runtime.compose)\r\n    implementation(libs.androidx.lifecycle.viewmodel.compose)\r\n    implementation(libs.androidx.hilt.navigation.compose)\r\n    implementation(libs.coil.compose)\r\n    \r\n    debugImplementation(libs.compose.ui.tooling)\r\n    debugImplementation(libs.compose.ui.test.manifest)\r\n    \r\n    androidTestImplementation(platform(libs.compose.bom))\r\n    androidTestImplementation(libs.compose.ui.test.junit4)\r\n\r\n    testImplementation(libs.junit)\r\n    testImplementation(libs.androidx.junit)\r\n    testImplementation(libs.turbine)\r\n    testImplementation(libs.mock.io)\r\n    testImplementation(libs.kotlin.coroutine.test)\r\n    testImplementation(libs.live.data.test)\r\n    kaptAndroidTest(libs.hilt.testing)\r\n\r\n    implementation(project(\":common\"))\r\n    implementation(project(\":data\"))\r\n    implementation(project(\":domain\"))\r\n    implementation(project(\":presentation\"))\r\n\r\n    implementation(files(\"libs/GLComm_V1.12.01_20230515.jar\"))\r\n    implementation(files(\"libs/jsch-0.1.54.jar\"))\r\n    implementation(files(\"libs/PaxLog_1.0.11_20220921.jar\"))\r\n    implementation(files(\"libs/POSLink_Core_Android_V2.00.07_20240912.jar\"))\r\n    implementation(files(\"libs/POSLink_Semi_Android_Plugin_V2.01.00_20240913.jar\"))\r\n    implementation(files(\"libs/BrotherPrintLibrary.aar\"))\r\n\r\n    androidTestImplementation(libs.androidx.espresso.core)\r\n    androidTestImplementation(libs.navigation.testing)\r\n    androidTestImplementation(libs.hilt.testing)\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/app/build.gradle.kts	(date 1762086087928)
+@@ -185,7 +185,6 @@
+     implementation(files("libs/PaxLog_1.0.11_20220921.jar"))
+     implementation(files("libs/POSLink_Core_Android_V2.00.07_20240912.jar"))
+     implementation(files("libs/POSLink_Semi_Android_Plugin_V2.01.00_20240913.jar"))
+-    implementation(files("libs/BrotherPrintLibrary.aar"))
+ 
+     androidTestImplementation(libs.androidx.espresso.core)
+     androidTestImplementation(libs.navigation.testing)
+Index: common/src/main/java/com/retail/dolphinpos/common/utils/Constants.kt
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.retail.dolphinpos.common.utils\r\n\r\nobject Constants {\r\n    const val SET_REGISTER = \"set_register\"\r\n    const val IS_LOGIN = \"is_login\"\r\n    const val ACCESS_TOKEN = \"access_token\"\r\n    const val REFRESH_TOKEN = \"refresh_token\"\r\n    const val USER_ID = \"user_id\"\r\n    const val STORE_ID = \"store_id\"\r\n    const val OCCUPIED_LOCATION_ID = \"occupied_location_id\"\r\n    const val OCCUPIED_REGISTER_ID = \"occupied_register_id\"\r\n    const val NAME = \"name\"\r\n    const val PASSWORD = \"password\"\r\n    \r\n    // Order discount persistence\r\n    const val ORDER_DISCOUNT_VALUE = \"order_discount_value\"\r\n    const val ORDER_DISCOUNT_TYPE = \"order_discount_type\"\r\n    const val ORDER_DISCOUNT_REASON = \"order_discount_reason\"\r\n    \r\n    // Clock-in/Check-in persistence\r\n    const val CLOCK_IN_TIME = \"clock_in_time\"\r\n    const val IS_CLOCKED_IN = \"is_clocked_in\"\r\n    \r\n    // Customer persistence\r\n    const val CUSTOMER_ID = \"customer_id\"\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/common/src/main/java/com/retail/dolphinpos/common/utils/Constants.kt b/common/src/main/java/com/retail/dolphinpos/common/utils/Constants.kt
+--- a/common/src/main/java/com/retail/dolphinpos/common/utils/Constants.kt	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/common/src/main/java/com/retail/dolphinpos/common/utils/Constants.kt	(date 1762086087928)
+@@ -23,4 +23,8 @@
+     
+     // Customer persistence
+     const val CUSTOMER_ID = "customer_id"
++    
++    // Barcode scanner constants
++    const val IS_QR_CODE_MODE = "is_qr_code_mode"
++    const val SCANNED_CODE = "scanned_code"
+ }
+\ No newline at end of file
+Index: data/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\r\n    alias(libs.plugins.android.library)\r\n    alias(libs.plugins.kotlin.android)\r\n    alias(libs.plugins.kotlin.kapt)\r\n    alias(libs.plugins.kotlin.ksp)\r\n    alias(libs.plugins.hilt)\r\n}\r\n\r\nandroid {\r\n    namespace = \"com.retail.dolphinpos.data\"\r\n    compileSdk = 36\r\n\r\n    defaultConfig {\r\n        minSdk = 24\r\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\r\n    }\r\n\r\n    buildTypes {\r\n        release {\r\n            isMinifyEnabled = false\r\n            proguardFiles(\r\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\r\n                \"proguard-rules.pro\"\r\n            )\r\n        }\r\n    }\r\n    compileOptions {\r\n        sourceCompatibility = JavaVersion.VERSION_11\r\n        targetCompatibility = JavaVersion.VERSION_11\r\n    }\r\n    kotlinOptions {\r\n        jvmTarget = \"11\"\r\n    }\r\n}\r\n\r\ndependencies {\r\n\r\n    implementation(libs.androidx.core.ktx)\r\n    implementation(libs.androidx.appcompat)\r\n    implementation(libs.material)\r\n    implementation(libs.hilt)\r\n    implementation(libs.refrofit)\r\n    implementation(libs.refrofit.gson)\r\n    implementation(libs.square.logging)\r\n    implementation(libs.room.runtime)\r\n    implementation(libs.room.pagging)\r\n    ksp(libs.room.compiler)\r\n    kapt(libs.hilt.compiler)\r\n\r\n    testImplementation(libs.junit)\r\n    androidTestImplementation(libs.androidx.junit)\r\n    androidTestImplementation(libs.androidx.espresso.core)\r\n\r\n    implementation(project(\":domain\"))\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/data/build.gradle.kts b/data/build.gradle.kts
+--- a/data/build.gradle.kts	(revision 5612f51b7a79a94f3a603fe949b031fe1e2530f2)
++++ b/data/build.gradle.kts	(date 1762086087935)
+@@ -46,10 +46,23 @@
+     implementation(libs.room.pagging)
+     ksp(libs.room.compiler)
+     kapt(libs.hilt.compiler)
++    implementation(libs.camera)
++    implementation(libs.camera.core)
++    implementation(libs.camera.view)
++    implementation(libs.camera.extension)
++    implementation(libs.camera.lifecycle)
++    implementation(libs.mlkit.barcode)
+ 
+     testImplementation(libs.junit)
+     androidTestImplementation(libs.androidx.junit)
+     androidTestImplementation(libs.androidx.espresso.core)
+ 
+     implementation(project(":domain"))
++
++    implementation(files("libs/GLComm_V1.12.01_20230515.jar"))
++    implementation(files("libs/jsch-0.1.54.jar"))
++    implementation(files("libs/PaxLog_1.0.11_20220921.jar"))
++    implementation(files("libs/POSLink_Core_Android_V2.00.07_20240912.jar"))
++    implementation(files("libs/POSLink_Semi_Android_Plugin_V2.01.00_20240913.jar"))
++
+ }
+\ No newline at end of file
