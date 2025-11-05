@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
+import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -13,7 +13,7 @@ import dagger.assisted.AssistedInject
 class OrderSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val pendingOrderRepository: PendingOrderRepository
+    private val pendingOrderRepository: PendingOrderRepositoryImpl
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {

@@ -49,19 +49,10 @@ class RegisterVerificationWorker @AssistedInject constructor(
             val status = response.data.status.lowercase()
             if (status != "occupied") {
                 Log.w("RegisterVerificationWorker", "Register status is not occupied: $status")
-                
-                // Logout user
-                try {
-                    apiService.logout()
-                } catch (e: Exception) {
-                    Log.e("RegisterVerificationWorker", "Logout failed: ${e.message}")
-                }
-                
-                // Clear preferences
-                preferenceManager.setLogin(false)
+
                 preferenceManager.setRegister(false)
                 
-                // Set flag to navigate to SelectRegisterScreen
+                // Set flag to navigate to PinCodeScreen
                 preferenceManager.setForceRegisterSelection(true)
                 
                 return Result.success()

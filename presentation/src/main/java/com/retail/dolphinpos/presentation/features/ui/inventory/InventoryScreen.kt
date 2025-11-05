@@ -86,7 +86,7 @@ fun InventoryScreen(
             when (event) {
                 is InventoryUiEvent.ShowLoading -> Loader.show("Loading...")
                 is InventoryUiEvent.HideLoading -> Loader.hide()
-                is InventoryUiEvent.NavigateToLogin -> {
+                is InventoryUiEvent.NavigateToPinCode -> {
                     navController.navigate("pinCode") {
                         popUpTo(0) { inclusive = false }
                     }
@@ -205,7 +205,7 @@ fun InventoryScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF1976D2))
+                        .background(colorResource(id = R.color.primary))
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -371,12 +371,11 @@ fun ProductDetailsDialog(
                             fontFamily = GeneralSans
                         )
                         BaseText(
-                            text = product.description!!,
+                            text = product.description ?: "-",
                             fontSize = 14f,
                             fontWeight = FontWeight.SemiBold,
                             color = Color.Black,
-                            fontFamily = GeneralSans,
-                            modifier = Modifier.weight(1f)
+                            fontFamily = GeneralSans
                         )
                     }
                 }
@@ -487,9 +486,9 @@ fun ProductDetailsDialog(
 
                 // Variants
                 if (product.variants != null && product.variants!!.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     BaseText(
                         text = "Variants:",
                         fontSize = 14f,
@@ -497,43 +496,49 @@ fun ProductDetailsDialog(
                         color = Color.Black,
                         fontFamily = GeneralSans
                     )
-                    product.variants!!.forEach { variant ->
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    color = Color(0xFFF5F5F5),
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            BaseText(
-                                text = variant.title ?: "Unknown Variant",
-                                fontSize = 13f,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black,
-                                fontFamily = GeneralSans
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((product.variants!!.size * 80).coerceAtMost(300).dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(product.variants!!) { variant ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = Color(0xFFF5F5F5),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 BaseText(
-                                    text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
-                                    fontSize = 12f,
-                                    color = Color.Gray,
+                                    text = variant.title ?: "Unknown Variant",
+                                    fontSize = 13f,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black,
                                     fontFamily = GeneralSans
                                 )
-                                BaseText(
-                                    text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
-                                    fontSize = 12f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }

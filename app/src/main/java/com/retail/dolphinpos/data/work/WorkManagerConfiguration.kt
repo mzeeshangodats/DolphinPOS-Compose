@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import androidx.work.Constraints
+import androidx.work.CoroutineWorker
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -32,57 +33,65 @@ object WorkManagerConfiguration {
         enqueueBatchSyncWork(context)
         enqueueOrderSyncWork(context)
         enqueueRegisterVerificationWork(context)
+        enqueueTimeSlotSyncWork(context)
     }
 
     private fun enqueueBatchSyncWork(context: Context) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        // Use periodic work with shorter interval for faster sync
-        val syncRequest = PeriodicWorkRequestBuilder<BatchSyncWorker>(
-            15, TimeUnit.MINUTES, // Repeat every 15 minutes
-            5, TimeUnit.MINUTES // With a 5-minute flex interval
+        enqueuePeriodicSyncWork<BatchSyncWorker>(
+            context = context,
+            tag = "BATCH_SYNC"
         )
-            .setConstraints(constraints)
-            .addTag("BATCH_SYNC")
-            .build()
-
-        WorkManager.getInstance(context).enqueue(syncRequest)
     }
 
     private fun enqueueOrderSyncWork(context: Context) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        // Use periodic work with shorter interval for faster sync
-        val syncRequest = PeriodicWorkRequestBuilder<OrderSyncWorker>(
-            15, TimeUnit.MINUTES, // Repeat every 15 minutes
-            5, TimeUnit.MINUTES // With a 5-minute flex interval
+        enqueuePeriodicSyncWork<OrderSyncWorker>(
+            context = context,
+            tag = "ORDER_SYNC"
         )
-            .setConstraints(constraints)
-            .addTag("ORDER_SYNC")
-            .build()
-
-        WorkManager.getInstance(context).enqueue(syncRequest)
     }
 
     private fun enqueueRegisterVerificationWork(context: Context) {
+        enqueuePeriodicSyncWork<RegisterVerificationWorker>(
+            context = context,
+            tag = "REGISTER_VERIFICATION"
+        )
+    }
+
+    private fun enqueueTimeSlotSyncWork(context: Context) {
+        enqueuePeriodicSyncWork<TimeSlotSyncWorker>(
+            context = context,
+            tag = "TIME_SLOT_SYNC"
+        )
+    }
+
+    /**
+     * Generalizes periodic sync work enqueueing for all sync workers
+     * @param context Application context
+     * @param tag Unique tag for the work request
+     * @param repeatInterval Repeat interval (default: 15 minutes)
+     * @param flexInterval Flex interval (default: 5 minutes)
+     */
+    private inline fun <reified T : CoroutineWorker> enqueuePeriodicSyncWork(
+        context: Context,
+        tag: String,
+        repeatInterval: Long = 15,
+        repeatIntervalUnit: TimeUnit = TimeUnit.MINUTES,
+        flexInterval: Long = 5,
+        flexIntervalUnit: TimeUnit = TimeUnit.MINUTES
+    ) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
-        // Verify register status every 15 minutes
-        val verificationRequest = PeriodicWorkRequestBuilder<RegisterVerificationWorker>(
-            15, TimeUnit.MINUTES, // Repeat every 15 minutes
-            5, TimeUnit.MINUTES // With a 5-minute flex interval
+        val syncRequest = PeriodicWorkRequestBuilder<T>(
+            repeatInterval, repeatIntervalUnit,
+            flexInterval, flexIntervalUnit
         )
             .setConstraints(constraints)
-            .addTag("REGISTER_VERIFICATION")
+            .addTag(tag)
             .build()
 
-        WorkManager.getInstance(context).enqueue(verificationRequest)
+        WorkManager.getInstance(context).enqueue(syncRequest)
     }
 }
 

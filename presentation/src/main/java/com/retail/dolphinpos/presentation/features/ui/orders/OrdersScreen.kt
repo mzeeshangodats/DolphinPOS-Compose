@@ -306,7 +306,7 @@ fun OrdersScreen(
                                 onClick = {
                                     // Handle refund action
                                     DialogHandler.showDialog(
-                                        message = "Refund functionality will be implemented",
+                                        message = "Refund will be implemented soon",
                                         buttonText = "OK"
                                     ) {}
                                 }

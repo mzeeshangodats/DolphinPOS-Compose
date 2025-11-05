@@ -125,6 +125,9 @@ suspend inline fun <reified T> safeApiCallResult(
         Result.success(apiCall())
     } catch (e: HttpException) {
         handleApiErrorResult<T>(e, defaultMessage, messageExtractor)
+    } catch (e: java.io.IOException) {
+        // Re-throw IOException so it can be handled by the caller (e.g., for offline queueing)
+        throw e
     } catch (e: Exception) {
         Result.failure(e)
     }

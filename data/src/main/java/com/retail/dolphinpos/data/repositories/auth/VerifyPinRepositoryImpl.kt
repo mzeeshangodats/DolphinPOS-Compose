@@ -78,23 +78,37 @@ class VerifyPinRepositoryImpl(
                 defaultMessage = "Clock In/Out failed",
                 messageExtractor = { errorResponse -> errorResponse.message }
             )
-        } catch (e: IOException) {
-            // Offline queue
-            try {
-                userDao.insertTimeSlot(
-                    TimeSlotEntity(
-                        slug = request.slug,
-                        storeId = request.storeId,
-                        time = request.time,
-                        userId = request.userId,
-                        isSynced = false
-                    )
-                )
-            } catch (_: Exception) {
-            }
-            Result.failure(Throwable("OFFLINE_QUEUED"))
         } catch (e: Exception) {
-            Result.failure(Throwable(e.message ?: "Clock In/Out failed"))
+            if (isNetworkException(e)) {
+                insertTimeSlotForOffline(request)
+                Result.failure(Throwable("OFFLINE_QUEUED"))
+            } else {
+                Result.failure(Throwable(e.message ?: "Clock In/Out failed"))
+            }
+        }
+    }
+
+    private fun isNetworkException(e: Exception): Boolean {
+        return e is IOException ||
+                e is java.net.UnknownHostException ||
+                e is java.net.SocketTimeoutException ||
+                e is java.net.ConnectException ||
+                e is javax.net.ssl.SSLException
+    }
+
+    private suspend fun insertTimeSlotForOffline(request: ClockInOutRequest) {
+        try {
+            userDao.insertTimeSlot(
+                TimeSlotEntity(
+                    slug = request.slug,
+                    storeId = request.storeId,
+                    time = request.time,
+                    userId = request.userId,
+                    isSynced = false
+                )
+            )
+        } catch (dbException: Exception) {
+            android.util.Log.e("VerifyPinRepository", "Failed to insert time slot: ${dbException.message}")
         }
     }
 

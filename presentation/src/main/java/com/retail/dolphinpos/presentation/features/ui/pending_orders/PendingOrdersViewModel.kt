@@ -3,8 +3,7 @@ package com.retail.dolphinpos.presentation.features.ui.pending_orders
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
-import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
-import com.retail.dolphinpos.presentation.features.ui.home.HomeUiEvent
+import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +16,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PendingOrdersViewModel @Inject constructor(
-    private val pendingOrderRepository: PendingOrderRepository
+    private val pendingOrderRepository: PendingOrderRepositoryImpl
 ) : ViewModel() {
 
     private val _pendingOrders = MutableStateFlow<List<PendingOrderEntity>>(emptyList())

@@ -48,20 +48,8 @@ class InventoryViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            _uiEvent.emit(InventoryUiEvent.ShowLoading)
-            try {
-                val response = storeRegistersRepository.logout()
-                response.message.let {
-                    preferenceManager.setLogin(false)
-                    _uiEvent.emit(InventoryUiEvent.HideLoading)
-                    _uiEvent.emit(InventoryUiEvent.NavigateToLogin)
-                }
-            } catch (e: Exception) {
-                _uiEvent.emit(InventoryUiEvent.HideLoading)
-                _uiEvent.emit(
-                    InventoryUiEvent.ShowError(e.message ?: "Something went wrong")
-                )
-            }
+            // Just clear preferences and navigate, no API call
+            _uiEvent.emit(InventoryUiEvent.NavigateToPinCode)
         }
     }
 }
@@ -69,6 +57,6 @@ class InventoryViewModel @Inject constructor(
 sealed class InventoryUiEvent {
     object ShowLoading : InventoryUiEvent()
     object HideLoading : InventoryUiEvent()
-    object NavigateToLogin : InventoryUiEvent()
+    object NavigateToPinCode : InventoryUiEvent()
     data class ShowError(val message: String) : InventoryUiEvent()
 }

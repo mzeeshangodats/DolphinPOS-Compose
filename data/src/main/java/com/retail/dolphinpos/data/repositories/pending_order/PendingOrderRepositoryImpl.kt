@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.data.repositories.order
+package com.retail.dolphinpos.data.repositories.pending_order
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -9,7 +9,7 @@ import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 
-class PendingOrderRepository(
+class PendingOrderRepositoryImpl(
     private val pendingOrderDao: PendingOrderDao,
     private val apiService: ApiService,
     private val gson: Gson

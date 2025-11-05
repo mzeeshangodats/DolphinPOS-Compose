@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.data.repositories.home
+package com.retail.dolphinpos.data.repositories.orders_details
 
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
@@ -38,4 +38,3 @@ class OrdersRepositoryImpl(
         )
     }
 }
-

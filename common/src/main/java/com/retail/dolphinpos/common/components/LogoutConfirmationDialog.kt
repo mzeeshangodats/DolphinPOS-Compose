@@ -77,7 +77,7 @@ fun LogoutConfirmationDialog(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            painter = painterResource(id = R.drawable.info_icon_white),
+                            painter = painterResource(id = R.drawable.logout_icon),
                             contentDescription = "Info Icon",
                             modifier = Modifier.size(20.dp),
                             tint = Color.White

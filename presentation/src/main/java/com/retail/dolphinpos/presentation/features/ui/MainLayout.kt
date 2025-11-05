@@ -105,8 +105,8 @@ fun MainLayout(
                     iconRes = R.drawable.info_icon,
                     cancellable = false
                 ) {
-                    // Navigate to login screen after OK button is clicked
-                    navController.navigate("login") {
+                    // Navigate to PinCodeScreen after OK button is clicked
+                    navController.navigate("pinCode") {
                         popUpTo(0) { inclusive = true }
                     }
                 }

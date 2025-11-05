@@ -88,7 +88,6 @@ import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.ClockInOutDialog
 import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -114,8 +113,6 @@ fun HomeScreen(
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showClockInOutDialog by remember { mutableStateOf(false) }
-    var clockInOutPin by remember { mutableStateOf("") }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -181,9 +178,9 @@ fun HomeScreen(
                     ) {}
                 }
 
-                is HomeUiEvent.NavigateToLogin -> {
+                HomeUiEvent.NavigateToPinCode -> {
                     navController.navigate("pinCode") {
-                        popUpTo(0) { inclusive = false }
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             }
@@ -345,7 +342,6 @@ fun HomeScreen(
                             showOrderDiscountDialog = true
                         }
                     },
-                    onShowClockInOutDialog = { showClockInOutDialog = true },
                     onProductClick = { product ->
                         val variants = product.variants
                         if (variants != null && variants.isNotEmpty()) {
@@ -422,30 +418,11 @@ fun HomeScreen(
             if (showLogoutDialog) {
                 LogoutConfirmationDialog(
                     onDismiss = { showLogoutDialog = false },
-                    onConfirm = { viewModel.logout() })
-            }
-
-            // Clock In/Out Dialog
-            if (showClockInOutDialog) {
-                ClockInOutDialog(
-                    pinValue = clockInOutPin,
-                    onPinChange = { clockInOutPin = it },
-                    onClockOut = {
-                        viewModel.clockOut(clockInOutPin)
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onClockIn = {
-                        viewModel.clockIn(clockInOutPin)
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onDismiss = {
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onViewHistory = {
-                        // TODO: Navigate to clock in/out history screen
+                    onConfirm = {
+                        // Navigate to pinCode immediately when logout button is clicked
+                        navController.navigate("pinCode") {
+                            popUpTo(0) { inclusive = true }
+                        }
                     })
             }
 
@@ -1270,11 +1247,13 @@ fun KeypadRow(
                 isRow4 && index < buttons.size - 1 -> 0.9f // First 3 buttons in Row 4 (Exact, 0, Next)
                 isRow5 && index == buttons.size - 1 && button == stringResource(id = R.string.card) -> 2.2f // Card button - slightly larger than Cash to match visually
                 isRow5 && index == 0 && button.isEmpty() -> 0.9f // Empty button in Row 5 - aligns with Exact button position
-                isRow5 && (button == stringResource(id = R.string._00) || button == stringResource(id = R.string.clear)) -> 0.9f // 00 and Clear buttons - same size as Next/0
+                isRow5 && (button == stringResource(id = R.string._00) || button == stringResource(
+                    id = R.string.clear
+                )) -> 0.9f // 00 and Clear buttons - same size as Next/0
                 isLastRow && button == stringResource(id = R.string.cash) -> 2.2f
                 else -> 1f // Default weight for regular buttons (like 1, 2, 3 in Row 3)
             }
-            
+
             KeypadButton(
                 text = button,
                 modifier = Modifier.weight(buttonWeight),
@@ -1350,7 +1329,7 @@ fun KeypadButton(
         BaseText(
             text = text,
             color = Color.White,
-            fontSize = 13f,
+            fontSize = 16f,
             fontFamily = GeneralSans,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -1481,8 +1460,7 @@ fun ProductsPanel(
     products: List<Products>,
     cartItems: List<CartItem>,
     onProductClick: (Products) -> Unit,
-    onShowOrderDiscountDialog: () -> Unit,
-    onShowClockInOutDialog: () -> Unit = {}
+    onShowOrderDiscountDialog: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -1508,8 +1486,7 @@ fun ProductsPanel(
             modifier = Modifier.weight(0.41f),
             navController = navController,
             cartItems = cartItems,
-            onShowOrderDiscountDialog = onShowOrderDiscountDialog,
-            onShowClockInOutDialog = onShowClockInOutDialog
+            onShowOrderDiscountDialog = onShowOrderDiscountDialog
         )
     }
 }
@@ -1565,8 +1542,7 @@ fun ActionButtonsPanel(
     modifier: Modifier = Modifier,
     navController: NavController,
     cartItems: List<CartItem>,
-    onShowOrderDiscountDialog: () -> Unit,
-    onShowClockInOutDialog: () -> Unit = {}
+    onShowOrderDiscountDialog: () -> Unit
 ) {
     val context = LocalContext.current
     Column(
@@ -1616,16 +1592,12 @@ fun ActionButtonsPanel(
             buttons = listOf(
                 ActionButton("Promotions", R.drawable.promotions_btn),
                 ActionButton("Weight Scale", R.drawable.weight_scale_btn),
-                ActionButton("Clock In/Out", R.drawable.clock_in_out_btn),
+                ActionButton("Add Customer", R.drawable.clock_in_out_btn),
                 ActionButton("Order Discount", R.drawable.discount_btn)
             ), onActionClick = { action ->
                 when (action) {
                     "Order Discount" -> {
                         onShowOrderDiscountDialog()
-                    }
-
-                    "Clock In/Out" -> {
-                        onShowClockInOutDialog()
                     }
                 }
             })

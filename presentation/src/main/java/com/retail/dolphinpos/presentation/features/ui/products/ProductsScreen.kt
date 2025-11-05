@@ -71,9 +71,9 @@ fun ProductsScreen(
     val filteredProducts = if (searchQuery.isEmpty()) {
         products
     } else {
-        products.filter { 
+        products.filter {
             it.name?.contains(searchQuery, ignoreCase = true) == true ||
-            it.barCode?.contains(searchQuery, ignoreCase = true) == true
+                    it.barCode?.contains(searchQuery, ignoreCase = true) == true
         }
     }
 
@@ -86,11 +86,12 @@ fun ProductsScreen(
             when (event) {
                 is ProductsUiEvent.ShowLoading -> Loader.show("Loading...")
                 is ProductsUiEvent.HideLoading -> Loader.hide()
-                is ProductsUiEvent.NavigateToLogin -> {
+                is ProductsUiEvent.NavigateToPinCode -> {
                     navController.navigate("pinCode") {
                         popUpTo(0) { inclusive = false }
                     }
                 }
+
                 is ProductsUiEvent.ShowError -> {
                     DialogHandler.showDialog(
                         message = event.message,
@@ -181,10 +182,10 @@ fun ProductsScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-        BaseText(
+                    BaseText(
                         text = "Loading...",
                         fontSize = 16f,
-            color = Color.Gray,
+                        color = Color.Gray,
                         fontFamily = GeneralSans
                     )
                 }
@@ -195,17 +196,17 @@ fun ProductsScreen(
                 ) {
                     BaseText(
                         text = "No products found",
-            fontSize = 16f,
+                        fontSize = 16f,
                         color = Color.Gray,
-            fontFamily = GeneralSans
-        )
+                        fontFamily = GeneralSans
+                    )
                 }
             } else {
                 // Table Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF1976D2))
+                        .background(colorResource(id = R.color.primary))
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -289,7 +290,13 @@ fun ProductsScreen(
                                 modifier = Modifier.width(200.dp)
                             )
                             BaseText(
-                                text = "$${String.format(Locale.US, "%.2f", product.cashPrice.toDoubleOrNull() ?: 0.0)}",
+                                text = "$${
+                                    String.format(
+                                        Locale.US,
+                                        "%.2f",
+                                        product.cashPrice.toDoubleOrNull() ?: 0.0
+                                    )
+                                }",
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
@@ -389,9 +396,9 @@ fun ProductDetailsDialog(
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
-                fontFamily = GeneralSans
-            )
-        }
+                        fontFamily = GeneralSans
+                    )
+                }
 
                 // Barcode
                 if (!product.barCode.isNullOrEmpty()) {
@@ -447,7 +454,13 @@ fun ProductDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = "$${String.format(Locale.US, "%.2f", product.cashPrice.toDoubleOrNull() ?: 0.0)}",
+                        text = "$${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                product.cashPrice.toDoubleOrNull() ?: 0.0
+                            )
+                        }",
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
@@ -467,7 +480,13 @@ fun ProductDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = "$${String.format(Locale.US, "%.2f", product.cardPrice.toDoubleOrNull() ?: 0.0)}",
+                        text = "$${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                product.cardPrice.toDoubleOrNull() ?: 0.0
+                            )
+                        }",
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
@@ -538,13 +557,25 @@ fun ProductDetailsDialog(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     BaseText(
-                                        text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        text = "Cash: $${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                variant.cashPrice?.toDoubleOrNull() ?: 0.0
+                                            )
+                                        }",
                                         fontSize = 12f,
                                         color = Color.Gray,
                                         fontFamily = GeneralSans
                                     )
                                     BaseText(
-                                        text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        text = "Card: $${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                variant.cardPrice?.toDoubleOrNull() ?: 0.0
+                                            )
+                                        }",
                                         fontSize = 12f,
                                         color = Color.Gray,
                                         fontFamily = GeneralSans

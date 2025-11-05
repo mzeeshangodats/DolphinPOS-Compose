@@ -8,8 +8,8 @@ import com.retail.dolphinpos.data.dao.HoldCartDao
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
-import com.retail.dolphinpos.data.repository.HoldCartRepository
-import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
+import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
+import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
 import com.retail.dolphinpos.data.room.DolphinDatabase
 import dagger.Module
 import dagger.Provides
@@ -78,7 +78,7 @@ object RoomDatabaseModule {
         pendingOrderDao: PendingOrderDao,
         apiService: com.retail.dolphinpos.data.service.ApiService,
         gson: Gson
-    ): PendingOrderRepository {
-        return PendingOrderRepository(pendingOrderDao, apiService, gson)
+    ): PendingOrderRepositoryImpl {
+        return PendingOrderRepositoryImpl(pendingOrderDao, apiService, gson)
     }
 }

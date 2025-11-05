@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,6 +61,13 @@ fun PinCodeScreen(
 
     val pleaseWait = stringResource(id = R.string.plz_wait)
     val tryAgain = stringResource(id = R.string.try_again)
+
+    // Handle back button press - navigate to splash screen
+    BackHandler {
+        navController.navigate("splash") {
+            popUpTo(0) { inclusive = true }
+        }
+    }
 
     // Handle events from ViewModel
     LaunchedEffect(Unit) {

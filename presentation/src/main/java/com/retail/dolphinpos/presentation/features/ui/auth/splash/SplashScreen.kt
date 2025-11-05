@@ -73,21 +73,21 @@ private fun SplashScreenContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 100.dp),
+                .padding(top = 150.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             BaseText(
                 text = currentTime,
                 style = MaterialTheme.typography.displayLarge,
                 color = Color.White,
-                fontWeight = FontWeight.Light
+                fontWeight = FontWeight. Light
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             BaseText(
                 text = currentDate,
-                style = MaterialTheme.typography.labelMedium,
+                fontSize = 16f,
                 color = Color.White,
                 fontWeight = FontWeight.Light
             )

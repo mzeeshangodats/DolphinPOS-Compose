@@ -48,20 +48,8 @@ class ProductsViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            _uiEvent.emit(ProductsUiEvent.ShowLoading)
-            try {
-                val response = storeRegistersRepository.logout()
-                response.message.let {
-                    preferenceManager.setLogin(false)
-                    _uiEvent.emit(ProductsUiEvent.HideLoading)
-                    _uiEvent.emit(ProductsUiEvent.NavigateToLogin)
-                }
-            } catch (e: Exception) {
-                _uiEvent.emit(ProductsUiEvent.HideLoading)
-                _uiEvent.emit(
-                    ProductsUiEvent.ShowError(e.message ?: "Something went wrong")
-                )
-            }
+            // Just clear preferences and navigate, no API call
+            _uiEvent.emit(ProductsUiEvent.NavigateToPinCode)
         }
     }
 }
@@ -69,6 +57,6 @@ class ProductsViewModel @Inject constructor(
 sealed class ProductsUiEvent {
     object ShowLoading : ProductsUiEvent()
     object HideLoading : ProductsUiEvent()
-    object NavigateToLogin : ProductsUiEvent()
+    object NavigateToPinCode : ProductsUiEvent()
     data class ShowError(val message: String) : ProductsUiEvent()
 }

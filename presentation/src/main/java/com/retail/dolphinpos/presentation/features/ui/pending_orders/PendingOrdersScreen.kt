@@ -86,7 +86,8 @@ fun PendingOrdersScreen(
                 is PendingOrdersUiEvent.ShowSuccess -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = "OK"
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon
                     ) {}
                 }
             }

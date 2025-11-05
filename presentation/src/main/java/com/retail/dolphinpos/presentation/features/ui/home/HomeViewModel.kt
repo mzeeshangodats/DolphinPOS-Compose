@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
-import com.retail.dolphinpos.data.repository.HoldCartRepository
-import com.retail.dolphinpos.data.repositories.order.PendingOrderRepository
+import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
+import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
@@ -43,7 +43,7 @@ class HomeViewModel @Inject constructor(
     private val homeRepository: HomeRepository,
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
-    private val pendingOrderRepository: PendingOrderRepository,
+    private val pendingOrderRepository: PendingOrderRepositoryImpl,
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
     private val verifyPinRepository: VerifyPinRepository
@@ -784,26 +784,6 @@ class HomeViewModel @Inject constructor(
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
                 // Reset order level discounts when order fails
                 resetOrderDiscountValues()
-            }
-        }
-    }
-
-    fun logout() {
-        viewModelScope.launch {
-            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
-            try {
-                val response = storeRegistersRepository.logout()
-                response.message.let {
-                    preferenceManager.setLogin(false)
-                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                    _homeUiEvent.emit(HomeUiEvent.NavigateToLogin)
-                }
-
-            } catch (e: Exception) {
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(
-                    HomeUiEvent.ShowError(e.message ?: "Something went wrong")
-                )
             }
         }
     }

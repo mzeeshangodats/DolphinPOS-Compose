@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.data.repository
+package com.retail.dolphinpos.data.repositories.hold_cart
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -29,7 +29,7 @@ class HoldCartRepository @Inject constructor(
         registerId: Int
     ): Long {
         val cartItemsJson = gson.toJson(cartItems)
-        
+
         val holdCart = HoldCartEntity(
             cartName = cartName,
             cartItems = cartItemsJson,
@@ -43,7 +43,7 @@ class HoldCartRepository @Inject constructor(
             storeId = storeId,
             registerId = registerId
         )
-        
+
         return holdCartDao.insertHoldCart(holdCart)
     }
 
