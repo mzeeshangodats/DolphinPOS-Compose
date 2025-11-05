@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.data.setup.hardware.payment.pax
 
-import com.pax.poslinksemiintegration.setting.TcpSetting
+import com.pax.poscore.commsetting.TcpSetting
 import com.retail.dolphinpos.common.utils.Constants
 import javax.inject.Inject
 
@@ -10,10 +10,10 @@ interface GetTcpSettingsUseCase {
 
 class GetTcpSettingsUseCaseImpl @Inject constructor() : GetTcpSettingsUseCase {
     override operator fun invoke(ipAddress: String, portNumber: String): TcpSetting {
-        return TcpSetting().apply {
-            setIpAddress(ipAddress)
-            setPort(portNumber.toIntOrNull() ?: 10009)
-            setTimeout(Constants.PAX_DEFAULT_CONNECTION_TIME_OUT)
-        }
+        return TcpSetting(
+            ipAddress,
+            portNumber,
+            Constants.PAX_DEFAULT_CONNECTION_TIME_OUT
+        )
     }
 }

@@ -10,6 +10,7 @@ import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetTcpSettingsUseCa
 import com.retail.dolphinpos.domain.analytics.AnalyticsTracker
 import com.retail.dolphinpos.domain.model.setup.hardware.payment.pax.PaxDetail
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.GetPaxDetailsUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.SavePaxDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ValidateIpAddressUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ class CreditCardProcessingViewModel @Inject constructor(
     private val validateIpAddressUseCase: ValidateIpAddressUseCase,
     getPaxDetailsUseCase: GetPaxDetailsUseCase,
     private val savePaxDetailsUseCase: SavePaxDetailsUseCase,
+    private val initializeTerminalUseCase: InitializeTerminalUseCase,
     //private val getPaxBatchInformationUseCase: GetPaxBatchInformationUseCase,
     //private val requestClosePaxBatchUseCase: RequestClosePaxBatchUseCase,
     //private val closePaxBatchUseCase: ClosePaxBatchUseCase,
@@ -46,6 +48,21 @@ class CreditCardProcessingViewModel @Inject constructor(
 
     private var paxDetails: PaxDetail? = null
 
+    private fun String.toCommunicationType(): CommunicationType {
+        return when (this.lowercase()) {
+            "tcp/ip" -> CommunicationType.TCP_IP
+            "http/get" -> CommunicationType.HTTP_GET
+            else -> CommunicationType.TCP_IP // Default fallback
+        }
+    }
+
+    private fun CommunicationType.toCommunicationTypeString(): String {
+        return when (this) {
+            CommunicationType.TCP_IP -> "tcp/ip"
+            CommunicationType.HTTP_GET -> "http/get"
+        }
+    }
+
     init {
         viewModelScope.launch {
             paxDetails = getPaxDetailsUseCase()
@@ -55,7 +72,12 @@ class CreditCardProcessingViewModel @Inject constructor(
                     ipAddress = it.ipAddress,
                     portNumber = it.portNumber,
                     communicationType = it.communicationType,
-                    isButtonEnabled = validations(it.ipAddress, it.portNumber)
+                    isButtonEnabled = validations(it.ipAddress, it.portNumber),
+                    config = CreditCardConfigState(
+                        ipAddress = it.ipAddress,
+                        portNumber = it.portNumber,
+                        communicationType = it.communicationType.toCommunicationType()
+                    )
                 )
             }
         }
@@ -90,13 +112,19 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     fun updateCommunicationType(communicationType: CommunicationType) {
-        updateState { it.copy(config = it.config.copy(communicationType = communicationType)) }
+        updateState {
+            it.copy(
+                config = it.config.copy(communicationType = communicationType),
+                communicationType = communicationType.toCommunicationTypeString()
+            )
+        }
     }
 
     fun updateIpAddress(ip: String) {
         updateState {
             it.copy(
                 config = it.config.copy(ipAddress = ip),
+                ipAddress = ip,
                 isButtonEnabled = validations(ip, it.portNumber)
             )
         }
@@ -106,6 +134,7 @@ class CreditCardProcessingViewModel @Inject constructor(
         updateState {
             it.copy(
                 config = it.config.copy(portNumber = port),
+                portNumber = port,
                 isButtonEnabled = validations(it.ipAddress, port)
             )
         }
@@ -157,174 +186,115 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     private fun initPaxCommunication(isTestConnection: Boolean) {
-
         viewModelScope.launch(Dispatchers.IO) {
-            val commType = viewState.value.config.communicationType
             val eventNamePrefix = if (isTestConnection) "pax_test_connection" else "pax_batch_close"
 
-            val settings =
-                if (commType == CommunicationType.HTTP_GET) getHttpSettingsUseCase(
-                    viewState.value.ipAddress,
-                    viewState.value.portNumber,
-                    isTestConnection = true
-                ) else getTcpSettingsUseCase(
-                    viewState.value.ipAddress,
-                    viewState.value.portNumber,
-                    isTestConnection = true
-                )
+            // Capture current state values before async callback
+            val currentCommType = viewState.value.communicationType ?: "unknown"
+            val currentIpAddress = viewState.value.ipAddress
 
-            /*try {
-                val settings =
-                    if (commType == "http/get") getHttpSettingsUseCase(
-                        viewState.value.ipAddress,
-                        viewState.value.portNumber,
-                        isTestConnection = true
-                    ) else getTcpSettingsUseCase(
-                        viewState.value.ipAddress,
-                        viewState.value.portNumber,
-                        isTestConnection = true
+            try {
+                updateState {
+                    it.copy(
+                        isLoading = true,
+                        errorMessage = null,
+                        successMessage = null
                     )
+                }
 
-                val terminal = POSLinkSemi.getInstance().getTerminal(
-                    context,
-                    settings
-                )
-
-                if (terminal != null) {
-                    val result = terminal.manage.init()
-                    if (result.isSuccessful) {
+                initializeTerminalUseCase { result ->
+                    if (result.isSuccess && result.session != null) {
                         // Analytics: Log successful terminal initialization
                         analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
                             putString("response_type", "terminal_init_success")
-                            putString("comm_type", commType)
-                            putString("ip_address", viewState.value.ipAddress)
+                            putString("comm_type", currentCommType)
+                            putString("ip_address", currentIpAddress)
+                            putString("app_name", "Dolphin POS")
                         })
 
                         if (isTestConnection) {
-                            val response = result.response()
-                            getPaxBatchInformationUseCase(
-                                terminal,
-                                onSuccess = { variableResponse ->
-                                    message = "POS Device Initialized: ${response.appName()}\nBatch no: " + variableResponse.variableValue1()
-                                    emitViewEffect(ShowInformationSnackBar(message))
-                                    // Analytics: Log successful test connection with batch info
-                                    analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
-                                        putString("response_type", "success_with_batch_info")
-                                        putString("app_name", response.appName())
-                                        putString("batch_number", variableResponse.variableValue1())
-                                        putString("log_message", message)
-                                    })
-                                },
-                                onFailure = {
-                                    message = "POS Device Initialized ${response.appName()}: Unable to get Pax batch information"
-                                    emitViewEffect(ShowErrorSnackBar(message))
-                                    // Analytics: Log successful test connection but failed to get batch info
-                                    analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
-                                        putString("response_type", "success_no_batch_info")
-                                        putString("app_name", response.appName())
-                                        putString("log_message", message)
-                                    })
-                                })
-                        } else {
-                            setIsLoading(message = "Do not close The App or Pax batch close in progress...",isLoading = true)
-                            requestClosePaxBatchUseCase(
-                                terminal,
-                                onSuccess = { response ->
-                                    message = "Batch Closed Successfully (${response.hostInformation().batchNumber()})"
-                                    emitViewEffect(ShowSuccessSnackBar(message)) // Show success snack bar first
-                                    // Analytics: Log successful PAX batch close
-                                    analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
-                                        putString("response_type", "pax_close_success")
-                                        putString("batch_number", response.hostInformation().batchNumber())
-                                        putString("log_message", message)
-                                    })
-                                    handleBatchCloseSuccessfully(response)
-                                },
-                                onFailure = { response ->
-                                    message = "Failed to Close Batch : $response"
-                                    emitViewEffect(ShowErrorSnackBar(message))
-                                    // Analytics: Log failed PAX batch close
-                                    analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
-                                        putString("response_type", "pax_close_failed")
-                                        putString("error_response", response)
-                                        putString("log_message", message)
-                                    })
-                                })
+                            val message = "POS Device Initialized: Dolphin POS"
+                            viewModelScope.launch(Dispatchers.Main) {
+                                updateState {
+                                    it.copy(
+                                        isLoading = false,
+                                        successMessage = message
+                                    )
+                                }
+                            }
+                            // Analytics: Log successful test connection
+                            analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
+                                putString("response_type", "success")
+                                putString("app_name", "Dolphin POS")
+                                putString("log_message", message)
+                            })
                         }
                     } else {
-                        message = "Unable to connect to POS Device, please try again."
-                        emitViewEffect(ShowErrorSnackBar(message))
+                        val errorMessage = result.message ?: "Unable to connect to POS Device"
+                        viewModelScope.launch(Dispatchers.Main) {
+                            updateState {
+                                it.copy(
+                                    isLoading = false,
+                                    errorMessage = errorMessage
+                                )
+                            }
+                        }
                         // Analytics: Log failed terminal initialization
                         analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
                             putString("response_type", "terminal_init_failed")
-                            putString("comm_type", commType)
-                            putString("ip_address", viewState.value.ipAddress)
-                            putString("error_message", result.message())
-                            putString("log_message", message)
+                            putString("comm_type", currentCommType)
+                            putString("ip_address", currentIpAddress)
+                            putString("error_message", result.message)
+                            putString("log_message", errorMessage)
                         })
                     }
-                } else {
-                    message = "Failed to initialize terminal instance. Connection Timeout"
-                    emitViewEffect(ShowErrorSnackBar(message))
-                    // Analytics: Log terminal instance null
-                    analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
-                        putString("comm_type", commType)
-                        putString("ip_address", viewState.value.ipAddress)
-                        putString("response_type", "terminal_instance_null")
-                        putString("log_message", message)
-                    })
                 }
             } catch (e: SocketTimeoutException) {
-                message = "Error: ${e.message ?: "Socket timeout occurred"}"
-                Log.e(TAG, "initPaxCommunication: SocketTimeoutException", e)
-                emitViewEffect(ShowErrorSnackBar(message))
+                val errorMessage = "Error: ${e.message ?: "Socket timeout occurred"}"
+                Log.e(
+                    "CreditCardProcessingViewModel",
+                    "initPaxCommunication: SocketTimeoutException",
+                    e
+                )
+                viewModelScope.launch(Dispatchers.Main) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = errorMessage
+                        )
+                    }
+                }
                 // Analytics: Log socket timeout error
                 analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
                     putString("response_type", "socket_timeout_error")
                     putString("error_message", e.message)
-                    putString("log_message", message)
+                    putString("log_message", errorMessage)
                 })
             } catch (e: Exception) {
-                message = "Error: ${e.message ?: "Unknown error occurred during PAX communication"}"
-                Log.e(TAG, "initPaxCommunication: General Exception", e)
-                emitViewEffect(ShowErrorSnackBar(message))
+                val errorMessage =
+                    "Error: ${e.message ?: "Unknown error occurred during PAX communication"}"
+                Log.e("CreditCardProcessingViewModel", "initPaxCommunication: General Exception", e)
+                viewModelScope.launch(Dispatchers.Main) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = errorMessage
+                        )
+                    }
+                }
                 // Analytics: Log general error
                 analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
                     putString("response_type", "general_error")
                     putString("error_message", e.message)
                     putString("error_stacktrace", Log.getStackTraceString(e))
-                    putString("log_message", message)
+                    putString("log_message", errorMessage)
                 })
-            } finally {
-                // Removed redundant snackbar here as it's handled in specific success/failure branches
-                setIsLoading(message = "", isLoading = false)
-            }*/
+            }
         }
     }
 
     fun testConnection() {
-        viewModelScope.launch {
-            updateState { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
-
-            try {
-
-                initPaxCommunication(isTestConnection = true)
-
-                updateState {
-                    it.copy(
-                        isLoading = false,
-                        successMessage = "Connection test successful"
-                    )
-                }
-            } catch (e: Exception) {
-                updateState {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "Connection test failed"
-                    )
-                }
-            }
-        }
+        initPaxCommunication(isTestConnection = true)
     }
 
     fun onCancel() {

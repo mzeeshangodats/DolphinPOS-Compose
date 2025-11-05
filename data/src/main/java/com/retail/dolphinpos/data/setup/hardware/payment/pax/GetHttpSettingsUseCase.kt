@@ -10,10 +10,10 @@ interface GetHttpSettingsUseCase {
 
 class GetHttpSettingsUseCaseImpl @Inject constructor() : GetHttpSettingsUseCase {
     override operator fun invoke(ipAddress: String, portNumber: String): HttpSetting {
-        return HttpSetting().apply {
-//            setIpAddress(ipAddress)
-//            setPort(portNumber.toIntOrNull() ?: 10009)
-//            setTimeout(Constants.PAX_DEFAULT_CONNECTION_TIME_OUT)
-        }
+        return HttpSetting(
+            ipAddress,
+            portNumber,
+            Constants.PAX_DEFAULT_CONNECTION_TIME_OUT,
+        )
     }
 }

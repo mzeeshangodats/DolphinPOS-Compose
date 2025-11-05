@@ -8,8 +8,6 @@ import com.retail.dolphinpos.data.setup.hardware.payment.pax.ConnectionSetting.T
 import com.retail.dolphinpos.domain.usecases.auth.GetBatchDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.auth.GetUserDetailUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.GetPaxDetailsUseCase
-import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetTcpSettingsUseCase
-import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetHttpSettingsUseCase
 import com.pax.poslinkadmin.Code100021
 import com.pax.poslinkadmin.constant.EdcType
 import com.pax.poslinkadmin.constant.TransactionType

@@ -63,7 +63,7 @@ fun CreditCardProcessingScreen(
     // Handle success messages
     LaunchedEffect(viewState.successMessage) {
         viewState.successMessage?.let { message ->
-            DialogHandler.showDialog(message = message, buttonText = "OK") {
+            DialogHandler.showDialog(message = message, buttonText = "OK", iconRes = R.drawable.success_circle_icon) {
                 viewModel.clearMessages()
             }
         }
@@ -211,6 +211,8 @@ fun CreditCardProcessingScreen(
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                    fontSize = 14,
                     onClick = { viewModel.testConnection() }
                 )
             }

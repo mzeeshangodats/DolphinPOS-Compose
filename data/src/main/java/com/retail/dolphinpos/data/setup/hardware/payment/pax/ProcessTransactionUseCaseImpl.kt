@@ -53,17 +53,19 @@ class ProcessTransactionUseCaseImpl @Inject constructor(
         )
     }
 
-    private fun mapResponseToCardDetails(response: DoCreditResponse): CardDetails {
+    private fun mapResponseToCardDetails(doCreditResponse: DoCreditResponse): CardDetails {
         return CardDetails(
-            terminalInvoiceNo = response.invoiceNumber() ?: "",
-            transactionId = response.hostInformation()?.transactionNumber() ?: "",
-            authCode = response.hostInformation()?.authorizationCode() ?: "",
-            rrn = response.hostInformation()?.retrievalReferenceNumber() ?: "",
-            brand = response.cardInformation()?.cardBrand() ?: "",
-            last4 = response.cardInformation()?.accountNumber()?.takeLast(4) ?: "",
-            entryMethod = response.cardInformation()?.entryMode() ?: "",
-            merchantId = /*response.merchantInformation()?.merchantId() ?:*/ "",
-            terminalId = response.merchantInformation()?.terminalId() ?: ""
+            paxBatchNo = doCreditResponse.hostInformation().batchNumber(),
+            originalReferenceNo = doCreditResponse.hostInformation().hostReferenceNumber(),
+            terminalInvoiceNo = /*response.invoiceNumber() ?:*/ "",
+            transactionId = doCreditResponse.traceInformation().referenceNumber(),
+            authCode = doCreditResponse.hostInformation().authorizationCode(),
+            rrn = doCreditResponse.hostInformation().retrievalReferenceNumber(),
+            brand = /*doCreditResponse.hostInformation() ?:*/ "",
+            last4 = doCreditResponse.accountInformation().account(),
+//            entryMethod = response.cardInformation()?.entryMode() ?: "",
+//            merchantId = /*response.merchantInformation()?.merchantId() ?:*/ "",
+//            terminalId = response.merchantInformation()?.terminalId() ?: ""
         )
     }
 }
