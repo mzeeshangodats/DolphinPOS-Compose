@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
@@ -50,13 +51,19 @@ class PendingOrderRepository(
     suspend fun syncOrderToServer(order: PendingOrderEntity): Result<CreateOrderResponse> {
         return try {
             val orderRequest = convertToCreateOrderRequest(order)
-            val response = apiService.createOrder(orderRequest)
+            val result = safeApiCallResult(
+                apiCall = { apiService.createOrder(orderRequest) },
+                defaultMessage = "Order creation failed",
+                messageExtractor = { errorResponse -> errorResponse.message }
+            )
             
-            // Mark as synced
-            val updatedOrder = order.copy(isSynced = true)
-            pendingOrderDao.updatePendingOrder(updatedOrder)
+            // Mark as synced only if successful
+            result.onSuccess { response ->
+                val updatedOrder = order.copy(isSynced = true)
+                pendingOrderDao.updatePendingOrder(updatedOrder)
+            }
             
-            Result.success(response)
+            result
         } catch (e: Exception) {
             Result.failure(e)
         }

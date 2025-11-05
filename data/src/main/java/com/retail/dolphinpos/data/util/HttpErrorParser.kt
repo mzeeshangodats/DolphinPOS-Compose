@@ -55,3 +55,78 @@ inline fun <reified T> HttpException.parseErrorResponse(): T? {
     }
 }
 
+/**
+ * Generalized error handler for API calls that return response types directly
+ * @param httpException The HttpException to handle
+ * @param defaultResponse A lambda that creates a default error response when parsing fails
+ * @return The parsed error response or the default response
+ */
+inline fun <reified T> handleApiError(
+    httpException: HttpException,
+    crossinline defaultResponse: () -> T
+): T {
+    val errorResponse: T? = httpException.parseErrorResponse<T>()
+    return errorResponse ?: defaultResponse()
+}
+
+/**
+ * Generalized error handler for API calls that return Result<T>
+ * @param httpException The HttpException to handle
+ * @param defaultMessage Default error message when parsing fails
+ * @param messageExtractor Optional lambda to extract message from error response
+ * @return Result.failure with the error message
+ */
+inline fun <reified T> handleApiErrorResult(
+    httpException: HttpException,
+    defaultMessage: String = "Request failed",
+    crossinline messageExtractor: (T) -> String? = { null }
+): Result<T> {
+    val errorResponse: T? = httpException.parseErrorResponse<T>()
+    val errorMessage = if (errorResponse != null) {
+        messageExtractor(errorResponse) ?: defaultMessage
+    } else {
+        defaultMessage
+    }
+    return Result.failure(Exception(errorMessage))
+}
+
+/**
+ * Extension function to safely execute API calls with error handling
+ * @param apiCall The suspend function to execute
+ * @param defaultResponse A lambda that creates a default error response when parsing fails
+ * @return The API response or the default error response
+ */
+suspend inline fun <reified T> safeApiCall(
+    crossinline apiCall: suspend () -> T,
+    crossinline defaultResponse: () -> T
+): T {
+    return try {
+        apiCall()
+    } catch (e: HttpException) {
+        handleApiError(e, defaultResponse)
+    } catch (e: Exception) {
+        throw e
+    }
+}
+
+/**
+ * Extension function to safely execute API calls with Result<T> return type
+ * @param apiCall The suspend function to execute
+ * @param defaultMessage Default error message when parsing fails
+ * @param messageExtractor Optional lambda to extract message from error response
+ * @return Result.success or Result.failure
+ */
+suspend inline fun <reified T> safeApiCallResult(
+    crossinline apiCall: suspend () -> T,
+    defaultMessage: String = "Request failed",
+    crossinline messageExtractor: (T) -> String? = { null }
+): Result<T> {
+    return try {
+        Result.success(apiCall())
+    } catch (e: HttpException) {
+        handleApiErrorResult<T>(e, defaultMessage, messageExtractor)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+}
+

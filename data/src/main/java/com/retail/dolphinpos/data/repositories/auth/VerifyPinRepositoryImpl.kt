@@ -4,7 +4,7 @@ import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
-import com.retail.dolphinpos.data.util.getErrorMessage
+import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
@@ -73,12 +73,11 @@ class VerifyPinRepositoryImpl(
 
     override suspend fun clockInOut(request: ClockInOutRequest): Result<ClockInOutResponse> {
         return try {
-            val response = apiService.clockInOut(request)
-            Result.success(response)
-        } catch (e: HttpException) {
-            // Parse API error message like login
-            val message = e.getErrorMessage() ?: "Clock In/Out failed"
-            Result.failure(Throwable(message))
+            safeApiCallResult(
+                apiCall = { apiService.clockInOut(request) },
+                defaultMessage = "Clock In/Out failed",
+                messageExtractor = { errorResponse -> errorResponse.message }
+            )
         } catch (e: IOException) {
             // Offline queue
             try {
@@ -105,10 +104,11 @@ class VerifyPinRepositoryImpl(
 
     override suspend fun getClockInOutHistory(userId: Int): Result<List<ClockInOutHistoryData>> {
         return try {
-            val resp = apiService.getClockInOutHistory(userId)
-            Result.success(resp.data)
-        } catch (e: HttpException) {
-            Result.failure(Throwable(e.getErrorMessage() ?: "Failed to load history"))
+            val result = safeApiCallResult(
+                apiCall = { apiService.getClockInOutHistory(userId) },
+                defaultMessage = "Failed to load history"
+            )
+            result.map { response -> response.data }
         } catch (e: Exception) {
             Result.failure(Throwable(e.message ?: "Failed to load history"))
         }

@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.data.repositories.home
 
 import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 
@@ -19,22 +20,22 @@ class OrdersRepositoryImpl(
         storeId: Int,
         keyword: String?
     ): Result<OrderDetailsResponse> {
-        return try {
-            val response = api.getOrdersDetails(
-                orderBy = orderBy,
-                order = order,
-                startDate = startDate,
-                endDate = endDate,
-                limit = limit,
-                page = page,
-                paginate = paginate,
-                storeId = storeId,
-                keyword = keyword
-            )
-            Result.success(response)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return safeApiCallResult(
+            apiCall = {
+                api.getOrdersDetails(
+                    orderBy = orderBy,
+                    order = order,
+                    startDate = startDate,
+                    endDate = endDate,
+                    limit = limit,
+                    page = page,
+                    paginate = paginate,
+                    storeId = storeId,
+                    keyword = keyword
+                )
+            },
+            defaultMessage = "Failed to load orders"
+        )
     }
 }
 

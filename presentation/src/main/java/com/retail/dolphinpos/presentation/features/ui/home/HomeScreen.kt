@@ -1232,7 +1232,8 @@ fun Keypad(
             onCashSelected = onCashSelected,
             onCardSelected = onCardSelected,
             onClear = onClear,
-            onNext = onNext
+            onNext = onNext,
+            isRow5 = true
         )
     }
 }
@@ -1248,7 +1249,8 @@ fun KeypadRow(
     onClear: (() -> Unit)? = null,
     onNext: (() -> Unit)? = null,
     isLastRow: Boolean = false,
-    isRow4: Boolean = false
+    isRow4: Boolean = false,
+    isRow5: Boolean = false
 ) {
     val strExact = stringResource(id = R.string.exact)
     val cash = stringResource(id = R.string.cash)
@@ -1260,12 +1262,15 @@ fun KeypadRow(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEachIndexed { index, button ->
-            // Calculate weight for Row 4: first 3 buttons (Exact, 0, Next) = 1f (same as buttons 1, 2, 3 in Row 3)
-            // Last button (Cash) = 2f (double width)
+            // Calculate weight for Row 4: first 3 buttons (Exact, 0, Next) = 0.9f, last button (Cash) = 2.2f
+            // Calculate weight for Row 5: first button (Empty) = 0.9f (matches Exact position), 00 and Clear = 0.9f (matches Next/0), Card button = 2.3f (matches Cash width)
             val buttonWeight = when {
                 button.contains("$") -> 1.2f
                 isRow4 && index == buttons.size - 1 && button == stringResource(id = R.string.cash) -> 2.2f
-                isRow4 && index < buttons.size - 1 -> 0.9f // First 3 buttons in Row 4 (Exact, 0, Next) - same weight as buttons 1, 2 in Row 3
+                isRow4 && index < buttons.size - 1 -> 0.9f // First 3 buttons in Row 4 (Exact, 0, Next)
+                isRow5 && index == buttons.size - 1 && button == stringResource(id = R.string.card) -> 2.2f // Card button - slightly larger than Cash to match visually
+                isRow5 && index == 0 && button.isEmpty() -> 0.9f // Empty button in Row 5 - aligns with Exact button position
+                isRow5 && (button == stringResource(id = R.string._00) || button == stringResource(id = R.string.clear)) -> 0.9f // 00 and Clear buttons - same size as Next/0
                 isLastRow && button == stringResource(id = R.string.cash) -> 2.2f
                 else -> 1f // Default weight for regular buttons (like 1, 2, 3 in Row 3)
             }

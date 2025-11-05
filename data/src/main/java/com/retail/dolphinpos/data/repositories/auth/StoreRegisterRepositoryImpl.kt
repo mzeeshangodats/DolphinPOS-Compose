@@ -14,11 +14,15 @@ import com.retail.dolphinpos.domain.model.auth.login.response.Locations
 import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.logout.LogoutResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.storeRegisters.StoreRegistersResponse
-import com.retail.dolphinpos.data.util.parseErrorResponse
+import com.retail.dolphinpos.data.util.safeApiCall
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterData
+import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterData
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateStoreRegisterRequest
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Category
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Metadata
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductImage
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
@@ -36,17 +40,10 @@ class StoreRegisterRepositoryImpl(
 ) : StoreRegistersRepository {
 
     override suspend fun updateStoreRegister(updateStoreRegisterRequest: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse {
-        return try {
-            api.updateStoreRegister(updateStoreRegisterRequest)
-        } catch (e: HttpException) {
-            // Try to parse the error response body as UpdateStoreRegisterResponse (for validation errors)
-            val errorResponse: UpdateStoreRegisterResponse? = e.parseErrorResponse<UpdateStoreRegisterResponse>()
-            if (errorResponse != null) {
-                // Return the error response instead of throwing it
-                return errorResponse
-            } else {
-                // If parsing fails, create a default error response
-                return UpdateStoreRegisterResponse(
+        return safeApiCall(
+            apiCall = { api.updateStoreRegister(updateStoreRegisterRequest) },
+            defaultResponse = {
+                UpdateStoreRegisterResponse(
                     message = "Failed to assign register",
                     data = UpdateStoreRegisterData(
                         storeId = 0,
@@ -57,33 +54,57 @@ class StoreRegisterRepositoryImpl(
                     )
                 )
             }
-        } catch (e: Exception) {
-            throw e
-        }
+        )
     }
 
     override suspend fun verifyStoreRegister(verifyRegisterRequest: com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest): com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse {
-        return try {
-            api.verifyStoreRegister(verifyRegisterRequest)
-        } catch (e: Exception) {
-            throw e
-        }
+        return safeApiCall(
+            apiCall = { api.verifyStoreRegister(verifyRegisterRequest) },
+            defaultResponse = {
+                VerifyRegisterResponse(
+                    data = VerifyRegisterData(
+                        locationId = 0,
+                        name = "",
+                        status = "",
+                        storeId = 0,
+                        storeRegisterId = 0,
+                        updatedAt = ""
+                    )
+                )
+            }
+        )
     }
 
     override suspend fun getProducts(storeID: Int, locationID: Int): ProductsResponse {
-        return try {
-            api.getProducts(storeID, locationID)
-        } catch (e: Exception) {
-            throw e
-        }
+        return safeApiCall(
+            apiCall = { api.getProducts(storeID, locationID) },
+            defaultResponse = {
+                ProductsResponse(
+                    message = "",
+                    metadata = Metadata(
+                        lastSync = 0,
+                        locationId = "",
+                        storeId = "",
+                        syncTimestamp = "",
+                        totalCategories = 0,
+                        totalProducts = 0
+                    ),
+                    success = true,
+                    category = Category(
+                        categories = emptyList()
+                    )
+                )
+            }
+        )
     }
 
     override suspend fun logout(): LogoutResponse {
-        return try {
-            api.logout()
-        } catch (e: Exception) {
-            throw e
-        }
+        return safeApiCall(
+            apiCall = { api.logout() },
+            defaultResponse = {
+                LogoutResponse(message = "Logout failed")
+            }
+        )
     }
 
     override suspend fun getLocations(storeID: Int): List<Locations> {
@@ -101,7 +122,14 @@ class StoreRegisterRepositoryImpl(
             }
             
             // Call API to get registers for the selected location
-            val response: StoreRegistersResponse = api.getStoreRegisters(storeId, locationID)
+            val response: StoreRegistersResponse = safeApiCall(
+                apiCall = { api.getStoreRegisters(storeId, locationID) },
+                defaultResponse = {
+                    StoreRegistersResponse(
+                        data = emptyList()
+                    )
+                }
+            )
             
             // Filter and map only active registers
             response.data
