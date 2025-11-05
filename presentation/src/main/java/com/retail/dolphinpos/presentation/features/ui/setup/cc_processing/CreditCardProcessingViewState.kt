@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.payment
+package com.retail.dolphinpos.presentation.features.ui.setup.cc_processing
 
 data class CreditCardProcessingViewState(
     val ipAddress : String = "",

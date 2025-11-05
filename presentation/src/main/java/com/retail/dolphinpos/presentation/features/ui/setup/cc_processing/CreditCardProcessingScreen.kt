@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.payment
+package com.retail.dolphinpos.presentation.features.ui.setup.cc_processing
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -16,23 +16,19 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.DropdownSelector
+import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
-import kotlinx.coroutines.flow.asStateFlow
 
 @Composable
 fun CreditCardProcessingScreen(
@@ -63,7 +59,11 @@ fun CreditCardProcessingScreen(
     // Handle success messages
     LaunchedEffect(viewState.successMessage) {
         viewState.successMessage?.let { message ->
-            DialogHandler.showDialog(message = message, buttonText = "OK", iconRes = R.drawable.success_circle_icon) {
+            DialogHandler.showDialog(
+                message = message,
+                buttonText = "OK",
+                iconRes = R.drawable.success_circle_icon
+            ) {
                 viewModel.clearMessages()
             }
         }
@@ -77,21 +77,27 @@ fun CreditCardProcessingScreen(
         }
     }
 
+    // Function to navigate to home
+    val navigateToHome = {
+        navController.navigate("home") {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp)
             .background(colorResource(id = R.color.light_grey))
             .verticalScroll(rememberScrollState())
     ) {
-        // Heading
-        BaseText(
-            text = "Credit Card Processing",
-            color = Color.Black,
-            fontSize = 24f,
-            fontFamily = GeneralSans,
-            //fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+        // Header with back button and title
+        HeaderAppBarWithBack(
+            title = "Credit Card Processing",
+            onBackClick = navigateToHome
         )
 
         // Spacer for card positioning
@@ -117,108 +123,175 @@ fun CreditCardProcessingScreen(
                         .padding(4.dp)
                 ) {
                     // Row 1: Card Provider
-                    SettingRowWithDropdown(
-                        icon = R.drawable.card_icon,
-                        label = "Card Provider",
-                        selectedText = configState.selectedTerminalType.displayName,
-                        items = TerminalType.entries.map { it.displayName },
-                        onItemSelected = { index ->
-                            viewModel.updateTerminalType(TerminalType.entries[index])
-                        }
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, top = 10.dp)
+                    ) {
+                        BaseText(
+                            text = "Card Provider",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        DropdownSelector(
+                            label = "",
+                            items = TerminalType.entries.map { it.displayName },
+                            selectedText = configState.selectedTerminalType.displayName,
+                            onItemSelected = { index ->
+                                viewModel.updateTerminalType(TerminalType.entries[index])
+                            }
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Row 2: Communication Type
-                    SettingRowWithRadioButtons(
-                        icon = R.drawable.card_icon,
-                        label = "Communication Type",
-                        selectedOption = configState.communicationType,
-                        options = CommunicationType.entries,
-                        onOptionSelected = { viewModel.updateCommunicationType(it) }
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        BaseText(
+                            text = "Communication Type",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CommunicationType.entries.forEach { option ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
+                                        viewModel.updateCommunicationType(option)
+                                    }
+                                ) {
+                                    RadioButton(
+                                        selected = configState.communicationType == option,
+                                        onClick = { viewModel.updateCommunicationType(option) },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = colorResource(id = R.color.primary),
+                                            unselectedColor = Color.Gray
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    BaseText(
+                                        text = option.displayName,
+                                        color = Color.Black,
+                                        fontSize = 14f,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                            }
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Row 3: Digital Signature
-                    SettingRowWithSwitch(
-                        icon = R.drawable.card_icon,
-                        label = "Digital Signature",
-                        checked = configState.digitalSignatureEnabled,
-                        onCheckedChange = { viewModel.updateDigitalSignature(it) }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
+//                    SettingRowWithSwitch(
+//                        icon = R.drawable.card_icon,
+//                        label = "Digital Signature",
+//                        checked = configState.digitalSignatureEnabled,
+//                        onCheckedChange = { viewModel.updateDigitalSignature(it) }
+//                    )
+//
+//                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Row 4: IP Address
-                    SettingRowWithEditText(
-                        icon = R.drawable.card_icon,
-                        label = "IP Address",
-                        value = configState.ipAddress,
-                        onValueChange = { viewModel.updateIpAddress(it) },
-                        placeholder = "Enter IP Address"
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        BaseText(
+                            text = "IP Address",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        BaseOutlinedEditText(
+                            value = configState.ipAddress,
+                            onValueChange = { viewModel.updateIpAddress(it) },
+                            placeholder = "Enter IP Address"
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Row 5: Port No
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        BaseText(
+                            text = "Port No",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        BaseOutlinedEditText(
+                            value = configState.portNumber.ifEmpty { "10009" },
+                            onValueChange = { viewModel.updatePortNumber(it) },
+                            placeholder = "Enter Port Number"
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Row 5: Port No
-                    SettingRowWithEditText(
-                        icon = R.drawable.card_icon,
-                        label = "Port No",
-                        value = configState.portNumber.ifEmpty { "10009" },
-                        onValueChange = { viewModel.updatePortNumber(it) },
-                        placeholder = "Enter Port Number"
-                    )
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BaseButton(
+                            text = "Cancel",
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            backgroundColor = Color.White,
+                            textColor = Color.Black,
+                            border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
+                            onClick = { viewModel.onCancel() }
+                        )
+
+                        BaseButton(
+                            text = "Save",
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            onClick = { viewModel.saveConfiguration() }
+                        )
+
+                        BaseButton(
+                            text = "Test Connection",
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp),
+                            fontSize = 14,
+                            onClick = { viewModel.testConnection() }
+                        )
+                    }
                 }
             }
         }
 
         // Spacer after card
         Spacer(modifier = Modifier.height(24.dp))
-
-        // Action Buttons
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(0.5f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                BaseButton(
-                    text = "Cancel",
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    backgroundColor = Color.White,
-                    textColor = Color.Black,
-                    border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
-                    onClick = { viewModel.onCancel() }
-                )
-
-                BaseButton(
-                    text = "Save",
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    onClick = { viewModel.saveConfiguration() }
-                )
-
-                BaseButton(
-                    text = "Test Connection",
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp),
-                    fontSize = 14,
-                    onClick = { viewModel.testConnection() }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -602,17 +675,5 @@ private fun SettingRowWithEditText(
             )
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewSettingRowWithEditText() {
-//    SettingRowWithRadioButtons(
-//        icon = R.drawable.logo,
-//        label = "Communication Type",
-//        selectedOption = CommunicationType.HTTP_GET,
-//        options = CommunicationType.entries,
-//        onOptionSelected = {}
-//    )
 }
 

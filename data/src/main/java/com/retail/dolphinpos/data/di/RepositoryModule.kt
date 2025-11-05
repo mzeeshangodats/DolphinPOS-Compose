@@ -10,7 +10,6 @@ import com.retail.dolphinpos.data.repositories.auth.StoreRegisterRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.VerifyPinRepositoryImpl
 import com.retail.dolphinpos.data.repositories.home.HomeRepositoryImpl
 import com.retail.dolphinpos.data.repositories.orders_details.OrdersRepositoryImpl
-import com.retail.dolphinpos.data.repositories.home.OrdersRepositoryImpl
 import com.retail.dolphinpos.data.repositories.setup.HardwareSetupRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService

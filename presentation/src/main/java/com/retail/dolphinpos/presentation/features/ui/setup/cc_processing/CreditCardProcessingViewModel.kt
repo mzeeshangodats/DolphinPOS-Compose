@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.payment
+package com.retail.dolphinpos.presentation.features.ui.setup.cc_processing
 
 import android.content.Context
 import android.os.Bundle
@@ -47,6 +47,11 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     private var paxDetails: PaxDetail? = null
+    private var originalIpAddress: String = ""
+    private var originalPortNumber: String = "10009"
+    private var originalCommunicationType: CommunicationType = CommunicationType.TCP_IP
+    private var originalTerminalType: TerminalType = TerminalType.PAX_A35
+    private var originalDigitalSignatureEnabled: Boolean = true
 
     private fun String.toCommunicationType(): CommunicationType {
         return when (this.lowercase()) {
@@ -68,17 +73,37 @@ class CreditCardProcessingViewModel @Inject constructor(
             paxDetails = getPaxDetailsUseCase()
 
             paxDetails?.let {
+                val commType = it.communicationType.toCommunicationType()
+                // Store original values for reset functionality
+                originalIpAddress = it.ipAddress
+                originalPortNumber = it.portNumber
+                originalCommunicationType = commType
+                
+                val initialConfig = CreditCardConfigState(
+                    ipAddress = it.ipAddress,
+                    portNumber = it.portNumber,
+                    communicationType = commType
+                )
+                
+                // Store original config values
+                originalTerminalType = initialConfig.selectedTerminalType
+                originalDigitalSignatureEnabled = initialConfig.digitalSignatureEnabled
+                
                 _viewState.value = _viewState.value.copy(
                     ipAddress = it.ipAddress,
                     portNumber = it.portNumber,
                     communicationType = it.communicationType,
                     isButtonEnabled = validations(it.ipAddress, it.portNumber),
-                    config = CreditCardConfigState(
-                        ipAddress = it.ipAddress,
-                        portNumber = it.portNumber,
-                        communicationType = it.communicationType.toCommunicationType()
-                    )
+                    config = initialConfig
                 )
+            } ?: run {
+                // If no saved data, use defaults
+                originalIpAddress = ""
+                originalPortNumber = "10009"
+                originalCommunicationType = CommunicationType.TCP_IP
+                // Store initial config defaults
+                originalTerminalType = _viewState.value.config.selectedTerminalType
+                originalDigitalSignatureEnabled = _viewState.value.config.digitalSignatureEnabled
             }
         }
         // Analytics: Log screen entry
@@ -298,7 +323,24 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     fun onCancel() {
-        updateState { it.copy(shouldNavigateBack = true) }
+        // Reset to original saved values
+        updateState {
+            it.copy(
+                ipAddress = originalIpAddress,
+                portNumber = originalPortNumber,
+                communicationType = originalCommunicationType.toCommunicationTypeString(),
+                isButtonEnabled = validations(originalIpAddress, originalPortNumber),
+                config = CreditCardConfigState(
+                    selectedTerminalType = originalTerminalType,
+                    communicationType = originalCommunicationType,
+                    ipAddress = originalIpAddress,
+                    portNumber = originalPortNumber,
+                    digitalSignatureEnabled = originalDigitalSignatureEnabled
+                ),
+                errorMessage = null,
+                successMessage = null
+            )
+        }
     }
 
     private fun validations(ipAddress: String, portNumber: String): Boolean {

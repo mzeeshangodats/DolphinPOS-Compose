@@ -801,7 +801,6 @@ class HomeViewModel @Inject constructor(
     }
 
     fun initCardPayment() {
-
         viewModelScope.launch {
 
             if (!networkMonitor.isNetworkConnected()) {
@@ -876,26 +875,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
-        viewModelScope.launch {
-            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
-            try {
-                val response = storeRegistersRepository.logout()
-                response.message.let {
-                    preferenceManager.setLogin(false)
-                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                    _homeUiEvent.emit(HomeUiEvent.NavigateToLogin)
-                }
-
-            } catch (e: Exception) {
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(
-                    HomeUiEvent.ShowError(e.message ?: "Something went wrong")
-                )
-            }
-        }
-    }
-
     /**
      * Generates a unique order number based on store, location, register, user IDs and timestamp
      * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
@@ -909,69 +888,5 @@ class HomeViewModel @Inject constructor(
         val epochMillis = System.currentTimeMillis()
 
         return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
-    }
-
-    /**
-     * Clock In - Verifies PIN and sets clock in status
-     */
-    fun clockIn(pin: String) {
-        viewModelScope.launch {
-            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
-            try {
-                val locationId = preferenceManager.getOccupiedLocationID()
-                val user = verifyPinRepository.getUser(pin, locationId)
-
-                if (user == null) {
-                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                    _homeUiEvent.emit(HomeUiEvent.ShowError("Invalid PIN"))
-                    return@launch
-                }
-
-                // Set clock in time and status
-                val currentTime = System.currentTimeMillis()
-                preferenceManager.setClockInTime(currentTime)
-                preferenceManager.setClockInStatus(true)
-
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked In Successfully"))
-
-            } catch (e: Exception) {
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(
-                    HomeUiEvent.ShowError(e.message ?: "Failed to clock in")
-                )
-            }
-        }
-    }
-
-    /**
-     * Clock Out - Verifies PIN and clears clock in status
-     */
-    fun clockOut(pin: String) {
-        viewModelScope.launch {
-            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
-            try {
-                val locationId = preferenceManager.getOccupiedLocationID()
-                val user = verifyPinRepository.getUser(pin, locationId)
-
-                if (user == null) {
-                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                    _homeUiEvent.emit(HomeUiEvent.ShowError("No user found with this PIN"))
-                    return@launch
-                }
-
-                // Clear clock in time and set status to false
-                preferenceManager.clockOut()
-
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Clocked Out Successfully"))
-
-            } catch (e: Exception) {
-                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                _homeUiEvent.emit(
-                    HomeUiEvent.ShowError(e.message ?: "Failed to clock out")
-                )
-            }
-        }
     }
 }

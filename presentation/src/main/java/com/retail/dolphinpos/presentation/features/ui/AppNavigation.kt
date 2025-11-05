@@ -14,6 +14,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScree
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
 import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
@@ -102,6 +103,11 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
             PendingOrdersScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        // Credit Card Processing Screen
+        composable("credit_card_processing") {
+            CreditCardProcessingScreen(navController = navController)
         }
     }
 }

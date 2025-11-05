@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,15 +24,20 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
-import com.retail.dolphinpos.presentation.features.ui.setup.payment.CreditCardProcessingScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 
 @Composable
 fun HardwareSetupScreen(
     navController: NavController,
-    viewModel: HardwareSetupViewModel = hiltViewModel()
+    viewModel: SetupViewModel = hiltViewModel()
 ) {
-    val menus by viewModel.menus.collectAsState()
-    val selectedIndex by viewModel.selectedMenuIndex.collectAsState()
+    val menus by viewModel.menus.collectAsStateWithLifecycle()
+    val selectedIndex by viewModel.selectedMenuIndex.collectAsStateWithLifecycle()
+
+    // Debug: Log selected index changes
+    androidx.compose.runtime.LaunchedEffect(selectedIndex) {
+        android.util.Log.d("SetupScreen", "Selected index changed to: $selectedIndex")
+    }
 
     Column(
         modifier = Modifier
@@ -44,7 +49,10 @@ fun HardwareSetupScreen(
             modifier = Modifier.weight(1f)
         ) {
             when (selectedIndex) {
-                2 -> CreditCardProcessingScreen(navController = navController)
+                2 -> {
+                    // Show Credit Card Processing Screen inline
+                    CreditCardProcessingScreen(navController = navController)
+                }
                 else -> {
                     Box(
                         modifier = Modifier
@@ -83,7 +91,10 @@ fun HardwareSetupScreen(
             menus = menus,
             selectedIndex = selectedIndex,
             onMenuClick = { menu ->
-                val index = menus.indexOf(menu)
+                // Find index by matching destinationId instead of object reference
+                val index = menus.indexOfFirst { it.destinationId == menu.destinationId }
+                android.util.Log.d("SetupScreen", "Menu clicked: ${menu.menuName}, destinationId: ${menu.destinationId}, found index: $index")
+
                 if (index >= 0) {
                     // If Home button is clicked (index 0), navigate to home
                     if (index == 0) {
@@ -97,8 +108,11 @@ fun HardwareSetupScreen(
                         }
                     } else {
                         // Handle sub-navigation for Setup (Printer/Cash Drawer/Scanner setup)
+                        android.util.Log.d("SetupScreen", "Calling selectMenu with index: $index")
                         viewModel.selectMenu(index)
                     }
+                } else {
+                    android.util.Log.e("SetupScreen", "Menu not found in list! Menu: ${menu.menuName}, destinationId: ${menu.destinationId}")
                 }
             }
         )
