@@ -102,6 +102,17 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import java.util.Locale
 import kotlin.math.roundToInt
 
+/**
+ * Helper function to show "Coming Soon" dialog
+ */
+fun showComingSoonDialog() {
+    DialogHandler.showDialog(
+        message = "Coming Soon",
+        buttonText = "OK",
+        iconRes = R.drawable.info_icon
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -307,12 +318,29 @@ fun HomeScreen(
                     }, onCardSelected = {
                         viewModel.isCashSelected = false
                         viewModel.updateCartPrices()
+                        if (cartItems.isEmpty()) {
+                            DialogHandler.showDialog(
+                                message = "Cart is empty. Please add items to cart before creating an order.",
+                                buttonText = "OK",
+                                iconRes = R.drawable.info_icon
+                            )
+                        } else {
+                            viewModel.createOrder("card")
+                        }
                     }, onClear = {
                         paymentAmount = "0.00"
                     }, onNext = {
-                        when {
-                            viewModel.isCashSelected -> viewModel.createOrder("cash")
-                            else -> viewModel.createOrder("card")
+                        if (cartItems.isEmpty()) {
+                            DialogHandler.showDialog(
+                                message = "Cart is empty. Please add items to cart before creating an order.",
+                                buttonText = "OK",
+                                iconRes = R.drawable.info_icon
+                            )
+                        } else {
+                            when {
+                                viewModel.isCashSelected -> viewModel.createOrder("cash")
+                                else -> viewModel.createOrder("card")
+                            }
                         }
                     })
                 }
@@ -341,6 +369,9 @@ fun HomeScreen(
                         } else {
                             showOrderDiscountDialog = true
                         }
+                    },
+                    onShowAddCustomerDialog = {
+                        showAddCustomerDialog = true
                     },
                     onProductClick = { product ->
                         val variants = product.variants
@@ -472,7 +503,6 @@ fun CartPanel(
             CartHeader(
                 cartItemsCount = cartItems.size,
                 holdCartItemsCount = holdCartCount,
-                onAddCustomer = onAddCustomer,
                 onHoldCartClick = onHoldCartClick
             )
 
@@ -749,7 +779,6 @@ fun PricingSummary(
 fun CartHeader(
     cartItemsCount: Int,
     holdCartItemsCount: Int = 0,
-    onAddCustomer: () -> Unit,
     onHoldCartClick: () -> Unit
 ) {
     Row(
@@ -811,21 +840,6 @@ fun CartHeader(
                     }
                 }
             }
-        }
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onAddCustomer() }) {
-            BaseText(
-                text = "Non Member", color = Color.White, fontSize = 12f, fontFamily = GeneralSans
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                painter = painterResource(id = R.drawable.add_customer_icon),
-                contentDescription = "Add Customer",
-                modifier = Modifier.size(16.dp),
-                tint = Color.White
-            )
         }
     }
 }
@@ -1460,7 +1474,8 @@ fun ProductsPanel(
     products: List<Products>,
     cartItems: List<CartItem>,
     onProductClick: (Products) -> Unit,
-    onShowOrderDiscountDialog: () -> Unit
+    onShowOrderDiscountDialog: () -> Unit,
+    onShowAddCustomerDialog: () -> Unit
 ) {
     Column(
         modifier = modifier
@@ -1486,7 +1501,8 @@ fun ProductsPanel(
             modifier = Modifier.weight(0.41f),
             navController = navController,
             cartItems = cartItems,
-            onShowOrderDiscountDialog = onShowOrderDiscountDialog
+            onShowOrderDiscountDialog = onShowOrderDiscountDialog,
+            onShowAddCustomerDialog = onShowAddCustomerDialog
         )
     }
 }
@@ -1542,9 +1558,9 @@ fun ActionButtonsPanel(
     modifier: Modifier = Modifier,
     navController: NavController,
     cartItems: List<CartItem>,
-    onShowOrderDiscountDialog: () -> Unit
+    onShowOrderDiscountDialog: () -> Unit,
+    onShowAddCustomerDialog: () -> Unit
 ) {
-    val context = LocalContext.current
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -1562,6 +1578,9 @@ fun ActionButtonsPanel(
                     "Pending Orders" -> {
                         navController.navigate("pending_orders")
                     }
+                    else -> {
+                        showComingSoonDialog()
+                    }
                 }
             })
 
@@ -1573,7 +1592,7 @@ fun ActionButtonsPanel(
                 ActionButton("Online Order", R.drawable.online_order_btn),
                 ActionButton("Tax Exempt", R.drawable.tax_exempt_btn)
             ), onActionClick = { action ->
-                // TODO: Add action handlers for these buttons
+                showComingSoonDialog()
             })
 
         // Row 3
@@ -1584,7 +1603,7 @@ fun ActionButtonsPanel(
                 ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
                 ActionButton("Void", R.drawable.void_btn)
             ), onActionClick = { action ->
-                // TODO: Add action handlers for these buttons
+                showComingSoonDialog()
             })
 
         // Row 4
@@ -1592,12 +1611,18 @@ fun ActionButtonsPanel(
             buttons = listOf(
                 ActionButton("Promotions", R.drawable.promotions_btn),
                 ActionButton("Weight Scale", R.drawable.weight_scale_btn),
-                ActionButton("Add Customer", R.drawable.clock_in_out_btn),
+                ActionButton("Add Customer", R.drawable.add_customer_btn),
                 ActionButton("Order Discount", R.drawable.discount_btn)
             ), onActionClick = { action ->
                 when (action) {
                     "Order Discount" -> {
                         onShowOrderDiscountDialog()
+                    }
+                    "Add Customer" -> {
+                        onShowAddCustomerDialog()
+                    }
+                    else -> {
+                        showComingSoonDialog()
                     }
                 }
             })
