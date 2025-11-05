@@ -146,8 +146,7 @@ fun HomeScreen(
                 is HomeUiEvent.HideLoading -> Loader.hide()
                 is HomeUiEvent.ShowError -> {
                     DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK"
+                        message = event.message, buttonText = "OK"
                     ) {}
                 }
 
@@ -219,26 +218,19 @@ fun HomeScreen(
         ) {
             // Home App Bar with search and logout
             HomeAppBar(
-                searchQuery = searchQuery,
-                onSearchQueryChange = { query ->
-                    searchQuery = query
-                    viewModel.searchProducts(query)
-                },
-                onLogout = {
-                    showLogoutDialog = true
-                },
-                searchResults = searchResults,
-                onProductClick = { product ->
-                    val success = viewModel.addToCart(product)
-                    if (success) {
-                        searchQuery = ""
-                    } else {
-                        DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
-                    }
-                },
-                userName = userName,
-                isClockedIn = isClockedIn,
-                clockInTime = clockInTime
+                searchQuery = searchQuery, onSearchQueryChange = { query ->
+                searchQuery = query
+                viewModel.searchProducts(query)
+            }, onLogout = {
+                showLogoutDialog = true
+            }, searchResults = searchResults, onProductClick = { product ->
+                val success = viewModel.addToCart(product)
+                if (success) {
+                    searchQuery = ""
+                } else {
+                    DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                }
+            }, userName = userName, isClockedIn = isClockedIn, clockInTime = clockInTime
             )
 
             Row(
@@ -261,8 +253,7 @@ fun HomeScreen(
                     },
                     onHoldCartClick = { showHoldCartDialog = true },
                     canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
-                    canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() }
-                )
+                    canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() })
 
                 // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
                 Column(
@@ -285,15 +276,14 @@ fun HomeScreen(
                     // Cart Action Buttons
                     CartActionButtons(
                         cartItems = cartItems,
-                        onClearCart = { viewModel.clearCart() },
-                        onHoldCartClick = {
-                            if (cartItems.isEmpty()) {
-                                showHoldCartDialog = true
-                            } else {
-                                viewModel.saveHoldCart("Guest Cart")
-                            }
-                        }
-                    )
+                                      onClearCart = { viewModel.clearCart() },
+                                      onHoldCartClick = {
+                                          if (cartItems.isEmpty()) {
+                                              showHoldCartDialog = true
+                                          } else {
+                                              viewModel.saveHoldCart("Guest Cart")
+                                          }
+                                      })
 
                     // Payment Input
                     PaymentInput(
@@ -303,40 +293,31 @@ fun HomeScreen(
                             val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
                             val newAmount = viewModel.removeLastDigit(current)
                             paymentAmount = viewModel.formatAmount(newAmount)
-                        }
-                    )
+                        })
 
                     // Keypad
-                    Keypad(
-                        onDigitClick = { digit ->
-                            val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                            val newAmount = viewModel.appendDigitToAmount(current, digit)
-                            paymentAmount = viewModel.formatAmount(newAmount)
-                        },
-                        onAmountSet = { amount ->
-                            paymentAmount = viewModel.formatAmount(amount)
-                        },
-                        onExactAmount = {
-                            paymentAmount = viewModel.formatAmount(totalAmount)
-                        },
-                        onCashSelected = {
-                            viewModel.isCashSelected = true
-                            viewModel.updateCartPrices()
-                        },
-                        onCardSelected = {
-                            viewModel.isCashSelected = false
-                            viewModel.updateCartPrices()
-                        },
-                        onClear = {
-                            paymentAmount = "0.00"
-                        },
-                        onNext = {
-                            when {
-                                viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                else -> viewModel.initCardPayment()
-                            }
+                    Keypad(onDigitClick = { digit ->
+                        val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                        val newAmount = viewModel.appendDigitToAmount(current, digit)
+                        paymentAmount = viewModel.formatAmount(newAmount)
+                    }, onAmountSet = { amount ->
+                        paymentAmount = viewModel.formatAmount(amount)
+                    }, onExactAmount = {
+                        paymentAmount = viewModel.formatAmount(totalAmount)
+                    }, onCashSelected = {
+                        viewModel.isCashSelected = true
+                        viewModel.updateCartPrices()
+                    }, onCardSelected = {
+                        viewModel.isCashSelected = false
+                        viewModel.updateCartPrices()
+                    }, onClear = {
+                        paymentAmount = "0.00"
+                    }, onNext = {
+                        when {
+                            viewModel.isCashSelected -> viewModel.createOrder("cash")
+                            else -> viewModel.initCardPayment()
                         }
-                    )
+                    })
                 }
 
                 // Column 3 - Categories (25% width, full height)
@@ -347,8 +328,7 @@ fun HomeScreen(
                     onCategorySelected = { category ->
                         selectedCategory = category
                         viewModel.loadProducts(category.id)
-                    }
-                )
+                    })
 
                 // Column 4 - Products (25% width)
                 ProductsPanel(
@@ -378,8 +358,7 @@ fun HomeScreen(
                                 DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
                             }
                         }
-                    }
-                )
+                    })
             }
 
 
@@ -387,28 +366,26 @@ fun HomeScreen(
             if (showOrderDiscountDialog) {
                 OrderLevelDiscountDialog(
                     onDismiss = { showOrderDiscountDialog = false },
-                    onApplyDiscount = { discounts ->
-                        viewModel.setOrderLevelDiscounts(discounts)
-                        viewModel.updateCartPrices()
-                        showOrderDiscountDialog = false
-                    },
-                    onSaveDiscountValues = { discountValue, discountType, discountReason ->
-                        viewModel.saveOrderDiscountValues(
-                            discountValue,
-                            discountType,
-                            discountReason
-                        )
-                    },
-                    onRemoveAllDiscounts = {
-                        viewModel.removeAllOrderDiscounts()
-                    },
-                    onResetDiscountValues = {
-                        viewModel.resetOrderDiscountValues()
-                    },
-                    preFilledDiscountValue = viewModel.getOrderDiscountValue(),
-                    preFilledDiscountType = viewModel.getOrderDiscountType(),
-                    preFilledDiscountReason = viewModel.getOrderDiscountReason(),
-                    existingOrderDiscounts = orderLevelDiscounts
+                                         onApplyDiscount = { discounts ->
+                                             viewModel.setOrderLevelDiscounts(discounts)
+                                             viewModel.updateCartPrices()
+                                             showOrderDiscountDialog = false
+                                         },
+                                         onSaveDiscountValues = { discountValue, discountType, discountReason ->
+                                             viewModel.saveOrderDiscountValues(
+                                                 discountValue, discountType, discountReason
+                                             )
+                                         },
+                                         onRemoveAllDiscounts = {
+                                             viewModel.removeAllOrderDiscounts()
+                                         },
+                                         onResetDiscountValues = {
+                                             viewModel.resetOrderDiscountValues()
+                                         },
+                                         preFilledDiscountValue = viewModel.getOrderDiscountValue(),
+                                         preFilledDiscountType = viewModel.getOrderDiscountType(),
+                                         preFilledDiscountReason = viewModel.getOrderDiscountReason(),
+                                         existingOrderDiscounts = orderLevelDiscounts
                 )
             }
 
@@ -416,64 +393,60 @@ fun HomeScreen(
             if (showAddCustomerDialog) {
                 AddCustomerDialog(
                     onDismiss = { showAddCustomerDialog = false },
-                    onSaveCustomer = { firstName, lastName, email, birthday ->
-                        viewModel.saveCustomer(firstName, lastName, email, birthday)
-                        showAddCustomerDialog = false
-                        DialogHandler.showDialog(
-                            message = "Customer Added Successfully",
-                            buttonText = "OK",
-                            iconRes = R.drawable.add_customer_icon_blue,
-                            cancellable = true
-                        )
-                    }
-                )
+                                  onSaveCustomer = { firstName, lastName, email, birthday ->
+                                      viewModel.saveCustomer(firstName, lastName, email, birthday)
+                                      showAddCustomerDialog = false
+                                      DialogHandler.showDialog(
+                                          message = "Customer Added Successfully",
+                                          buttonText = "OK",
+                                          iconRes = R.drawable.add_customer_icon_blue,
+                                          cancellable = true
+                                      )
+                                  })
             }
 
             // Hold Cart List Dialog
             if (showHoldCartDialog) {
                 HoldCartListDialog(
                     onDismiss = { showHoldCartDialog = false },
-                    onRestoreCart = { holdCartId ->
-                        viewModel.restoreHoldCart(holdCartId)
-                        showHoldCartDialog = false
-                    },
-                    onDeleteCart = { holdCartId ->
-                        viewModel.deleteHoldCart(holdCartId)
-                    }
-                )
+                                   onRestoreCart = { holdCartId ->
+                                       viewModel.restoreHoldCart(holdCartId)
+                                       showHoldCartDialog = false
+                                   },
+                                   onDeleteCart = { holdCartId ->
+                                       viewModel.deleteHoldCart(holdCartId)
+                                   })
             }
 
             // Logout Confirmation Dialog
             if (showLogoutDialog) {
                 LogoutConfirmationDialog(
                     onDismiss = { showLogoutDialog = false },
-                    onConfirm = { viewModel.logout() }
-                )
+                                         onConfirm = { viewModel.logout() })
             }
 
             // Clock In/Out Dialog
             if (showClockInOutDialog) {
                 ClockInOutDialog(
                     pinValue = clockInOutPin,
-                    onPinChange = { clockInOutPin = it },
-                    onClockOut = {
-                        viewModel.clockOut(clockInOutPin)
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onClockIn = {
-                        viewModel.clockIn(clockInOutPin)
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onDismiss = {
-                        clockInOutPin = ""
-                        showClockInOutDialog = false
-                    },
-                    onViewHistory = {
-                        // TODO: Navigate to clock in/out history screen
-                    }
-                )
+                                 onPinChange = { clockInOutPin = it },
+                                 onClockOut = {
+                                     viewModel.clockOut(clockInOutPin)
+                                     clockInOutPin = ""
+                                     showClockInOutDialog = false
+                                 },
+                                 onClockIn = {
+                                     viewModel.clockIn(clockInOutPin)
+                                     clockInOutPin = ""
+                                     showClockInOutDialog = false
+                                 },
+                                 onDismiss = {
+                                     clockInOutPin = ""
+                                     showClockInOutDialog = false
+                                 },
+                                 onViewHistory = {
+                                     // TODO: Navigate to clock in/out history screen
+                                 })
             }
 
             if (selectedProductForVariant != null) {
@@ -490,8 +463,7 @@ fun HomeScreen(
                             DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
                             selectedProductForVariant = null
                         }
-                    }
-                )
+                    })
             }
         }
     }
@@ -533,26 +505,26 @@ fun CartPanel(
             if (cartItems.isEmpty()) {
                 EmptyCartState()
             } else {
-            CartItemsList(
-                cartItems = cartItems,
-                onRemoveFromCart = { cartItem ->
-                    cartItem.productId?.let { productId ->
-                        if (cartItem.productVariantId != null) {
-                            onRemoveFromCart(productId, cartItem.productVariantId)
-                        } else {
-                            onRemoveFromCart(productId, null)
-                        }
-                    }
-                },
-                onUpdateCartItem = { cartItem ->
-                    if (canApplyProductDiscount()) {
-                        selectedCartItem = cartItem
-                        } else {
-                            DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
-                        }
-                    },
-                    canApplyProductDiscount = canApplyProductDiscount,
-                    canRemoveItemFromCart = canRemoveItemFromCart
+                CartItemsList(
+                    cartItems = cartItems,
+                              onRemoveFromCart = { cartItem ->
+                                  cartItem.productId?.let { productId ->
+                                      if (cartItem.productVariantId != null) {
+                                          onRemoveFromCart(productId, cartItem.productVariantId)
+                                      } else {
+                                          onRemoveFromCart(productId, null)
+                                      }
+                                  }
+                              },
+                              onUpdateCartItem = { cartItem ->
+                                  if (canApplyProductDiscount()) {
+                                      selectedCartItem = cartItem
+                                  } else {
+                                      DialogHandler.showDialog("You can't apply product level discount after applied cash discount. If you need to apply product level discount click on card first")
+                                  }
+                              },
+                              canApplyProductDiscount = canApplyProductDiscount,
+                              canRemoveItemFromCart = canRemoveItemFromCart
                 )
             }
         }
@@ -561,29 +533,27 @@ fun CartPanel(
         selectedCartItem?.let { cartItem ->
             ProductLevelDiscountDialog(
                 cartItem = cartItem,
-                onDismiss = { selectedCartItem = null },
-                onApplyDiscount = { updatedItem ->
-                    onUpdateCartItem(updatedItem)
-                    selectedCartItem = null
-                },
-                onRemoveItem = {
-                    onRemoveFromCart(cartItem.productId ?: 0, cartItem.productVariantId)
-                    selectedCartItem = null
-                }
-            )
+                                       onDismiss = { selectedCartItem = null },
+                                       onApplyDiscount = { updatedItem ->
+                                           onUpdateCartItem(updatedItem)
+                                           selectedCartItem = null
+                                       },
+                                       onRemoveItem = {
+                                           onRemoveFromCart(
+                                               cartItem.productId ?: 0, cartItem.productVariantId
+                                           )
+                                           selectedCartItem = null
+                                       })
         }
     }
 }
 
 @Composable
 fun CartActionButtons(
-    cartItems: List<CartItem>,
-    onClearCart: () -> Unit,
-    onHoldCartClick: () -> Unit
+    cartItems: List<CartItem>, onClearCart: () -> Unit, onHoldCartClick: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         // Clear Cart
         Card(
@@ -595,8 +565,7 @@ fun CartActionButtons(
             colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.clear_cart_btn),
@@ -617,8 +586,7 @@ fun CartActionButtons(
             colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.hold_cart_btn),
@@ -639,8 +607,7 @@ fun CartActionButtons(
             colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.price_check_btn),
@@ -661,8 +628,7 @@ fun CartActionButtons(
             colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
         ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.print_last_receipt_btn),
@@ -688,22 +654,16 @@ fun PricingSummary(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = Color.White,
-                shape = RoundedCornerShape(8.dp)
+                color = Color.White, shape = RoundedCornerShape(8.dp)
             )
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Subtotal
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             BaseText(
-                text = "Subtotal:",
-                color = Color.Black,
-                fontSize = 12f,
-                fontFamily = GeneralSans
+                text = "Subtotal:", color = Color.Black, fontSize = 12f, fontFamily = GeneralSans
             )
             BaseText(
                 text = String.format(Locale.US, "$%.2f", subtotal),
@@ -717,8 +677,7 @@ fun PricingSummary(
         // Cash Discount
         if (isCashSelected && cashDiscountTotal > 0) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 BaseText(
                     text = "Cash Discount:",
@@ -739,8 +698,7 @@ fun PricingSummary(
         // Order Discount
         if (orderDiscountTotal > 0) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 BaseText(
                     text = "Discount:",
@@ -760,14 +718,10 @@ fun PricingSummary(
 
         // Tax
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             BaseText(
-                text = "Tax:",
-                color = Color.Black,
-                fontSize = 12f,
-                fontFamily = GeneralSans
+                text = "Tax:", color = Color.Black, fontSize = 12f, fontFamily = GeneralSans
             )
             BaseText(
                 text = String.format(Locale.US, "$%.2f", tax),
@@ -780,14 +734,12 @@ fun PricingSummary(
 
         // Divider
         HorizontalDivider(
-            color = Color.Gray,
-            thickness = 1.dp
+            color = Color.Gray, thickness = 1.dp
         )
 
         // Total Amount
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
         ) {
             BaseText(
                 text = "Total:",
@@ -819,8 +771,7 @@ fun CartHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                color = colorResource(id = R.color.primary),
-                shape = RoundedCornerShape(4.dp)
+                color = colorResource(id = R.color.primary), shape = RoundedCornerShape(4.dp)
             )
             .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -836,13 +787,9 @@ fun CartHeader(
         // Hold Cart section
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onHoldCartClick() }
-        ) {
+            modifier = Modifier.clickable { onHoldCartClick() }) {
             BaseText(
-                text = "Hold Cart",
-                color = Color.White,
-                fontSize = 12f,
-                fontFamily = GeneralSans
+                text = "Hold Cart", color = Color.White, fontSize = 12f, fontFamily = GeneralSans
             )
             Spacer(modifier = Modifier.width(4.dp))
 
@@ -864,10 +811,8 @@ fun CartHeader(
                         modifier = Modifier
                             .size(12.dp)
                             .background(
-                                color = Color.Red,
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                                color = Color.Red, shape = CircleShape
+                            ), contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (holdCartItemsCount > 9) "9+" else holdCartItemsCount.toString(),
@@ -885,13 +830,9 @@ fun CartHeader(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable { onAddCustomer() }
-        ) {
+            modifier = Modifier.clickable { onAddCustomer() }) {
             BaseText(
-                text = "Non Member",
-                color = Color.White,
-                fontSize = 12f,
-                fontFamily = GeneralSans
+                text = "Non Member", color = Color.White, fontSize = 12f, fontFamily = GeneralSans
             )
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
@@ -964,12 +905,9 @@ fun CartItemsList(
         ) {
             items(
                 items = cartItems,
-                key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }
-            ) { item ->
+                key = { item -> "${item.productId}_${item.productVariantId ?: "no_variant"}" }) { item ->
                 CartItemRow(
-                    item = item,
-                    onRemove = { onRemoveFromCart(item) },
-                    onUpdate = onUpdateCartItem
+                    item = item, onRemove = { onRemoveFromCart(item) }, onUpdate = onUpdateCartItem
                 )
             }
         }
@@ -978,9 +916,7 @@ fun CartItemsList(
 
 @Composable
 fun CartItemRow(
-    item: CartItem,
-    onRemove: () -> Unit,
-    onUpdate: (CartItem) -> Unit
+    item: CartItem, onRemove: () -> Unit, onUpdate: (CartItem) -> Unit
 ) {
     val density = LocalDensity.current
     var offsetX by remember { mutableStateOf(0f) }
@@ -988,11 +924,11 @@ fun CartItemRow(
 
     val finalPrice = run {
         val discount = when (item.discountType) {
-            com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE ->
-                (item.selectedPrice * (item.discountValue ?: 0.0) / 100.0)
+            com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> (item.selectedPrice * (item.discountValue
+                ?: 0.0) / 100.0)
 
-            com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT ->
-                item.discountValue ?: 0.0
+            com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> item.discountValue
+                ?: 0.0
 
             else -> 0.0
         }
@@ -1007,11 +943,9 @@ fun CartItemRow(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    color = Color.Red,
-                    shape = RoundedCornerShape(4.dp)
+                    color = Color.Red, shape = RoundedCornerShape(4.dp)
                 )
-                .padding(8.dp),
-            contentAlignment = Alignment.CenterEnd
+                .padding(8.dp), contentAlignment = Alignment.CenterEnd
         ) {
             BaseText(
                 text = "DELETE",
@@ -1023,39 +957,35 @@ fun CartItemRow(
         }
 
         // Main content row - mimics ItemTouchHelper.LEFT behavior
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .background(
-                    color = Color.White,
-                    shape = RoundedCornerShape(4.dp)
-                )
-                .pointerInput(item.productId) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            // Similar to ItemTouchHelper onSwiped behavior
-                            if (offsetX < -swipeThreshold) {
-                                // Swipe threshold reached - remove item (like ItemTouchHelper.LEFT)
-                                onRemove()
-                            } else {
-                                // Snap back to original position (like ItemTouchHelper animation)
-                                offsetX = 0f
-                            }
+        Row(modifier = Modifier
+            .fillMaxWidth()
+            .offset { IntOffset(offsetX.roundToInt(), 0) }
+            .background(
+                color = Color.White, shape = RoundedCornerShape(4.dp)
+            )
+            .pointerInput(item.productId) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        // Similar to ItemTouchHelper onSwiped behavior
+                        if (offsetX < -swipeThreshold) {
+                            // Swipe threshold reached - remove item (like ItemTouchHelper.LEFT)
+                            onRemove()
+                        } else {
+                            // Snap back to original position (like ItemTouchHelper animation)
+                            offsetX = 0f
                         }
-                    ) { _, dragAmount ->
-                        // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
-                        // Allow more aggressive swiping for better detection
-                        val newOffset = (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f)
-                            .coerceAtMost(0f)
-                        offsetX = newOffset
-                    }
+                    }) { _, dragAmount ->
+                    // Only allow swiping to the left (ItemTouchHelper.LEFT direction)
+                    // Allow more aggressive swiping for better detection
+                    val newOffset =
+                        (offsetX + dragAmount).coerceAtLeast(-swipeThreshold * 2f).coerceAtMost(0f)
+                    offsetX = newOffset
                 }
-                .clickable { onUpdate(item) }
-                .padding(8.dp),
+            }
+            .clickable { onUpdate(item) }
+            .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+            verticalAlignment = Alignment.CenterVertically) {
             // Product Image - Left most
             if (!item.imageUrl.isNullOrEmpty()) {
                 AsyncImage(
@@ -1072,14 +1002,10 @@ fun CartItemRow(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.LightGray),
-                    contentAlignment = Alignment.Center
+                        .background(Color.LightGray), contentAlignment = Alignment.Center
                 ) {
                     BaseText(
-                        text = "IMG",
-                        color = Color.Gray,
-                        fontSize = 10f,
-                        fontFamily = GeneralSans
+                        text = "IMG", color = Color.Gray, fontSize = 10f, fontFamily = GeneralSans
                     )
                 }
             }
@@ -1136,9 +1062,7 @@ fun CartItemRow(
 
 @Composable
 fun PaymentInput(
-    paymentAmount: String,
-    onPaymentAmountChange: (String) -> Unit,
-    onRemoveDigit: () -> Unit
+    paymentAmount: String, onPaymentAmountChange: (String) -> Unit, onRemoveDigit: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -1157,8 +1081,7 @@ fun PaymentInput(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
-                    color = Color.White,
-                    shape = RoundedCornerShape(4.dp)
+                    color = Color.White, shape = RoundedCornerShape(4.dp)
                 )
                 .border(
                     width = 1.dp,
@@ -1170,18 +1093,16 @@ fun PaymentInput(
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
-                value = paymentAmount,
-                onValueChange = { newValue ->
-                    // Prevent deletion below 0.00
-                    val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                    val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
+                value = paymentAmount, onValueChange = { newValue ->
+                // Prevent deletion below 0.00
+                val currentAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                val newAmount = newValue.replace("$", "").toDoubleOrNull() ?: 0.0
 
-                    // Only allow changes if the new amount is not less than 0.00
-                    if (newAmount >= 0.0) {
-                        onPaymentAmountChange(newValue)
-                    }
-                },
-                modifier = Modifier
+                // Only allow changes if the new amount is not less than 0.00
+                if (newAmount >= 0.0) {
+                    onPaymentAmountChange(newValue)
+                }
+            }, modifier = Modifier
                     .weight(1f)
                     .pointerInput(Unit) {
                         // Prevent keyboard from opening by consuming all pointer events
@@ -1190,18 +1111,13 @@ fun PaymentInput(
                                 awaitPointerEvent()
                             }
                         }
-                    },
-                textStyle = TextStyle(
-                    fontFamily = GeneralSans,
-                    fontSize = 12.sp,
-                    color = Color.Black
-                ),
-                cursorBrush = SolidColor(Color.Transparent), // Hide cursor
-                readOnly = true, // Prevent keyboard from opening
-                decorationBox = { innerTextField ->
-                    innerTextField()
-                }
-            )
+                    }, textStyle = TextStyle(
+                fontFamily = GeneralSans, fontSize = 12.sp, color = Color.Black
+            ), cursorBrush = SolidColor(Color.Transparent), // Hide cursor
+                           readOnly = true, // Prevent keyboard from opening
+                           decorationBox = { innerTextField ->
+                               innerTextField()
+                           })
 
             IconButton(
                 onClick = {
@@ -1238,8 +1154,7 @@ fun Keypad(
     onNext: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -1330,8 +1245,7 @@ fun KeypadRow(
     val next = stringResource(id = R.string.next)
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEach { button ->
             KeypadButton(
@@ -1374,8 +1288,9 @@ fun KeypadRow(
                         }
                     }
                 },
-                isActionButton = button.contains("$") || button == stringResource(id = R.string.exact) ||
-                        button == stringResource(id = R.string.next) || button == stringResource(id = R.string.clear),
+                isActionButton = button.contains("$") || button == stringResource(id = R.string.exact) || button == stringResource(
+                    id = R.string.next
+                ) || button == stringResource(id = R.string.clear),
                 isPaymentButton = button == stringResource(id = R.string.cash) || button == stringResource(
                     id = R.string.card
                 )
@@ -1424,12 +1339,10 @@ fun KeypadButton(
 
 @Composable
 fun PaymentMethods(
-    onCashSelected: () -> Unit,
-    onCardSelected: () -> Unit
+    onCashSelected: () -> Unit, onCardSelected: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Button(
             onClick = onCashSelected,
@@ -1498,24 +1411,20 @@ fun CategoriesPanel(
         modifier = modifier
             .fillMaxHeight()
             .background(colorResource(id = R.color.light_grey))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(categories) { category ->
             CategoryItem(
                 category = category,
                 isSelected = selectedCategory?.id == category.id,
-                onClick = { onCategorySelected(category) }
-            )
+                onClick = { onCategorySelected(category) })
         }
     }
 }
 
 @Composable
 fun CategoryItem(
-    category: CategoryData,
-    isSelected: Boolean,
-    onClick: () -> Unit
+    category: CategoryData, isSelected: Boolean, onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -1557,8 +1466,7 @@ fun ProductsPanel(
         modifier = modifier
             .fillMaxHeight()
             .background(colorResource(id = R.color.light_grey))
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         // Products Grid - 60% of height
         LazyVerticalGrid(
@@ -1569,9 +1477,7 @@ fun ProductsPanel(
         ) {
             items(products) { product ->
                 ProductItem(
-                    product = product,
-                    onClick = { onProductClick(product) }
-                )
+                    product = product, onClick = { onProductClick(product) })
             }
         }
 
@@ -1588,8 +1494,7 @@ fun ProductsPanel(
 
 @Composable
 fun ProductItem(
-    product: Products,
-    onClick: () -> Unit
+    product: Products, onClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -1654,15 +1559,13 @@ fun ActionButtonsPanel(
                 ActionButton("Gift Card", R.drawable.gift_card_btn),
                 ActionButton("Pending Orders", R.drawable.pending_orders_button),
                 ActionButton("Refund", R.drawable.refund_btn)
-            ),
-            onActionClick = { action ->
+            ), onActionClick = { action ->
                 when (action) {
                     "Pending Orders" -> {
                         navController.navigate("pending_orders")
                     }
                 }
-            }
-        )
+            })
 
         // Row 2
         ActionButtonRow(
@@ -1671,11 +1574,9 @@ fun ActionButtonsPanel(
                 ActionButton("Rewards", R.drawable.rewards_btn),
                 ActionButton("Online Order", R.drawable.online_order_btn),
                 ActionButton("Tax Exempt", R.drawable.tax_exempt_btn)
-            ),
-            onActionClick = { action ->
+            ), onActionClick = { action ->
                 // TODO: Add action handlers for these buttons
-            }
-        )
+            })
 
         // Row 3
         ActionButtonRow(
@@ -1684,11 +1585,9 @@ fun ActionButtonsPanel(
                 ActionButton("Last Receipt", R.drawable.last_receipt),
                 ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
                 ActionButton("Void", R.drawable.void_btn)
-            ),
-            onActionClick = { action ->
+            ), onActionClick = { action ->
                 // TODO: Add action handlers for these buttons
-            }
-        )
+            })
 
         // Row 4
         ActionButtonRow(
@@ -1697,34 +1596,30 @@ fun ActionButtonsPanel(
                 ActionButton("Weight Scale", R.drawable.weight_scale_btn),
                 ActionButton("Clock In/Out", R.drawable.clock_in_out_btn),
                 ActionButton("Order Discount", R.drawable.discount_btn)
-            ),
-            onActionClick = { action ->
+            ), onActionClick = { action ->
                 when (action) {
                     "Order Discount" -> {
                         onShowOrderDiscountDialog()
                     }
+
                     "Clock In/Out" -> {
                         onShowClockInOutDialog()
                     }
                 }
-            }
-        )
+            })
     }
 }
 
 data class ActionButton(
-    val label: String,
-    val iconRes: Int
+    val label: String, val iconRes: Int
 )
 
 @Composable
 fun ActionButtonRow(
-    buttons: List<ActionButton>,
-    onActionClick: (String) -> Unit
+    buttons: List<ActionButton>, onActionClick: (String) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEach { button ->
             Card(
@@ -1736,8 +1631,7 @@ fun ActionButtonRow(
                 colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
             ) {
                 Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
                 ) {
                     Image(
                         painter = painterResource(id = button.iconRes),
@@ -1772,309 +1666,287 @@ fun ProductLevelDiscountDialog(
     var discountType by remember { mutableStateOf(cartItem.discountType) }
     var chargeTax by remember { mutableStateOf(cartItem.chargeTaxOnThisProduct) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
+    AlertDialog(onDismissRequest = onDismiss, title = {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BaseText(
+                text = "Product Discount",
+                color = Color.Black,
+                fontSize = 16f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = onDismiss) {
+                BaseText(
+                    text = "✕",
+                    color = Color.Black,
+                    fontSize = 18f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }, text = {
+        Column(
+            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Product Name
+            BaseText(
+                text = cartItem.name!!,
+                color = Color.Black,
+                fontSize = 14f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Quantity Section
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BaseText(
-                    text = "Product Discount",
-                    color = Color.Black,
-                    fontSize = 16f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.Bold
-                )
-                IconButton(onClick = onDismiss) {
-                    BaseText(
-                        text = "✕",
-                        color = Color.Black,
-                        fontSize = 18f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Product Name
-                BaseText(
-                    text = cartItem.name!!,
-                    color = Color.Black,
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                // Quantity Section
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    BaseText(
-                        text = "Quantity:",
-                        color = Color.Black,
-                        fontSize = 12f,
-                        fontFamily = GeneralSans
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = { if (quantity > 1) quantity-- }
-                        ) {
-                            BaseText(
-                                text = "-",
-                                color = Color.Black,
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        BaseText(
-                            text = quantity.toString(),
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        IconButton(
-                            onClick = { quantity++ }
-                        ) {
-                            BaseText(
-                                text = "+",
-                                color = Color.Black,
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                // Price
-                BaseText(
-                    text = "Price: $${String.format("%.2f", cartItem.selectedPrice)}",
+                    text = "Quantity:",
                     color = Color.Black,
                     fontSize = 12f,
                     fontFamily = GeneralSans
                 )
-
-                // Tax Switch
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(
+                        onClick = { if (quantity > 1) quantity-- }) {
+                        BaseText(
+                            text = "-",
+                            color = Color.Black,
+                            fontSize = 18f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                     BaseText(
-                        text = "Charge Tax",
+                        text = quantity.toString(),
+                        color = Color.Black,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    IconButton(
+                        onClick = { quantity++ }) {
+                        BaseText(
+                            text = "+",
+                            color = Color.Black,
+                            fontSize = 18f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Price
+            BaseText(
+                text = "Price: $${String.format("%.2f", cartItem.selectedPrice)}",
+                color = Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans
+            )
+
+            // Tax Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BaseText(
+                    text = "Charge Tax",
+                    color = Color.Black,
+                    fontSize = 12f,
+                    fontFamily = GeneralSans
+                )
+                Switch(
+                    checked = chargeTax!!,
+                    onCheckedChange = { chargeTax = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = colorResource(id = R.color.primary),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color.Gray
+                    )
+                )
+            }
+
+            // Discount Section
+            BaseText(
+                text = "Discount",
+                color = Color.Black,
+                fontSize = 14f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Discount Value
+            BasicTextField(
+                value = discountValue,
+                onValueChange = { discountValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFFF5F5F5), shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp),
+                textStyle = TextStyle(
+                    fontFamily = GeneralSans, fontSize = 12.sp, color = Color.Black
+                ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                ),
+                singleLine = true,
+                decorationBox = { innerTextField ->
+                    innerTextField()
+                })
+
+            // Discount Type Radio Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE,
+                        onClick = {
+                            discountType =
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                        },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colorResource(id = R.color.primary),
+                            unselectedColor = Color.Gray
+                        )
+                    )
+                    BaseText(
+                        text = "Percentage",
                         color = Color.Black,
                         fontSize = 12f,
                         fontFamily = GeneralSans
                     )
-                    Switch(
-                        checked = chargeTax!!,
-                        onCheckedChange = { chargeTax = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = colorResource(id = R.color.primary),
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color.Gray
-                        )
-                    )
                 }
-
-                // Discount Section
-                BaseText(
-                    text = "Discount",
-                    color = Color.Black,
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                // Discount Value
-                BasicTextField(
-                    value = discountValue,
-                    onValueChange = { discountValue = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = Color(0xFFF5F5F5),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp),
-                    textStyle = TextStyle(
-                        fontFamily = GeneralSans,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Done
-                    ),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        innerTextField()
-                    }
-                )
-
-                // Discount Type Radio Buttons
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE,
-                            onClick = {
-                                discountType =
-                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = colorResource(id = R.color.primary),
-                                unselectedColor = Color.Gray
-                            )
+                    RadioButton(
+                        selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT,
+                        onClick = {
+                            discountType =
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT
+                        },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colorResource(id = R.color.primary),
+                            unselectedColor = Color.Gray
                         )
-                        BaseText(
-                            text = "Percentage",
-                            color = Color.Black,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT,
-                            onClick = {
-                                discountType =
-                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = colorResource(id = R.color.primary),
-                                unselectedColor = Color.Gray
-                            )
-                        )
-                        BaseText(
-                            text = "Amount",
-                            color = Color.Black,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
-                }
-
-                // Discount Reason
-                BasicTextField(
-                    value = discountReason,
-                    onValueChange = { discountReason = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = Color(0xFFF5F5F5),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontFamily = GeneralSans,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    ),
-                    decorationBox = { innerTextField ->
-                        if (discountReason.isEmpty()) {
-                            BaseText(
-                                text = "Discount Reason",
-                                color = Color.Gray,
-                                fontSize = 12f,
-                                fontFamily = GeneralSans
-                            )
-                        }
-                        innerTextField()
-                    }
-                )
-            }
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(
-                    onClick = onRemoveItem,
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = Color.Red
                     )
-                ) {
                     BaseText(
-                        text = "Remove",
-                        color = Color.Red,
+                        text = "Amount",
+                        color = Color.Black,
                         fontSize = 12f,
                         fontFamily = GeneralSans
                     )
                 }
-                Button(
-                    onClick = {
-                        val discountValueDouble = discountValue.toDoubleOrNull() ?: 0.0
+            }
 
-                        // Validations (matching your Fragment logic exactly)
-                        when {
-                            quantity <= 0 -> {
-                                DialogHandler.showDialog("Quantity must be at least 1")
-                                return@Button
-                            }
-                            // If discount value entered but no type selected
-                            discountValueDouble > 0 && discountType == null -> {
-                                DialogHandler.showDialog("Select discount type")
-                                return@Button
-                            }
-                            // If percentage discount, must be <= 100
-                            discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE && discountValueDouble > 100 -> {
-                                DialogHandler.showDialog("Percentage cannot be more than 100")
-                                return@Button
-                            }
-                            // If discount applied, reason must not be empty
-                            discountValueDouble > 0 && discountReason.isEmpty() -> {
-                                DialogHandler.showDialog("Please enter discount reason")
-                                return@Button
-                            }
-                        }
-
-                        val updatedCartItem = cartItem.copy(
-                            quantity = quantity,
-                            chargeTaxOnThisProduct = chargeTax,
-                            discountType = discountType,
-                            discountValue = discountValueDouble,
-                            discountReason = discountReason
+            // Discount Reason
+            BasicTextField(
+                value = discountReason,
+                onValueChange = { discountReason = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFFF5F5F5), shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = GeneralSans, fontSize = 12.sp, color = Color.Black
+                ),
+                decorationBox = { innerTextField ->
+                    if (discountReason.isEmpty()) {
+                        BaseText(
+                            text = "Discount Reason",
+                            color = Color.Gray,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans
                         )
-                        onApplyDiscount(updatedCartItem)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(id = R.color.primary)
+                    }
+                    innerTextField()
+                })
+        }
+    }, confirmButton = {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextButton(
+                onClick = onRemoveItem, colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.Red
+                )
+            ) {
+                BaseText(
+                    text = "Remove", color = Color.Red, fontSize = 12f, fontFamily = GeneralSans
+                )
+            }
+            Button(
+                onClick = {
+                    val discountValueDouble = discountValue.toDoubleOrNull() ?: 0.0
+
+                    // Validations (matching your Fragment logic exactly)
+                    when {
+                        quantity <= 0 -> {
+                            DialogHandler.showDialog("Quantity must be at least 1")
+                            return@Button
+                        }
+                        // If discount value entered but no type selected
+                        discountValueDouble > 0 && discountType == null -> {
+                            DialogHandler.showDialog("Select discount type")
+                            return@Button
+                        }
+                        // If percentage discount, must be <= 100
+                        discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE && discountValueDouble > 100 -> {
+                            DialogHandler.showDialog("Percentage cannot be more than 100")
+                            return@Button
+                        }
+                        // If discount applied, reason must not be empty
+                        discountValueDouble > 0 && discountReason.isEmpty() -> {
+                            DialogHandler.showDialog("Please enter discount reason")
+                            return@Button
+                        }
+                    }
+
+                    val updatedCartItem = cartItem.copy(
+                        quantity = quantity,
+                        chargeTaxOnThisProduct = chargeTax,
+                        discountType = discountType,
+                        discountValue = discountValueDouble,
+                        discountReason = discountReason
                     )
-                ) {
-                    BaseText(
-                        text = "Apply",
-                        color = Color.White,
-                        fontSize = 12f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                    onApplyDiscount(updatedCartItem)
+                }, colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(id = R.color.primary)
+                )
+            ) {
+                BaseText(
+                    text = "Apply",
+                    color = Color.White,
+                    fontSize = 12f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
-    )
+    })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2115,340 +1987,310 @@ fun OrderLevelDiscountDialog(
         "Other"
     )
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+    AlertDialog(onDismissRequest = onDismiss, title = {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BaseText(
+                text = "Discount",
+                color = Color.Black,
+                fontSize = 16f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(onClick = onDismiss) {
                 BaseText(
-                    text = "Discount",
+                    text = "✕",
                     color = Color.Black,
-                    fontSize = 16f,
+                    fontSize = 18f,
                     fontFamily = GeneralSans,
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(onClick = onDismiss) {
-                    BaseText(
-                        text = "✕",
-                        color = Color.Black,
-                        fontSize = 18f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Bold
-                    )
+            }
+        }
+    }, text = {
+        Column(
+            modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Reason Selection
+            BaseText(
+                text = "Reason for Discount:",
+                color = Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            // Dropdown for reason selection
+            var expanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+                OutlinedTextField(
+                    value = selectedReason,
+                                  onValueChange = { },
+                                  readOnly = true,
+                                  trailingIcon = {
+                                      ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                                  },
+                                  modifier = Modifier
+                                      .fillMaxWidth()
+                                      .menuAnchor(),
+                                  colors = OutlinedTextFieldDefaults.colors(
+                                      focusedContainerColor = Color.White,
+                                      unfocusedContainerColor = Color.White
+                                  ),
+                                  textStyle = TextStyle(
+                                      fontSize = 12.sp,
+                                      fontFamily = GeneralSans,
+                                      color = Color.Black
+                                  )
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded, onDismissRequest = { expanded = false }) {
+                    reasons.drop(1).forEach { reason ->
+                        DropdownMenuItem(text = {
+                            BaseText(
+                                text = reason,
+                                color = Color.Black,
+                                fontSize = 12f,
+                                fontFamily = GeneralSans
+                            )
+                        }, onClick = {
+                            selectedReason = reason
+                            expanded = false
+                        })
+                    }
                 }
             }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Reason Selection
-                BaseText(
-                    text = "Reason for Discount:",
-                    color = Color.Black,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
 
-                // Dropdown for reason selection
-                var expanded by remember { mutableStateOf(false) }
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
+            // Discount Value
+            BaseText(
+                text = "Discount Value:",
+                color = Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            BasicTextField(
+                value = discountValue,
+                onValueChange = { discountValue = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = Color(0xFFF5F5F5), shape = RoundedCornerShape(8.dp)
+                    )
+                    .padding(12.dp),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontFamily = GeneralSans, fontSize = 12.sp, color = Color.Black
+                ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done
+                ),
+                singleLine = true,
+                decorationBox = { innerTextField ->
+                    innerTextField()
+                })
+
+            // Discount Type Radio Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = selectedReason,
-                        onValueChange = { },
-                        readOnly = true,
-                        trailingIcon = {
-                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    RadioButton(
+                        selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE,
+                        onClick = {
+                            discountType =
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
                         },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
-                        ),
-                        textStyle = TextStyle(
-                            fontSize = 12.sp,
-                            fontFamily = GeneralSans,
-                            color = Color.Black
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colorResource(id = R.color.primary),
+                            unselectedColor = Color.Gray
                         )
                     )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        reasons.drop(1).forEach { reason ->
-                            DropdownMenuItem(
-                                text = {
-                                    BaseText(
-                                        text = reason,
-                                        color = Color.Black,
-                                        fontSize = 12f,
-                                        fontFamily = GeneralSans
-                                    )
-                                },
-                                onClick = {
-                                    selectedReason = reason
-                                    expanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Discount Value
-                BaseText(
-                    text = "Discount Value:",
-                    color = Color.Black,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                BasicTextField(
-                    value = discountValue,
-                    onValueChange = { discountValue = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = Color(0xFFF5F5F5),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .padding(12.dp),
-                    textStyle = androidx.compose.ui.text.TextStyle(
-                        fontFamily = GeneralSans,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    ),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Decimal,
-                        imeAction = ImeAction.Done
-                    ),
-                    singleLine = true,
-                    decorationBox = { innerTextField ->
-                        innerTextField()
-                    }
-                )
-
-                // Discount Type Radio Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE,
-                            onClick = {
-                                discountType =
-                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = colorResource(id = R.color.primary),
-                                unselectedColor = Color.Gray
-                            )
-                        )
-                        BaseText(
-                            text = "Percentage",
-                            color = Color.Black,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT,
-                            onClick = {
-                                discountType =
-                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = colorResource(id = R.color.primary),
-                                unselectedColor = Color.Gray
-                            )
-                        )
-                        BaseText(
-                            text = "Amount",
-                            color = Color.Black,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
-                }
-
-                // Applied Discounts List
-                if (orderDiscounts.isNotEmpty()) {
                     BaseText(
-                        text = "Applied Discounts:",
+                        text = "Percentage",
                         color = Color.Black,
                         fontSize = 12f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.SemiBold
+                        fontFamily = GeneralSans
                     )
-
-                    LazyRow(
-                        modifier = Modifier.height(60.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(orderDiscounts) { discount ->
-                            Card(
-                                modifier = Modifier.width(120.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF5F5F5)
-                                ),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(8.dp),
-                                    verticalArrangement = Arrangement.Center
-                                ) {
-                                    BaseText(
-                                        text = discount.reason,
-                                        color = Color.Black,
-                                        fontSize = 11f,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = "${discount.value}${if (discount.type == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "%" else "$"}",
-                                        color = Color.Gray,
-                                        fontSize = 10f,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-                                IconButton(
-                                    onClick = {
-                                        orderDiscounts = orderDiscounts.filter { it != discount }
-                                    }
-                                ) {
-                                    BaseText(
-                                        text = "✕",
-                                        color = Color.Red,
-                                        fontSize = 12f,
-                                        fontFamily = GeneralSans,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
-                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT,
+                        onClick = {
+                            discountType =
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT
+                        },
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colorResource(id = R.color.primary),
+                            unselectedColor = Color.Gray
+                        )
+                    )
+                    BaseText(
+                        text = "Amount",
+                        color = Color.Black,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans
+                    )
                 }
             }
-        },
-        confirmButton = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
+
+            // Applied Discounts List
+            if (orderDiscounts.isNotEmpty()) {
+                BaseText(
+                    text = "Applied Discounts:",
+                    color = Color.Black,
+                    fontSize = 12f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                LazyRow(
+                    modifier = Modifier.height(60.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Remove All Discounts button (only show if there are existing discounts)
-                    if (existingOrderDiscounts.isNotEmpty()) {
-                        Button(
-                            onClick = {
-                                orderDiscounts = emptyList()
-                                onRemoveAllDiscounts()
-                                onResetDiscountValues()
-                                onDismiss()
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Red
-                            ),
-                            modifier = Modifier.weight(1f)
+                    items(orderDiscounts) { discount ->
+                        Card(
+                            modifier = Modifier.width(120.dp), colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF5F5F5)
+                            ), shape = RoundedCornerShape(4.dp)
                         ) {
-                            BaseText(
-                                text = "Remove All",
-                                color = Color.White,
-                                fontSize = 12f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            val value = discountValue.toDoubleOrNull()
-                            if (selectedReason != "Select Reason" && value != null && value > 0) {
-                                val newDiscount =
-                                    com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
-                                        reason = selectedReason,
-                                        type = discountType,
-                                        value = value
-                                    )
-                                orderDiscounts = orderDiscounts + newDiscount
-
-                                // Save current values for persistence
-                                onSaveDiscountValues(
-                                    discountValue,
-                                    if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
-                                    selectedReason
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(8.dp),
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                BaseText(
+                                    text = discount.reason,
+                                    color = Color.Black,
+                                    fontSize = 11f,
+                                    fontFamily = GeneralSans
                                 )
-
-                                // Reset fields
-                                discountValue = ""
-                                selectedReason = "Select Reason"
-                                discountType =
-                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
-                            } else {
-                                DialogHandler.showDialog("Please select reason and enter value")
+                                BaseText(
+                                    text = "${discount.value}${if (discount.type == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "%" else "$"}",
+                                    color = Color.Gray,
+                                    fontSize = 10f,
+                                    fontFamily = GeneralSans
+                                )
                             }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorResource(id = R.color.primary)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        BaseText(
-                            text = "Add Discount",
-                            color = Color.White,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Button(
-                        onClick = {
-                            onApplyDiscount(orderDiscounts)
-                            onDismiss()
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorResource(id = R.color.primary)
-                        ),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        BaseText(
-                            text = "Apply All",
-                            color = Color.White,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            IconButton(
+                                onClick = {
+                                    orderDiscounts = orderDiscounts.filter { it != discount }
+                                }) {
+                                BaseText(
+                                    text = "✕",
+                                    color = Color.Red,
+                                    fontSize = 12f,
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
-    )
+    }, confirmButton = {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Remove All Discounts button (only show if there are existing discounts)
+                if (existingOrderDiscounts.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            orderDiscounts = emptyList()
+                            onRemoveAllDiscounts()
+                            onResetDiscountValues()
+                            onDismiss()
+                        }, colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.Red
+                        ), modifier = Modifier.weight(1f)
+                    ) {
+                        BaseText(
+                            text = "Remove All",
+                            color = Color.White,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val value = discountValue.toDoubleOrNull()
+                        if (selectedReason != "Select Reason" && value != null && value > 0) {
+                            val newDiscount =
+                                com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
+                                    reason = selectedReason, type = discountType, value = value
+                                )
+                            orderDiscounts = orderDiscounts + newDiscount
+
+                            // Save current values for persistence
+                            onSaveDiscountValues(
+                                discountValue,
+                                if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
+                                selectedReason
+                            )
+
+                            // Reset fields
+                            discountValue = ""
+                            selectedReason = "Select Reason"
+                            discountType =
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                        } else {
+                            DialogHandler.showDialog("Please select reason and enter value")
+                        }
+                    }, colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ), modifier = Modifier.weight(1f)
+                ) {
+                    BaseText(
+                        text = "Add Discount",
+                        color = Color.White,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Button(
+                    onClick = {
+                        onApplyDiscount(orderDiscounts)
+                        onDismiss()
+                    }, colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ), modifier = Modifier.weight(1f)
+                ) {
+                    BaseText(
+                        text = "Apply All",
+                        color = Color.White,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    })
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCustomerDialog(
-    onDismiss: () -> Unit,
-    onSaveCustomer: (String, String, String, String) -> Unit
+    onDismiss: () -> Unit, onSaveCustomer: (String, String, String, String) -> Unit
 ) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
@@ -2513,30 +2355,29 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = firstName,
-                            onValueChange = {
-                                firstName = it
-                                firstNameError = ""
-                            },
-                            placeholder = {
-                                BaseText(
-                                    text = "Enter First Name",
-                                    fontSize = 13f,
-                                    fontFamily = GeneralSans
-                                )
-                            },
-                            isError = firstNameError.isNotEmpty(),
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = colorResource(id = R.color.primary),
-                                unfocusedBorderColor = Color.Gray
-                            ),
-                            textStyle = TextStyle(
-                                fontSize = 13.sp,
-                                fontFamily = GeneralSans
-                            )
+                                          onValueChange = {
+                                              firstName = it
+                                              firstNameError = ""
+                                          },
+                                          placeholder = {
+                                              BaseText(
+                                                  text = "Enter First Name",
+                                                  fontSize = 13f,
+                                                  fontFamily = GeneralSans
+                                              )
+                                          },
+                                          isError = firstNameError.isNotEmpty(),
+                                          singleLine = true,
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .height(56.dp),
+                                          colors = OutlinedTextFieldDefaults.colors(
+                                              focusedBorderColor = colorResource(id = R.color.primary),
+                                              unfocusedBorderColor = Color.Gray
+                                          ),
+                                          textStyle = TextStyle(
+                                              fontSize = 13.sp, fontFamily = GeneralSans
+                                          )
                         )
                         if (firstNameError.isNotEmpty()) {
                             BaseText(
@@ -2560,30 +2401,29 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = lastName,
-                            onValueChange = {
-                                lastName = it
-                                lastNameError = ""
-                            },
-                            placeholder = {
-                                BaseText(
-                                    text = "Enter Last Name",
-                                    fontSize = 13f,
-                                    fontFamily = GeneralSans
-                                )
-                            },
-                            isError = lastNameError.isNotEmpty(),
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = colorResource(id = R.color.primary),
-                                unfocusedBorderColor = Color.Gray
-                            ),
-                            textStyle = TextStyle(
-                                fontSize = 13.sp,
-                                fontFamily = GeneralSans
-                            )
+                                          onValueChange = {
+                                              lastName = it
+                                              lastNameError = ""
+                                          },
+                                          placeholder = {
+                                              BaseText(
+                                                  text = "Enter Last Name",
+                                                  fontSize = 13f,
+                                                  fontFamily = GeneralSans
+                                              )
+                                          },
+                                          isError = lastNameError.isNotEmpty(),
+                                          singleLine = true,
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .height(56.dp),
+                                          colors = OutlinedTextFieldDefaults.colors(
+                                              focusedBorderColor = colorResource(id = R.color.primary),
+                                              unfocusedBorderColor = Color.Gray
+                                          ),
+                                          textStyle = TextStyle(
+                                              fontSize = 13.sp, fontFamily = GeneralSans
+                                          )
                         )
                         if (lastNameError.isNotEmpty()) {
                             BaseText(
@@ -2613,31 +2453,30 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(2.dp))
                         OutlinedTextField(
                             value = email,
-                            onValueChange = {
-                                email = it
-                                emailError = ""
-                            },
-                            placeholder = {
-                                BaseText(
-                                    text = "Enter Email",
-                                    fontSize = 13f,
-                                    fontFamily = GeneralSans
-                                )
-                            },
-                            isError = emailError.isNotEmpty(),
-                            singleLine = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = colorResource(id = R.color.primary),
-                                unfocusedBorderColor = Color.Gray
-                            ),
-                            textStyle = TextStyle(
-                                fontSize = 13.sp,
-                                fontFamily = GeneralSans
-                            )
+                                          onValueChange = {
+                                              email = it
+                                              emailError = ""
+                                          },
+                                          placeholder = {
+                                              BaseText(
+                                                  text = "Enter Email",
+                                                  fontSize = 13f,
+                                                  fontFamily = GeneralSans
+                                              )
+                                          },
+                                          isError = emailError.isNotEmpty(),
+                                          singleLine = true,
+                                          modifier = Modifier
+                                              .fillMaxWidth()
+                                              .height(56.dp),
+                                          keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                                          colors = OutlinedTextFieldDefaults.colors(
+                                              focusedBorderColor = colorResource(id = R.color.primary),
+                                              unfocusedBorderColor = Color.Gray
+                                          ),
+                                          textStyle = TextStyle(
+                                              fontSize = 13.sp, fontFamily = GeneralSans
+                                          )
                         )
                         if (emailError.isNotEmpty()) {
                             BaseText(
@@ -2670,8 +2509,7 @@ fun AddCustomerDialog(
                                     shape = RoundedCornerShape(4.dp)
                                 )
                                 .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
+                            contentAlignment = Alignment.CenterStart) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2728,11 +2566,9 @@ fun AddCustomerDialog(
                                 if (birthday == "Select Birthday") "" else birthday
                             )
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(
+                    }, colors = ButtonDefaults.buttonColors(
                         containerColor = colorResource(id = R.color.primary)
-                    ),
-                    modifier = Modifier.align(Alignment.End)
+                    ), modifier = Modifier.align(Alignment.End)
                 ) {
                     BaseText(
                         text = "Add",
@@ -2752,41 +2588,34 @@ fun AddCustomerDialog(
         val today = calendar.timeInMillis
 
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = today,
-            initialDisplayedMonthMillis = today
+            initialSelectedDateMillis = today, initialDisplayedMonthMillis = today
         )
 
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { dateMillis ->
-                            // Only allow dates up to today
-                            if (dateMillis <= today) {
-                                val selectedCalendar = Calendar.getInstance()
-                                selectedCalendar.timeInMillis = dateMillis
-                                val day = selectedCalendar.get(Calendar.DAY_OF_MONTH)
-                                val month = selectedCalendar.get(Calendar.MONTH) + 1
-                                val year = selectedCalendar.get(Calendar.YEAR)
-                                birthday = "$day/$month/$year"
-                                showDatePicker = false
-                            }
+        DatePickerDialog(onDismissRequest = { showDatePicker = false }, confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { dateMillis ->
+                        // Only allow dates up to today
+                        if (dateMillis <= today) {
+                            val selectedCalendar = Calendar.getInstance()
+                            selectedCalendar.timeInMillis = dateMillis
+                            val day = selectedCalendar.get(Calendar.DAY_OF_MONTH)
+                            val month = selectedCalendar.get(Calendar.MONTH) + 1
+                            val year = selectedCalendar.get(Calendar.YEAR)
+                            birthday = "$day/$month/$year"
+                            showDatePicker = false
                         }
                     }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
+                }) {
+                Text("OK")
             }
-        ) {
+        }, dismissButton = {
+            TextButton(onClick = { showDatePicker = false }) {
+                Text("Cancel")
+            }
+        }) {
             DatePicker(
-                state = datePickerState,
-                colors = DatePickerDefaults.colors(
+                state = datePickerState, colors = DatePickerDefaults.colors(
                     selectedDayContainerColor = colorResource(id = R.color.primary),
                     todayDateBorderColor = colorResource(id = R.color.primary)
                 )
@@ -2797,101 +2626,93 @@ fun AddCustomerDialog(
 
 @Composable
 fun VariantSelectionDialog(
-    product: Products,
-    onDismiss: () -> Unit,
-    onVariantSelected: (Variant) -> Unit
+    product: Products, onDismiss: () -> Unit, onVariantSelected: (Variant) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = product.name ?: "Select Variant",
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.SemiBold
-            )
-        },
-        text = {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(400.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(product.variants.orEmpty()) { variant ->
-                    Card(
-                        onClick = { onVariantSelected(variant) },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        shape = RoundedCornerShape(8.dp)
+    AlertDialog(onDismissRequest = onDismiss, title = {
+        Text(
+            text = product.name ?: "Select Variant",
+            fontFamily = GeneralSans,
+            fontWeight = FontWeight.SemiBold
+        )
+    }, text = {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(product.variants.orEmpty()) { variant ->
+                Card(
+                    onClick = { onVariantSelected(variant) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Row(
+                        // Variant image (shown first)
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .size(50.dp)
+                                .background(Color.White, RoundedCornerShape(4.dp))
+                                .clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center
                         ) {
-                            // Variant image (shown first)
-                            Box(
-                                modifier = Modifier
-                                    .size(50.dp)
-                                    .background(Color.White, RoundedCornerShape(4.dp))
-                                    .clip(RoundedCornerShape(4.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
-                                    AsyncImage(
-                                        model = variant.images.first().fileURL,
-                                        contentDescription = variant.title,
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Image(
-                                        painter = painterResource(id = R.drawable.logo),
-                                        contentDescription = "Product Placeholder",
-                                        modifier = Modifier.size(40.dp),
-                                        contentScale = ContentScale.Fit
-                                    )
-                                }
+                            if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
+                                AsyncImage(
+                                    model = variant.images.first().fileURL,
+                                    contentDescription = variant.title,
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Image(
+                                    painter = painterResource(id = R.drawable.logo),
+                                    contentDescription = "Product Placeholder",
+                                    modifier = Modifier.size(40.dp),
+                                    contentScale = ContentScale.Fit
+                                )
                             }
-                            Spacer(modifier = Modifier.width(12.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = variant.title ?: "Variant",
-                                    fontFamily = GeneralSans,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 14.sp,
-                                    color = Color.Black
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Price: $${variant.cardPrice?.toDoubleOrNull() ?: 0.0}",
-                                    fontFamily = GeneralSans,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Qty: ${variant.quantity}",
-                                    fontFamily = GeneralSans,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 12.sp,
-                                    color = Color.Gray
-                                )
-                            }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = variant.title ?: "Variant",
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp,
+                                color = Color.Black
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Price: $${variant.cardPrice?.toDoubleOrNull() ?: 0.0}",
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Qty: ${variant.quantity}",
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
                         }
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", fontFamily = GeneralSans)
-            }
         }
-    )
+    }, confirmButton = {
+        TextButton(onClick = onDismiss) {
+            Text("Cancel", fontFamily = GeneralSans)
+        }
+    })
 }
