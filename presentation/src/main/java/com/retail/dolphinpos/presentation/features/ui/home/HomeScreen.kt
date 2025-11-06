@@ -325,7 +325,8 @@ fun HomeScreen(
                                 iconRes = R.drawable.info_icon
                             )
                         } else {
-                            viewModel.createOrder("card")
+                            viewModel.initCardPayment()
+//                            viewModel.createOrder("card")
                         }
                     }, onClear = {
                         paymentAmount = "0.00"
@@ -339,7 +340,7 @@ fun HomeScreen(
                         } else {
                             when {
                                 viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                else -> viewModel.createOrder("card")
+                                else -> viewModel.initCardPayment()
                             }
                         }
                     })

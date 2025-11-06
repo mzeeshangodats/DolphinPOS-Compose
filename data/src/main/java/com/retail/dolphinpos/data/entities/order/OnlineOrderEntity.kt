@@ -4,8 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "pending_orders")
-data class PendingOrderEntity(
+@Entity(tableName = "online_orders")
+data class OnlineOrderEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     @ColumnInfo(name = "order_no") val orderNumber: String,
@@ -31,7 +31,6 @@ data class PendingOrderEntity(
     @ColumnInfo(name = "user_id") val userId: Int = 0,
     @ColumnInfo(name = "void_reason") val voidReason: String? = null,
     @ColumnInfo(name = "is_void") val isVoid: Boolean = false,
-    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(name = "is_synced") val isSynced: Boolean = false
+    @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis()
 )
 

@@ -37,12 +37,9 @@ class PendingOrderRepositoryImpl(
             cashDiscountAmount = orderRequest.cashDiscountAmount,
             rewardDiscount = orderRequest.rewardDiscount,
             discountIds = orderRequest.discountIds?.let { gson.toJson(it) },
-            transactionId = orderRequest.transactionId,
             userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
-            transactions = orderRequest.transactions?.let { gson.toJson(it) },
-            cardDetails = orderRequest.cardDetails?.let { gson.toJson(it) },
             isSynced = false
         )
         return pendingOrderDao.insertPendingOrder(orderEntity)
@@ -85,8 +82,6 @@ class PendingOrderRepositoryImpl(
     private fun convertToCreateOrderRequest(entity: PendingOrderEntity): CreateOrderRequest {
         val itemsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>() {}.type
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
-        val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
-        val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
 
         return CreateOrderRequest(
             orderNumber = entity.orderNumber,
@@ -109,12 +104,12 @@ class PendingOrderRepositoryImpl(
             cashDiscountAmount = entity.cashDiscountAmount,
             rewardDiscount = entity.rewardDiscount,
             discountIds = entity.discountIds?.let { gson.fromJson(it, discountIdsType) },
-            transactionId = entity.transactionId,
+            transactionId = null,
             userId = entity.userId,
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
-            transactions = entity.transactions?.let { gson.fromJson(it, transactionsType) },
-            cardDetails = entity.cardDetails?.let { gson.fromJson(it, cardDetailsType) }
+            transactions = null,
+            cardDetails = null
         )
     }
 

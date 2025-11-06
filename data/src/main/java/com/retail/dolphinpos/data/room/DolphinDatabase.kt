@@ -4,18 +4,24 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
+import com.retail.dolphinpos.data.dao.OnlineOrderDao
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
+import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.category.CategoryEntity
 import com.retail.dolphinpos.data.entities.customer.CustomerEntity
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
+import com.retail.dolphinpos.data.entities.order.OnlineOrderEntity
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.data.entities.products.CachedImageEntity
+import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.entities.products.ProductImagesEntity
 import com.retail.dolphinpos.data.entities.products.ProductsEntity
 import com.retail.dolphinpos.data.entities.products.VariantImagesEntity
@@ -35,10 +41,11 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
-        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, TimeSlotEntity::class],
-    version = 2,
+        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, TransactionEntity::class, TimeSlotEntity::class],
+    version = 5,
     exportSchema = false
 )
+@TypeConverters(PaymentMethodConverter::class)
 abstract class DolphinDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -46,6 +53,8 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun customerDao(): CustomerDao
     abstract fun holdCartDao(): HoldCartDao
     abstract fun pendingOrderDao(): PendingOrderDao
+    abstract fun onlineOrderDao(): OnlineOrderDao
+    abstract fun transactionDao(): TransactionDao
 
     companion object {
         @Volatile
@@ -61,17 +70,11 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_1_2)
+//                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     //.fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
-            }
-        }
-
-        val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE pending_orders ADD COLUMN location_id INTEGER NOT NULL DEFAULT 0")
             }
         }
 

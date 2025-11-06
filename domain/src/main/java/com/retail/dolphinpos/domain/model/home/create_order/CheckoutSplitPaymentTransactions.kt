@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.domain.model.home.create_order
 
 data class CheckoutSplitPaymentTransactions(
+    val invoiceNo: String? = null,
     val paymentMethod: String,
     val amount: Double,
     val cardDetails: CardDetails? = null,
