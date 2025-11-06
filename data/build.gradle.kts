@@ -65,6 +65,16 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":domain"))
 
+
+    val starPrinter = "1.8.0"
+
+    // Star Printer SDK
+    implementation("com.starmicronics:stario10:$starPrinter")
+
+    // For barcode generation on receipts (optional)
+    implementation("com.google.zxing:core:3.5.3")
+
+
     // PAX Libraries
     implementation(files("../app/libs/GLComm_V1.12.01_20230515.jar"))
     implementation(files("../app/libs/jsch-0.1.54.jar"))
