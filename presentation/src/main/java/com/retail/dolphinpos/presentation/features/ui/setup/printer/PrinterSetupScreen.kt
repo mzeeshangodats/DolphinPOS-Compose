@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,10 +26,12 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.DropdownSelector
+import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType as DomainPrinterConnectionType
 import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterDetails
@@ -189,26 +192,33 @@ fun PrinterSetupScreen(
         }
     }
 
+    // Function to navigate to home
+    val navigateToHome = {
+        navController.navigate("home") {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp)
             .background(colorResource(id = R.color.light_grey))
             .verticalScroll(rememberScrollState())
     ) {
-        // Heading
-        BaseText(
-            text = "Printer Setup",
-            color = Color.Black,
-            fontSize = 24f,
-            fontFamily = GeneralSans,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+        // Header with back button and title
+        HeaderAppBarWithBack(
+            title = "Printer Setup",
+            onBackClick = navigateToHome
         )
 
         // Spacer for card positioning
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Centered Card with 4dp padding and 70% screen width
+        // Centered Card with 4dp padding and 50% screen width
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -217,7 +227,7 @@ fun PrinterSetupScreen(
         ) {
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.7f),
+                    .fillMaxWidth(0.5f),
                 shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 elevation = CardDefaults.cardElevation(4.dp)
@@ -228,88 +238,181 @@ fun PrinterSetupScreen(
                         .padding(4.dp)
                 ) {
                     // Row 1: Printer Name
-                    SettingRowWithDropdown(
-                        icon = R.drawable.card_icon,
-                        label = "Printer Name",
-                        selectedText = printerNamesForDropdown.getOrNull(selectedPrinterIndex) ?: "No printer selected",
-                        items = printerNamesForDropdown,
-                        onItemSelected = { index ->
-                            selectedPrinterIndex = index
-                            if (index == 0) {
-                                printerAddress = ""
-                            } else {
-                                val selectedPrinter = filteredPrinters[index - 1]
-                                printerAddress = selectedPrinter.address
-                                viewModel.onDeviceClicked(selectedPrinter)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp, end = 8.dp, top = 10.dp)
+                    ) {
+                        BaseText(
+                            text = "Printer Name",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        DropdownSelector(
+                            label = "",
+                            items = printerNamesForDropdown,
+                            selectedText = printerNamesForDropdown.getOrNull(selectedPrinterIndex) ?: "No printer selected",
+                            onItemSelected = { index ->
+                                selectedPrinterIndex = index
+                                if (index == 0) {
+                                    printerAddress = ""
+                                } else {
+                                    val selectedPrinter = filteredPrinters[index - 1]
+                                    printerAddress = selectedPrinter.address
+                                    viewModel.onDeviceClicked(selectedPrinter)
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Row 2: Connection Type
-                    SettingRowWithRadioButtons(
-                        icon = R.drawable.card_icon,
-                        label = "Connection Type",
-                        selectedOption = connectionType,
-                        options = PrinterConnectionType.entries,
-                        onOptionSelected = { 
-                            connectionType = it
-                            // Reset selected printer when connection type changes
-                            selectedPrinterIndex = 0
-                            printerAddress = ""
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        BaseText(
+                            text = "Connection Type",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            PrinterConnectionType.entries.forEach { option ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.clickable {
+                                        connectionType = option
+                                        // Reset selected printer when connection type changes
+                                        selectedPrinterIndex = 0
+                                        printerAddress = ""
+                                    }
+                                ) {
+                                    RadioButton(
+                                        selected = connectionType == option,
+                                        onClick = {
+                                            connectionType = option
+                                            // Reset selected printer when connection type changes
+                                            selectedPrinterIndex = 0
+                                            printerAddress = ""
+                                        },
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = colorResource(id = R.color.primary),
+                                            unselectedColor = Color.Gray
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    BaseText(
+                                        text = option.displayName,
+                                        color = Color.Black,
+                                        fontSize = 14f,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                            }
                         }
-                    )
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Row 3: Printer Address
-                    SettingRowWithEditText(
-                        icon = R.drawable.card_icon,
-                        label = "Address",
-                        value = printerAddress,
-                        onValueChange = { printerAddress = it },
-                        placeholder = "Enter printer address",
-                        enabled = selectedPrinterIndex == 0 // Allow editing only when no printer is selected
-                    )
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp)
+                    ) {
+                        BaseText(
+                            text = "Address",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        BaseOutlinedEditText(
+                            value = printerAddress,
+                            onValueChange = { printerAddress = it },
+                            placeholder = "Enter printer address",
+                            enabled = selectedPrinterIndex == 0 // Allow editing only when no printer is selected
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // Row 4: Auto Print Receipt
-                    SettingRowWithSwitch(
-                        icon = R.drawable.card_icon,
-                        label = "Auto Print Receipt",
-                        checked = viewState.isAutoPrintEnabled,
-                        onCheckedChange = { viewModel.updateAutoPrintEnabled(it) }
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BaseText(
+                            text = "Auto Print Receipt",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Switch(
+                            checked = viewState.isAutoPrintEnabled,
+                            onCheckedChange = { viewModel.updateAutoPrintEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = colorResource(id = R.color.primary),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.Gray
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Row 5: Auto Open Drawer
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BaseText(
+                            text = "Auto Open Drawer",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Switch(
+                            checked = viewState.isAutoOpenDrawerEnabled,
+                            onCheckedChange = { viewModel.updateAutoOpenDrawerEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = colorResource(id = R.color.primary),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.Gray
+                            )
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Row 5: Auto Open Drawer
-                    SettingRowWithSwitch(
-                        icon = R.drawable.card_icon,
-                        label = "Auto Open Drawer",
-                        checked = viewState.isAutoOpenDrawerEnabled,
-                        onCheckedChange = { viewModel.updateAutoOpenDrawerEnabled(it) }
-                    )
-                }
-            }
-        }
-
-        // Spacer after card
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Action Buttons
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(0.7f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+                    // Action Buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                 BaseButton(
                     text = "Cancel",
                     modifier = Modifier
@@ -419,10 +522,10 @@ fun PrinterSetupScreen(
                         }
                     }
                 )
+                    }
+                }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

@@ -114,15 +114,14 @@ class BatchReportViewModel @Inject constructor(
                 // Step 1: Close PAX Batch if checkbox is checked (BEFORE regular batch close)
                 if (shouldClosePaxBatch) {
                     Log.d(TAG, "closeBatch: PAX batch close requested, initializing terminal...")
-                    val paxCloseSuccess = closePaxBatch()
+                    val paxResult = closePaxBatch()
                     
-                    if (!paxCloseSuccess) {
+                    if (!paxResult.first) {
                         // PAX batch close failed - stop the process and show error
                         _isLoading.value = false
                         _uiEvent.emit(BatchReportUiEvent.HideLoading)
-                        _uiEvent.emit(
-                            BatchReportUiEvent.ShowError("Failed to close PAX batch. Please try again.")
-                        )
+                        val errorMessage = paxResult.second ?: "Failed to close PAX batch. Please try again."
+                        _uiEvent.emit(BatchReportUiEvent.ShowError(errorMessage))
                         return@launch
                     }
                     Log.d(TAG, "closeBatch: PAX batch closed successfully, proceeding with regular batch close")
@@ -199,16 +198,17 @@ class BatchReportViewModel @Inject constructor(
     }
 
     /**
-     * Closes PAX batch. Returns true if successful, false otherwise.
+     * Closes PAX batch. Returns Pair<Boolean, String?> where Boolean indicates success
+     * and String contains error message if failed, null if successful.
      */
-    private suspend fun closePaxBatch(): Boolean {
+    private suspend fun closePaxBatch(): Pair<Boolean, String?> {
         return withContext(Dispatchers.IO) {
             try {
                 // If no session exists, initialize terminal first
                 if (currentTerminalSessionId == null) {
                     Log.d(TAG, "closePaxBatch: No terminal session found. Initializing terminal...")
                     
-                    val initResult = suspendCancellableCoroutine<Boolean> { continuation ->
+                    val initResult = suspendCancellableCoroutine<Pair<Boolean, String?>> { continuation ->
                         // Launch coroutine to call suspend function
                         viewModelScope.launch(Dispatchers.IO) {
                             initializeTerminalUseCase { result ->
@@ -216,48 +216,53 @@ class BatchReportViewModel @Inject constructor(
                                 if (result.isSuccess && session != null) {
                                     currentTerminalSessionId = session.sessionId
                                     Log.d(TAG, "closePaxBatch: Terminal initialized, sessionId: ${currentTerminalSessionId}")
-                                    continuation.resume(true)
+                                    continuation.resume(Pair(true, null))
                                 } else {
-                                    Log.e(TAG, "closePaxBatch: Terminal initialization failed - ${result.message}")
-                                    continuation.resume(false)
+                                    val errorMsg = result.message ?: "Unable to communicate with Terminal. Please make sure terminal is connected to same network as POS"
+                                    Log.e(TAG, "closePaxBatch: Terminal initialization failed - $errorMsg")
+                                    continuation.resume(Pair(false, errorMsg))
                                 }
                             }
                         }
                     }
                     
-                    if (!initResult || currentTerminalSessionId == null) {
-                        Log.e(TAG, "closePaxBatch: Failed to initialize terminal")
-                        return@withContext false
+                    if (!initResult.first || currentTerminalSessionId == null) {
+                        val errorMsg = initResult.second ?: "Failed to initialize terminal"
+                        Log.e(TAG, "closePaxBatch: Failed to initialize terminal - $errorMsg")
+                        return@withContext Pair(false, errorMsg)
                     }
                 }
 
                 // Close PAX batch using the session
                 Log.d(TAG, "closePaxBatch: Calling closeBatchUseCase with sessionId: $currentTerminalSessionId")
                 
-                val closeResult = suspendCancellableCoroutine<Boolean> { continuation ->
+                val closeResult = suspendCancellableCoroutine<Pair<Boolean, String?>> { continuation ->
                     // Launch coroutine to call suspend function
                     viewModelScope.launch(Dispatchers.IO) {
                         closeBatchUseCase(currentTerminalSessionId) { result ->
                             if (result.isSuccess) {
                                 Log.d(TAG, "closePaxBatch: PAX batch closed successfully - ${result.message}")
-                                continuation.resume(true)
+                                continuation.resume(Pair(true, null))
                             } else {
-                                Log.e(TAG, "closePaxBatch: PAX batch close failed - ${result.message}")
-                                continuation.resume(false)
+                                val errorMsg = result.message ?: "Failed to close PAX batch"
+                                Log.e(TAG, "closePaxBatch: PAX batch close failed - $errorMsg")
+                                continuation.resume(Pair(false, errorMsg))
                             }
                         }
                     }
                 }
 
-                if (!closeResult) {
-                    Log.e(TAG, "closePaxBatch: PAX batch close failed")
-                    return@withContext false
+                if (!closeResult.first) {
+                    val errorMsg = closeResult.second ?: "PAX batch close failed"
+                    Log.e(TAG, "closePaxBatch: PAX batch close failed - $errorMsg")
+                    return@withContext Pair(false, errorMsg)
                 }
 
-                true
+                Pair(true, null)
             } catch (e: Exception) {
+                val errorMsg = e.message ?: "Exception during PAX batch close"
                 Log.e(TAG, "closePaxBatch: Exception during PAX batch close", e)
-                false
+                Pair(false, errorMsg)
             }
         }
     }

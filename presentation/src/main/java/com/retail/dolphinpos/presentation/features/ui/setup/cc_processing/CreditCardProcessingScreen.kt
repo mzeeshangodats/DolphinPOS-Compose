@@ -221,7 +221,7 @@ fun CreditCardProcessingScreen(
                         BaseOutlinedEditText(
                             value = configState.ipAddress,
                             onValueChange = { viewModel.updateIpAddress(it) },
-                            placeholder = "Enter IP Address"
+                            placeholder = "xxx.xxx.xxx.xxx"
                         )
                     }
 
@@ -273,6 +273,7 @@ fun CreditCardProcessingScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(48.dp),
+                            enabled = viewState.isButtonEnabled && !viewState.isLoading,
                             onClick = { viewModel.saveConfiguration() }
                         )
 
@@ -283,35 +284,13 @@ fun CreditCardProcessingScreen(
                                 .height(48.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             fontSize = 14,
+                            enabled = viewState.isButtonEnabled && !viewState.isLoading,
                             onClick = { viewModel.testConnection() }
                         )
                     }
                 }
             }
         }
-
-        // Spacer after card
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Close Batch Button
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            BaseButton(
-                text = "Close Batch",
-                modifier = Modifier
-                    .fillMaxWidth(0.5f)
-                    .height(48.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp),
-                fontSize = 14,
-                onClick = { viewModel.closeBatch() }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 

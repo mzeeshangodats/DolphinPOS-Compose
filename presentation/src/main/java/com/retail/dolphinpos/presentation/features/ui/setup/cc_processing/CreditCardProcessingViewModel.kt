@@ -118,6 +118,16 @@ class CreditCardProcessingViewModel @Inject constructor(
         updateState { it.copy(shouldNavigateBack = false) }
     }
 
+    fun clearIpAddress() {
+        updateState {
+            it.copy(
+                ipAddress = "",
+                config = it.config.copy(ipAddress = ""),
+                isButtonEnabled = false
+            )
+        }
+    }
+
     fun updateIsEnabled(enabled: Boolean) {
         updateState { it.copy(config = it.config.copy(isEnabled = enabled)) }
     }
@@ -175,6 +185,30 @@ class CreditCardProcessingViewModel @Inject constructor(
 
     fun saveConfiguration() {
         viewModelScope.launch {
+            // Validate IP address
+            if (viewState.value.ipAddress.isBlank()) {
+                updateState {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "IP Address is required",
+                        successMessage = null
+                    )
+                }
+                return@launch
+            }
+
+            // Validate IP address format
+            if (!isValidIpAddressFormat(viewState.value.ipAddress)) {
+                updateState {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "IP Address must be in format xxx.xxx.xxx.xxx",
+                        successMessage = null
+                    )
+                }
+                return@launch
+            }
+
             updateState { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
             try {
@@ -324,6 +358,29 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     fun testConnection() {
+        // Validate IP address
+        if (viewState.value.ipAddress.isBlank()) {
+            updateState {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "IP Address is required",
+                    successMessage = null
+                )
+            }
+            return
+        }
+
+        // Validate IP address format
+        if (!isValidIpAddressFormat(viewState.value.ipAddress)) {
+            updateState {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "IP Address must be in format xxx.xxx.xxx.xxx",
+                    successMessage = null
+                )
+            }
+            return
+        }
         initPaxCommunication(isTestConnection = true)
     }
 
@@ -349,9 +406,18 @@ class CreditCardProcessingViewModel @Inject constructor(
     }
 
     private fun validations(ipAddress: String, portNumber: String): Boolean {
-        return ipAddress.isNotEmpty() && portNumber.isNotEmpty() && validateIpAddressUseCase(
-            ipAddress
-        )
+        return ipAddress.isNotEmpty() 
+                && portNumber.isNotEmpty() 
+                && isValidIpAddressFormat(ipAddress)
+                && validateIpAddressUseCase(ipAddress)
+    }
+
+    /**
+     * Validates IP address format (xxx.xxx.xxx.xxx)
+     */
+    private fun isValidIpAddressFormat(ipAddress: String): Boolean {
+        val ipPattern = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+        return ipPattern.matches(ipAddress.trim())
     }
 
     fun closeBatch() {

@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -40,6 +41,7 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -59,6 +61,15 @@ fun BatchReportContent(
     val isLoading by viewModel.isLoading.collectAsState()
     val showClosingCashDialog by viewModel.showClosingCashDialog.collectAsState()
 
+    // Use isLoading state directly to show/hide loader for batch report loading
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            Loader.show("Please wait while loading batch report")
+        } else {
+            Loader.hide()
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.loadBatchReport()
     }
@@ -66,11 +77,26 @@ fun BatchReportContent(
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is BatchReportUiEvent.ShowLoading -> Loader.show("Please wait while loading batch report")
-                is BatchReportUiEvent.HideLoading -> Loader.hide()
+                is BatchReportUiEvent.ShowLoading -> {
+                    // Only show if not already showing (to avoid duplicate messages)
+                    if (!Loader.isVisible) {
+                        Loader.show("Please wait while loading batch report")
+                    }
+                }
+
+                is BatchReportUiEvent.HideLoading -> {
+                    // Only hide if isLoading is false (to avoid hiding during other operations)
+                    if (!isLoading) {
+                        Loader.hide()
+                    }
+                }
+
                 is BatchReportUiEvent.ShowError -> {
                     Loader.hide()
-                    // Handle error - could show a toast or dialog
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
                 }
 
                 is BatchReportUiEvent.NavigateToPinCode -> {
@@ -132,14 +158,14 @@ fun BatchReportContent(
 
                             InfoRow("Batch Number", report.batchNo)
                             InfoRow("Status", report.status ?: "N/A")
-                            InfoRow("ID", report.id.toString())
-                            InfoRow("Store ID", report.storeId.toString())
-                            InfoRow("Location ID", report.locationId.toString())
-                            InfoRow("Register ID", report.storeRegisterId.toString())
+//                            InfoRow("ID", report.id.toString())
+//                            InfoRow("Store ID", report.storeId.toString())
+//                            InfoRow("Location ID", report.locationId.toString())
+//                            InfoRow("Register ID", report.storeRegisterId.toString())
                             InfoRow("Opened By", report.opened?.name ?: "N/A")
-                            InfoRow("Opened By ID", report.openedBy.toString())
+//                            InfoRow("Opened By ID", report.openedBy.toString())
                             InfoRow("Closed By", report.closed?.name ?: "N/A")
-                            InfoRow("Closed By ID", report.closedBy.toString())
+//                            InfoRow("Closed By ID", report.closedBy.toString())
                             InfoRow("Open Time", report.openTime ?: "N/A")
                             InfoRow("Closing Time", report.closingTime ?: "N/A")
                             InfoRow("Created At", report.createdAt ?: "N/A")
@@ -337,14 +363,19 @@ fun BatchReportContent(
                     }
 
                     // End of Batch Button
-                    Spacer(modifier = Modifier.height(16.dp))
-                    BaseButton(
-                        text = "End of Batch",
-                        onClick = { viewModel.showClosingCashDialog() },
-                        enabled = !isLoading,
-                        backgroundColor = Color.Red,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BaseButton(
+                            text = "End of Batch",
+                            onClick = { viewModel.showClosingCashDialog() },
+                            enabled = !isLoading,
+                            backgroundColor = colorResource(R.color.primary),
+                            modifier = Modifier.width(250.dp)
+                        )
+                    }
                 } ?: run {
                     Box(
                         modifier = Modifier.fillMaxWidth(),
@@ -369,7 +400,7 @@ fun BatchReportContent(
                 val startingCash = report.startingCashAmount.toDouble()
                 totalCash + startingCash
             } ?: 0.0
-            
+
             ClosingCashAmountDialog(
                 onDismiss = { viewModel.dismissClosingCashDialog() },
                 onConfirm = { amount, shouldClosePaxBatch ->
@@ -392,6 +423,7 @@ fun InfoRow(label: String, value: String) {
             text = label,
             fontSize = 14f,
             fontFamily = GeneralSans,
+            fontWeight = FontWeight.Medium,
             color = Color.Gray
         )
         BaseText(
@@ -447,7 +479,7 @@ fun ClosingCashAmountDialog(
     }
     var errorMessage by remember(batchStatus) { mutableStateOf<String?>(null) }
     var shouldClosePaxBatch by remember { mutableStateOf(true) } // Checked by default
-    
+
     // Reset values when batch is closed
     LaunchedEffect(batchStatus) {
         if (batchStatus?.lowercase() == "closed") {
@@ -505,12 +537,14 @@ fun ClosingCashAmountDialog(
                         checked = shouldClosePaxBatch,
                         onCheckedChange = { shouldClosePaxBatch = it }
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     BaseText(
                         text = "Close Pax Batch (must be on the same network with BroadPOS running)",
                         fontSize = 14f,
                         fontFamily = GeneralSans,
                         color = Color.Black,
+                        maxLines = Int.MAX_VALUE,
+                        overflow = TextOverflow.Clip,
                         modifier = Modifier.weight(1f)
                     )
                 }
