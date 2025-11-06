@@ -2,6 +2,7 @@ package com.retail.dolphinpos.data.di
 
 import android.content.Context
 import com.retail.dolphinpos.data.setup.hardware.payment.pax.CancelTransactionUseCaseImpl
+import com.retail.dolphinpos.data.setup.hardware.payment.pax.CloseBatchUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetHttpSettingsUseCase
 import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetHttpSettingsUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetTcpSettingsUseCase
@@ -18,6 +19,7 @@ import com.retail.dolphinpos.data.setup.hardware.printer.SavePrinterDetailsUseCa
 import com.retail.dolphinpos.data.setup.hardware.printer.StartDiscoveryUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.TestPrintUseCaseImpl
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.ConnectPrinterUseCase
@@ -55,6 +57,12 @@ abstract class SetupModule {
     abstract fun bindCancelTransactionUseCase(
         impl: CancelTransactionUseCaseImpl
     ): CancelTransactionUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindCloseBatchUseCase(
+        impl: CloseBatchUseCaseImpl
+    ): CloseBatchUseCase
 
     @Binds
     @Singleton

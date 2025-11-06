@@ -9,6 +9,7 @@ import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetHttpSettingsUseC
 import com.retail.dolphinpos.data.setup.hardware.payment.pax.GetTcpSettingsUseCase
 import com.retail.dolphinpos.domain.analytics.AnalyticsTracker
 import com.retail.dolphinpos.domain.model.setup.hardware.payment.pax.PaxDetail
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.GetPaxDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.SavePaxDetailsUseCase
@@ -33,9 +34,7 @@ class CreditCardProcessingViewModel @Inject constructor(
     getPaxDetailsUseCase: GetPaxDetailsUseCase,
     private val savePaxDetailsUseCase: SavePaxDetailsUseCase,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
-    //private val getPaxBatchInformationUseCase: GetPaxBatchInformationUseCase,
-    //private val requestClosePaxBatchUseCase: RequestClosePaxBatchUseCase,
-    //private val closePaxBatchUseCase: ClosePaxBatchUseCase,
+    private val closeBatchUseCase: CloseBatchUseCase,
     private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
@@ -52,6 +51,7 @@ class CreditCardProcessingViewModel @Inject constructor(
     private var originalCommunicationType: CommunicationType = CommunicationType.TCP_IP
     private var originalTerminalType: TerminalType = TerminalType.PAX_A35
     private var originalDigitalSignatureEnabled: Boolean = true
+    private var currentTerminalSessionId: String? = null
 
     private fun String.toCommunicationType(): CommunicationType {
         return when (this.lowercase()) {
@@ -228,7 +228,12 @@ class CreditCardProcessingViewModel @Inject constructor(
                 }
 
                 initializeTerminalUseCase { result ->
-                    if (result.isSuccess && result.session != null) {
+                    val session = result.session
+                    if (result.isSuccess && session != null) {
+                        // Store terminal session ID for later use (e.g., batch close)
+                        currentTerminalSessionId = session.sessionId
+                        Log.d(TAG, "initPaxCommunication: Terminal session stored - ID: ${currentTerminalSessionId}")
+                        
                         // Analytics: Log successful terminal initialization
                         analyticsTracker.logEvent(eventNamePrefix, Bundle().apply {
                             putString("response_type", "terminal_init_success")
@@ -347,6 +352,90 @@ class CreditCardProcessingViewModel @Inject constructor(
         return ipAddress.isNotEmpty() && portNumber.isNotEmpty() && validateIpAddressUseCase(
             ipAddress
         )
+    }
+
+    fun closeBatch() {
+        Log.d(TAG, "closeBatch: Starting batch close operation")
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                updateState {
+                    it.copy(
+                        isLoading = true,
+                        errorMessage = null,
+                        successMessage = null
+                    )
+                }
+
+                // If no session exists, initialize terminal first
+                if (currentTerminalSessionId == null) {
+                    Log.w(TAG, "closeBatch: No terminal session found. Initializing terminal first...")
+                    initializeTerminalUseCase { result ->
+                        val session = result.session
+                        if (result.isSuccess && session != null) {
+                            currentTerminalSessionId = session.sessionId
+                            Log.d(TAG, "closeBatch: Terminal initialized, sessionId: ${currentTerminalSessionId}")
+                            // Now proceed with batch close - launch coroutine to call suspend function
+                            viewModelScope.launch(Dispatchers.IO) {
+                                performBatchClose()
+                            }
+                        } else {
+                            viewModelScope.launch(Dispatchers.Main) {
+                                updateState {
+                                    it.copy(
+                                        isLoading = false,
+                                        errorMessage = "Terminal not initialized. Please test connection first."
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Log.d(TAG, "closeBatch: Terminal session found, proceeding with batch close")
+                    performBatchClose()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "closeBatch: Error during batch close", e)
+                viewModelScope.launch(Dispatchers.Main) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Error closing batch: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun performBatchClose() {
+        Log.d(TAG, "performBatchClose: Calling closeBatchUseCase with sessionId: $currentTerminalSessionId")
+        closeBatchUseCase(currentTerminalSessionId) { result ->
+            if (result.isSuccess) {
+                Log.d(TAG, "performBatchClose: Batch closed successfully - ${result.message}")
+                viewModelScope.launch(Dispatchers.Main) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            successMessage = "Batch closed successfully: ${result.message}"
+                        )
+                    }
+                }
+            } else {
+                Log.e(TAG, "performBatchClose: Batch close failed - ${result.message}")
+                viewModelScope.launch(Dispatchers.Main) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Failed to close batch: ${result.message}"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "CreditCardProcessingViewModel"
     }
 
 }

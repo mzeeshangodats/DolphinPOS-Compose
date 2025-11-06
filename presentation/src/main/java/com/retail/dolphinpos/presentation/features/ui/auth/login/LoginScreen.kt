@@ -60,9 +60,7 @@ fun LoginScreen(
             is LoginUiEvent.HideLoading -> Loader.hide()
             is LoginUiEvent.ShowError -> {
                 Loader.hide()
-                DialogHandler.showDialog(message = event.message, buttonText = tryAgain) {
-                    viewModel.login(username = username, password = password)
-                }
+                DialogHandler.showDialog(message = event.message, buttonText = tryAgain)
             }
 
             is LoginUiEvent.NavigateToRegister -> {

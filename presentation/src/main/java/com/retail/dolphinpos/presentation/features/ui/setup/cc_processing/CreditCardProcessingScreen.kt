@@ -292,6 +292,26 @@ fun CreditCardProcessingScreen(
 
         // Spacer after card
         Spacer(modifier = Modifier.height(24.dp))
+
+        // Close Batch Button
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseButton(
+                text = "Close Batch",
+                modifier = Modifier
+                    .fillMaxWidth(0.5f)
+                    .height(48.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp),
+                fontSize = 14,
+                onClick = { viewModel.closeBatch() }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
