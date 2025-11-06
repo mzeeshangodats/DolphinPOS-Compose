@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +17,7 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseText
@@ -25,6 +25,7 @@ import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
 
 @Composable
 fun HardwareSetupScreen(
@@ -33,11 +34,6 @@ fun HardwareSetupScreen(
 ) {
     val menus by viewModel.menus.collectAsStateWithLifecycle()
     val selectedIndex by viewModel.selectedMenuIndex.collectAsStateWithLifecycle()
-
-    // Debug: Log selected index changes
-    androidx.compose.runtime.LaunchedEffect(selectedIndex) {
-        android.util.Log.d("SetupScreen", "Selected index changed to: $selectedIndex")
-    }
 
     Column(
         modifier = Modifier
@@ -53,6 +49,7 @@ fun HardwareSetupScreen(
                     // Show Credit Card Processing Screen inline
                     CreditCardProcessingScreen(navController = navController)
                 }
+                4 -> PrinterSetupScreen(navController = navController)
                 else -> {
                     Box(
                         modifier = Modifier
