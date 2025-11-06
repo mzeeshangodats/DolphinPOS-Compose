@@ -422,6 +422,27 @@ fun PrinterSetupScreen(
             }
         }
 
+        // Print Last Pending Order Button
+        Spacer(modifier = Modifier.height(16.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseButton(
+                text = "Print Last Pending Order",
+                modifier = Modifier
+                    .fillMaxWidth(0.7f)
+                    .height(48.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                fontSize = 12,
+                onClick = {
+                    viewModel.onPrintLastPendingOrderClicked()
+                }
+            )
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 }

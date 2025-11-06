@@ -17,6 +17,11 @@ import com.retail.dolphinpos.data.setup.hardware.printer.OpenCashDrawerUseCaseIm
 import com.retail.dolphinpos.data.setup.hardware.printer.SavePrinterDetailsUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.StartDiscoveryUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.TestPrintUseCaseImpl
+import com.retail.dolphinpos.data.setup.hardware.printer.GetPrinterReceiptTemplateUseCase
+import com.retail.dolphinpos.data.setup.hardware.printer.DownloadAndUpdateCachedImageUseCase
+import com.retail.dolphinpos.data.setup.hardware.receipt.GenerateBarcodeImageUseCase
+import com.retail.dolphinpos.data.setup.hardware.receipt.GenerateReceiptTextUseCase
+import com.retail.dolphinpos.data.setup.hardware.receipt.GetStoreDetailsFromLocalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
@@ -26,6 +31,8 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDraw
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.SavePrinterDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.StartDiscoveryUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.TestPrintUseCase
+import com.retail.dolphinpos.domain.usecases.order.GetLastPendingOrderUseCase
+import com.retail.dolphinpos.data.usecases.order.GetLastPendingOrderUseCaseImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -104,6 +111,12 @@ abstract class SetupModule {
         impl: OpenCashDrawerUseCaseImpl
     ): OpenCashDrawerUseCase
 
+    @Binds
+    @Singleton
+    abstract fun bindGetLastPendingOrderUseCase(
+        impl: GetLastPendingOrderUseCaseImpl
+    ): GetLastPendingOrderUseCase
+
     companion object {
         @Provides
         @Singleton
@@ -125,6 +138,46 @@ abstract class SetupModule {
             createBitmapFromTextUseCase: CreateBitmapFromTextUseCase
         ): CreateImageParameterFromTextUseCase {
             return CreateImageParameterFromTextUseCase(createBitmapFromTextUseCase)
+        }
+
+        @Provides
+        @Singleton
+        fun provideGenerateBarcodeImageUseCase(): GenerateBarcodeImageUseCase {
+            return GenerateBarcodeImageUseCase()
+        }
+
+        @Provides
+        @Singleton
+        fun provideGetStoreDetailsFromLocalUseCase(
+            getStoreDetailsUseCase: com.retail.dolphinpos.domain.usecases.auth.GetStoreDetailsUseCase
+        ): GetStoreDetailsFromLocalUseCase {
+            return GetStoreDetailsFromLocalUseCase(getStoreDetailsUseCase)
+        }
+
+        @Provides
+        @Singleton
+        fun provideDownloadAndUpdateCachedImageUseCase(
+            @ApplicationContext context: Context
+        ): DownloadAndUpdateCachedImageUseCase {
+            return DownloadAndUpdateCachedImageUseCase(context)
+        }
+
+        @Provides
+        @Singleton
+        fun provideGetPrinterReceiptTemplateUseCase(
+            createImageParameterFromTextUseCase: CreateImageParameterFromTextUseCase,
+            generateReceiptTextUseCase: GenerateReceiptTextUseCase,
+            generateBarcodeImageUseCase: GenerateBarcodeImageUseCase,
+            getStoreDetailsFromLocalUseCase: GetStoreDetailsFromLocalUseCase,
+            downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase
+        ): GetPrinterReceiptTemplateUseCase {
+            return GetPrinterReceiptTemplateUseCase(
+                createImageParameterFromTextUseCase = createImageParameterFromTextUseCase,
+                generateReceiptTextUseCase = generateReceiptTextUseCase,
+                generateBarcodeImageUseCase = generateBarcodeImageUseCase,
+                getStoreDetailsFromLocalUseCase = getStoreDetailsFromLocalUseCase,
+                downloadAndUpdateCachedImageUseCase = downloadAndUpdateCachedImageUseCase
+            )
         }
     }
 }

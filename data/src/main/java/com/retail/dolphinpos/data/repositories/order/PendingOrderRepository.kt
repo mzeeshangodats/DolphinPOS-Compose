@@ -7,6 +7,7 @@ import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
+import com.retail.dolphinpos.domain.model.order.PendingOrder
 
 class PendingOrderRepository(
     private val pendingOrderDao: PendingOrderDao,
@@ -70,6 +71,10 @@ class PendingOrderRepository(
         return pendingOrderDao.getOrderById(orderId)
     }
 
+    suspend fun getLastPendingOrder(): PendingOrderEntity? {
+        return pendingOrderDao.getLastPendingOrder()
+    }
+
     suspend fun deleteOrder(orderId: Long) {
         val order = pendingOrderDao.getOrderById(orderId)
         order?.let { pendingOrderDao.deletePendingOrder(it) }
@@ -126,6 +131,45 @@ class PendingOrderRepository(
 
     fun convertOrderItemsToJson(items: List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>): String {
         return gson.toJson(items)
+    }
+
+    fun convertToPendingOrder(entity: PendingOrderEntity): PendingOrder {
+        val itemsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>() {}.type
+        val discountIdsType = object : TypeToken<List<Int>>() {}.type
+        val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
+        val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
+
+        return PendingOrder(
+            id = entity.id,
+            orderNumber = entity.orderNumber,
+            invoiceNo = entity.invoiceNo,
+            customerId = entity.customerId,
+            storeId = entity.storeId,
+            locationId = entity.locationId,
+            storeRegisterId = entity.storeRegisterId,
+            batchNo = entity.batchNo,
+            paymentMethod = entity.paymentMethod,
+            isRedeemed = entity.isRedeemed,
+            source = entity.source,
+            redeemPoints = entity.redeemPoints,
+            items = gson.fromJson(entity.items, itemsType),
+            subTotal = entity.subTotal,
+            total = entity.total,
+            applyTax = entity.applyTax,
+            taxValue = entity.taxValue,
+            discountAmount = entity.discountAmount,
+            cashDiscountAmount = entity.cashDiscountAmount,
+            rewardDiscount = entity.rewardDiscount,
+            discountIds = entity.discountIds?.let { gson.fromJson(it, discountIdsType) },
+            transactionId = entity.transactionId,
+            userId = entity.userId,
+            voidReason = entity.voidReason,
+            isVoid = entity.isVoid,
+            transactions = entity.transactions?.let { gson.fromJson(it, transactionsType) },
+            cardDetails = entity.cardDetails?.let { gson.fromJson(it, cardDetailsType) },
+            createdAt = entity.createdAt,
+            isSynced = entity.isSynced
+        )
     }
 }
 
