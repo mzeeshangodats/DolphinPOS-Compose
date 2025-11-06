@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
@@ -370,8 +372,8 @@ fun BatchReportContent(
             
             ClosingCashAmountDialog(
                 onDismiss = { viewModel.dismissClosingCashDialog() },
-                onConfirm = { amount ->
-                    viewModel.closeBatch(amount)
+                onConfirm = { amount, shouldClosePaxBatch ->
+                    viewModel.closeBatch(amount, shouldClosePaxBatch)
                 },
                 defaultAmount = defaultClosingAmount,
                 batchStatus = batchReport?.status
@@ -431,7 +433,7 @@ private fun formatCurrencyAny(amount: Any): String {
 @Composable
 fun ClosingCashAmountDialog(
     onDismiss: () -> Unit,
-    onConfirm: (Double) -> Unit,
+    onConfirm: (Double, Boolean) -> Unit,
     defaultAmount: Double = 0.0,
     batchStatus: String? = null
 ) {
@@ -444,6 +446,7 @@ fun ClosingCashAmountDialog(
         )
     }
     var errorMessage by remember(batchStatus) { mutableStateOf<String?>(null) }
+    var shouldClosePaxBatch by remember { mutableStateOf(true) } // Checked by default
     
     // Reset values when batch is closed
     LaunchedEffect(batchStatus) {
@@ -453,6 +456,7 @@ fun ClosingCashAmountDialog(
                 defaultAmount
             ) else ""
             errorMessage = null
+            shouldClosePaxBatch = true // Reset to checked
         }
     }
 
@@ -491,6 +495,26 @@ fun ClosingCashAmountDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
+                // PAX Batch Close Checkbox
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Checkbox(
+                        checked = shouldClosePaxBatch,
+                        onCheckedChange = { shouldClosePaxBatch = it }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BaseText(
+                        text = "Close Pax Batch (must be on the same network with BroadPOS running)",
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        color = Color.Black,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 if (errorMessage != null) {
                     BaseText(
                         text = errorMessage!!,
@@ -517,7 +541,7 @@ fun ClosingCashAmountDialog(
                             if (amount == null || amount < 0) {
                                 errorMessage = "Please enter a valid amount"
                             } else {
-                                onConfirm(amount)
+                                onConfirm(amount, shouldClosePaxBatch)
                             }
                         },
                         backgroundColor = colorResource(R.color.primary),

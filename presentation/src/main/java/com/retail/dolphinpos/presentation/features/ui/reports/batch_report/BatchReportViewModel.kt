@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.reports.batch_report
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
@@ -9,7 +10,10 @@ import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseReque
 import com.retail.dolphinpos.domain.model.report.BatchReportData
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -17,6 +21,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 import javax.inject.Inject
 
 sealed class BatchReportUiEvent {
@@ -31,7 +38,9 @@ class BatchReportViewModel @Inject constructor(
     private val homeRepository: HomeRepository,
     private val preferenceManager: PreferenceManager,
     private val batchReportRepository: BatchReportRepository,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val initializeTerminalUseCase: InitializeTerminalUseCase,
+    private val closeBatchUseCase: CloseBatchUseCase
 ) : ViewModel() {
 
     private val _batchReport = MutableStateFlow<BatchReportData?>(null)
@@ -45,6 +54,12 @@ class BatchReportViewModel @Inject constructor(
 
     private val _uiEvent = MutableSharedFlow<BatchReportUiEvent>()
     val uiEvent: SharedFlow<BatchReportUiEvent> = _uiEvent.asSharedFlow()
+
+    private var currentTerminalSessionId: String? = null
+
+    companion object {
+        private const val TAG = "BatchReportViewModel"
+    }
 
     fun loadBatchReport() {
         viewModelScope.launch {
@@ -90,12 +105,30 @@ class BatchReportViewModel @Inject constructor(
         _showClosingCashDialog.value = false
     }
 
-    fun closeBatch(closingCashAmount: Double) {
-        viewModelScope.launch {
+    fun closeBatch(closingCashAmount: Double, shouldClosePaxBatch: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isLoading.value = true
                 _uiEvent.emit(BatchReportUiEvent.ShowLoading)
 
+                // Step 1: Close PAX Batch if checkbox is checked (BEFORE regular batch close)
+                if (shouldClosePaxBatch) {
+                    Log.d(TAG, "closeBatch: PAX batch close requested, initializing terminal...")
+                    val paxCloseSuccess = closePaxBatch()
+                    
+                    if (!paxCloseSuccess) {
+                        // PAX batch close failed - stop the process and show error
+                        _isLoading.value = false
+                        _uiEvent.emit(BatchReportUiEvent.HideLoading)
+                        _uiEvent.emit(
+                            BatchReportUiEvent.ShowError("Failed to close PAX batch. Please try again.")
+                        )
+                        return@launch
+                    }
+                    Log.d(TAG, "closeBatch: PAX batch closed successfully, proceeding with regular batch close")
+                }
+
+                // Step 2: Close Regular Batch
                 // Get batch number from SharedPreferences
                 val batchNo = preferenceManager.getBatchNo()
                 if (batchNo.isEmpty()) {
@@ -157,9 +190,74 @@ class BatchReportViewModel @Inject constructor(
                     )
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "closeBatch: Error during batch close", e)
                 _isLoading.value = false
                 _uiEvent.emit(BatchReportUiEvent.HideLoading)
                 _uiEvent.emit(BatchReportUiEvent.ShowError(e.message ?: "Failed to close batch"))
+            }
+        }
+    }
+
+    /**
+     * Closes PAX batch. Returns true if successful, false otherwise.
+     */
+    private suspend fun closePaxBatch(): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                // If no session exists, initialize terminal first
+                if (currentTerminalSessionId == null) {
+                    Log.d(TAG, "closePaxBatch: No terminal session found. Initializing terminal...")
+                    
+                    val initResult = suspendCancellableCoroutine<Boolean> { continuation ->
+                        // Launch coroutine to call suspend function
+                        viewModelScope.launch(Dispatchers.IO) {
+                            initializeTerminalUseCase { result ->
+                                val session = result.session
+                                if (result.isSuccess && session != null) {
+                                    currentTerminalSessionId = session.sessionId
+                                    Log.d(TAG, "closePaxBatch: Terminal initialized, sessionId: ${currentTerminalSessionId}")
+                                    continuation.resume(true)
+                                } else {
+                                    Log.e(TAG, "closePaxBatch: Terminal initialization failed - ${result.message}")
+                                    continuation.resume(false)
+                                }
+                            }
+                        }
+                    }
+                    
+                    if (!initResult || currentTerminalSessionId == null) {
+                        Log.e(TAG, "closePaxBatch: Failed to initialize terminal")
+                        return@withContext false
+                    }
+                }
+
+                // Close PAX batch using the session
+                Log.d(TAG, "closePaxBatch: Calling closeBatchUseCase with sessionId: $currentTerminalSessionId")
+                
+                val closeResult = suspendCancellableCoroutine<Boolean> { continuation ->
+                    // Launch coroutine to call suspend function
+                    viewModelScope.launch(Dispatchers.IO) {
+                        closeBatchUseCase(currentTerminalSessionId) { result ->
+                            if (result.isSuccess) {
+                                Log.d(TAG, "closePaxBatch: PAX batch closed successfully - ${result.message}")
+                                continuation.resume(true)
+                            } else {
+                                Log.e(TAG, "closePaxBatch: PAX batch close failed - ${result.message}")
+                                continuation.resume(false)
+                            }
+                        }
+                    }
+                }
+
+                if (!closeResult) {
+                    Log.e(TAG, "closePaxBatch: PAX batch close failed")
+                    return@withContext false
+                }
+
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "closePaxBatch: Exception during PAX batch close", e)
+                false
             }
         }
     }
