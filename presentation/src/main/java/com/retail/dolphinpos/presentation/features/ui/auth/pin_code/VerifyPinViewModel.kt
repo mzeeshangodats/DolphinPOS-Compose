@@ -70,11 +70,10 @@ class VerifyPinViewModel @Inject constructor(
                     )
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                     
-                    if (repository.hasOpenBatch(
-                            preferenceManager.getUserID(), preferenceManager.getStoreID(),
-                            preferenceManager.getOccupiedRegisterID()
-                        )
-                    ) {
+                    // Check batch status from SharedPreferences
+                    // If batch is closed, redirect to CashDenominationScreen
+                    // Otherwise (batch is open), redirect to CartScreen (HomeScreen)
+                    if (preferenceManager.isBatchOpen()) {
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
                     } else {
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)

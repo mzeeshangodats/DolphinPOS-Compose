@@ -69,6 +69,9 @@ interface UserDao {
     @Query("SELECT * FROM batch")
     suspend fun getBatchDetails(): BatchEntity
 
+    @Query("SELECT * FROM batch ORDER BY startedAt DESC")
+    suspend fun getAllBatches(): List<BatchEntity>
+
     @Query("SELECT * FROM batch WHERE batchNo = :batchNo LIMIT 1")
     suspend fun getBatchByBatchNo(batchNo: String): BatchEntity?
 

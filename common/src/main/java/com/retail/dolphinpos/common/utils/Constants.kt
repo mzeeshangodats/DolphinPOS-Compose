@@ -11,6 +11,9 @@ object Constants {
     const val OCCUPIED_REGISTER_ID = "occupied_register_id"
     const val NAME = "name"
     const val PASSWORD = "password"
+    const val CLOSE_BATCH_FLAG = "close_batch_flag"
+    const val BATCH_NO = "batch_no"
+    const val BATCH_STATUS = "batch_status" // "open" or "closed"
     
     // Order discount persistence
     const val ORDER_DISCOUNT_VALUE = "order_discount_value"

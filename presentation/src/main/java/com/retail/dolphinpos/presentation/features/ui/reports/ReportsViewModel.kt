@@ -31,15 +31,15 @@ class ReportsViewModel @Inject constructor() : ViewModel() {
             ),
             BottomMenu(
                 menuName = "Batch Report",
-                destinationId = R.id.reportsScreen
+                destinationId = R.id.batchReportScreen
             ),
             BottomMenu(
                 menuName = "Batch History",
-                destinationId = R.id.reportsScreen
+                destinationId = R.id.batchHistoryScreen
             ),
             BottomMenu(
                 menuName = "Transaction Activity",
-                destinationId = R.id.reportsScreen
+                destinationId = R.id.transactionActivityScreen
             )
         )
         // Set default selection to "Sales Report" (index 1, since Home is index 0)
@@ -48,5 +48,9 @@ class ReportsViewModel @Inject constructor() : ViewModel() {
 
     fun selectMenu(index: Int) {
         _selectedMenuIndex.value = index
+    }
+
+    fun resetToDefault() {
+        _selectedMenuIndex.value = 1 // Reset to Batch Report (index 1)
     }
 }

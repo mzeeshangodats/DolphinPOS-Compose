@@ -25,7 +25,7 @@ interface TransactionDao {
     suspend fun getTransactionById(transactionId: Long): TransactionEntity?
 
     @Query("SELECT * FROM transactions WHERE order_no = :orderNo ORDER BY created_at DESC")
-    suspend fun getTransactionsByOrderId(orderNo: Int): List<TransactionEntity>
+    suspend fun getTransactionsByOrderNo(orderNo: String): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE store_id = :storeId ORDER BY created_at DESC")
     suspend fun getTransactionsByStoreId(storeId: Int): List<TransactionEntity>
@@ -37,7 +37,7 @@ interface TransactionDao {
     suspend fun getTransactionsByUserId(userId: Int): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE batchNo = :batchNo ORDER BY created_at DESC")
-    suspend fun getTransactionsByBatchId(batchNo: Int): List<TransactionEntity>
+    suspend fun getTransactionsByBatchNo(batchNo: String): List<TransactionEntity>
 
     @Query("SELECT * FROM transactions WHERE invoice_no = :invoiceNo")
     suspend fun getTransactionByInvoiceNo(invoiceNo: String): TransactionEntity?
@@ -58,6 +58,6 @@ interface TransactionDao {
     suspend fun deleteTransactionById(transactionId: Long)
 
     @Query("DELETE FROM transactions WHERE order_no = :orderNo")
-    suspend fun deleteTransactionsByOrderId(orderNo: Int)
+    suspend fun deleteTransactionsByOrderNo(orderNo: String)
 }
 

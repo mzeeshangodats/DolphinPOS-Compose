@@ -1,37 +1,31 @@
 package com.retail.dolphinpos.presentation.features.ui.reports
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.BottomNavigationBar
-import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportContent
+import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryContent
+import com.retail.dolphinpos.presentation.features.ui.reports.transaction_activity.TransactionActivityContent
 
 @Composable
 fun ReportsScreen(
     navController: NavController,
     viewModel: ReportsViewModel = hiltViewModel()
 ) {
-    val menus by viewModel.menus.collectAsState()
-    val selectedIndex by viewModel.selectedMenuIndex.collectAsState()
+    val menus by viewModel.menus.collectAsStateWithLifecycle()
+    val selectedIndex by viewModel.selectedMenuIndex.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -40,31 +34,29 @@ fun ReportsScreen(
     ) {
         // Content area
         Box(
-            modifier = Modifier
-                .weight(1f)
-                .padding(16.dp),
-            contentAlignment = Alignment.Center
+            modifier = Modifier.weight(1f)
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                BaseText(
-                    text = "Reports Screen",
-                    color = Color.Black,
-                    fontSize = 24f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
-                BaseText(
-                    text = "This is the Reports screen where you can view various business reports.",
-                    color = Color.Gray,
-                    fontSize = 16f,
-                    fontFamily = GeneralSans
-                )
+            when (selectedIndex) {
+                1 -> {
+                    // Show Batch Report Screen inline
+                    BatchReportContent(navController = navController)
+                }
+                2 -> {
+                    // Show Batch History Screen inline
+                    BatchHistoryContent(navController = navController)
+                }
+                3 -> {
+                    // Show Transaction Activity Screen inline
+                    TransactionActivityContent(navController = navController)
+                }
+                0 -> {
+                    // If Home is selected, show Batch Report as default
+                    BatchReportContent(navController = navController)
+                }
+                else -> {
+                    // Default to Batch Report if index is invalid
+                    BatchReportContent(navController = navController)
+                }
             }
         }
 
@@ -73,7 +65,10 @@ fun ReportsScreen(
             menus = menus,
             selectedIndex = selectedIndex,
             onMenuClick = { menu ->
-                val index = menus.indexOf(menu)
+                // Find index by matching destinationId instead of object reference
+                val index = menus.indexOfFirst { it.destinationId == menu.destinationId }
+                android.util.Log.d("ReportsScreen", "Menu clicked: ${menu.menuName}, destinationId: ${menu.destinationId}, found index: $index")
+
                 if (index >= 0) {
                     // If Home button is clicked (index 0), navigate to home
                     if (index == 0) {
@@ -86,9 +81,12 @@ fun ReportsScreen(
                             restoreState = true
                         }
                     } else {
-                        // Handle sub-navigation for Reports (Sales/Inventory/Transaction reports)
+                        // Handle sub-navigation for Reports
+                        android.util.Log.d("ReportsScreen", "Calling selectMenu with index: $index")
                         viewModel.selectMenu(index)
                     }
+                } else {
+                    android.util.Log.e("ReportsScreen", "Menu not found in list! Menu: ${menu.menuName}, destinationId: ${menu.destinationId}")
                 }
             }
         )

@@ -19,9 +19,11 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsRespo
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
+import com.retail.dolphinpos.domain.model.report.BatchReport
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ApiService {
@@ -61,8 +63,16 @@ interface ApiService {
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse
 
-    @POST("batch/close")
-    suspend fun batchClose(@Body batchCloseRequest: BatchCloseRequest): BatchCloseResponse
+    @GET("batch/by-batch/{batchNo}")
+    suspend fun getBatchReport(
+        @Path("batchNo") batchNo: String,
+    ): BatchReport
+
+    @POST("batch/{batchNo}/close")
+    suspend fun batchClose(
+        @Path("batchNo") batchNo: String,
+        @Body batchCloseRequest: BatchCloseRequest
+    ): BatchCloseResponse
 
     @POST("order")
     suspend fun createOrder(@Body createOrderRequest: CreateOrderRequest): CreateOrderResponse

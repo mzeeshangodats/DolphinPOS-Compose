@@ -14,6 +14,9 @@ import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScree
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
 import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
+import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryScreen
+import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportScreen
+import com.retail.dolphinpos.presentation.features.ui.reports.transaction_activity.TransactionActivityScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 
 @Composable
@@ -108,6 +111,21 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Credit Card Processing Screen
         composable("credit_card_processing") {
             CreditCardProcessingScreen(navController = navController)
+        }
+
+        // Batch Report Screen
+        composable("batch_report") {
+            BatchReportScreen(navController = navController)
+        }
+
+        // Batch History Screen
+        composable("batch_history") {
+            BatchHistoryScreen(navController = navController)
+        }
+
+        // Transaction Activity Screen
+        composable("transaction_activity") {
+            TransactionActivityScreen(navController = navController)
         }
     }
 }

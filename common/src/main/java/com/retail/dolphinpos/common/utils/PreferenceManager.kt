@@ -193,4 +193,44 @@ class PreferenceManager @Inject constructor(
         prefs.edit { remove(Constants.FORCE_REGISTER_SELECTION) }
     }
 
+    fun setCloseBatchFlag(value: Boolean) {
+        prefs.edit { putBoolean(Constants.CLOSE_BATCH_FLAG, value) }
+    }
+
+    fun getCloseBatchFlag(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.CLOSE_BATCH_FLAG, defaultValue)
+    }
+
+    fun clearCloseBatchFlag() {
+        prefs.edit { remove(Constants.CLOSE_BATCH_FLAG) }
+    }
+
+    fun setBatchNo(batchNo: String) {
+        prefs.edit { putString(Constants.BATCH_NO, batchNo) }
+    }
+
+    fun getBatchNo(defaultValue: String = ""): String {
+        return prefs.getString(Constants.BATCH_NO, defaultValue) ?: defaultValue
+    }
+
+    fun clearBatchNo() {
+        prefs.edit { remove(Constants.BATCH_NO) }
+    }
+
+    fun setBatchStatus(status: String) {
+        prefs.edit { putString(Constants.BATCH_STATUS, status) }
+    }
+
+    fun getBatchStatus(defaultValue: String = "closed"): String {
+        return prefs.getString(Constants.BATCH_STATUS, defaultValue) ?: defaultValue
+    }
+
+    fun clearBatchStatus() {
+        prefs.edit { remove(Constants.BATCH_STATUS) }
+    }
+
+    fun isBatchOpen(): Boolean {
+        return getBatchStatus() == "open"
+    }
+
 }

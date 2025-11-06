@@ -142,6 +142,11 @@ class CashDenominationViewModel @Inject constructor(
                 // Show progress dialog
                 Loader.show("Starting batch...")
                 
+                // Save batch number to SharedPreferences
+                preferenceManager.setBatchNo(batchNo)
+                // Set batch status to "open"
+                preferenceManager.setBatchStatus("open")
+                
                 val batch = Batch(
                     batchNo = batchNo,
                     userId = preferenceManager.getUserID(),
@@ -168,22 +173,39 @@ class CashDenominationViewModel @Inject constructor(
                             startingCashAmount = totalAmount.value
                         )
 
-                        repository.batchOpen(batchOpenRequest).onSuccess {
-                            Log.e("Batch", "Batch successfully synced with server")
-                            // Mark batch as synced in database
-                            repository.markBatchAsSynced(batchNo)
-                            // Hide progress dialog
-                            Loader.hide()
-                            // Emit success event to navigate to home
-                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                        repository.batchOpen(batchOpenRequest).onSuccess { response ->
+                            // Check if response message indicates batch is already active
+                            val responseMessage = response.message ?: ""
+                            if (responseMessage.contains("Batch already active.", ignoreCase = true)) {
+                                Log.e("Batch", "Batch already active, navigating to home")
+                                // Hide progress dialog
+                                Loader.hide()
+                                // Navigate to home since batch is already active
+                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                            } else {
+                                Log.e("Batch", "Batch successfully synced with server")
+                                // Mark batch as synced in database
+                                repository.markBatchAsSynced(batchNo)
+                                // Hide progress dialog
+                                Loader.hide()
+                                // Emit success event to navigate to home
+                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                            }
                         }.onFailure { e ->
                             Log.e("Batch", "Failed to sync batch with server: ${e.message}")
                             // Hide progress dialog
                             Loader.hide()
-                            // Show error message from server in dialog
-                            _cashDenominationUiEvent.emit(
-                                CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
-                            )
+                            // Check if error message indicates batch is already active
+                            val errorMessage = e.message ?: "Failed to sync batch"
+                            if (errorMessage.contains("Batch already active.", ignoreCase = true)) {
+                                // Batch is already active, navigate to home
+                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                            } else {
+                                // Show error message from server in dialog
+                                _cashDenominationUiEvent.emit(
+                                    CashDenominationUiEvent.ShowError(errorMessage)
+                                )
+                            }
                         }
                     } catch (e: Exception) {
                         Log.e("Batch", "Failed to sync batch with server: ${e.message}")

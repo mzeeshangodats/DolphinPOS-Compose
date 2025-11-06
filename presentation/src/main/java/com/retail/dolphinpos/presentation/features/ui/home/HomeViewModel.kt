@@ -27,6 +27,7 @@ import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
@@ -59,6 +60,7 @@ class HomeViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
     private val verifyPinRepository: VerifyPinRepository,
+    private val batchReportRepository: BatchReportRepository,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
     private val processTransactionUseCase: ProcessTransactionUseCase,
     private val cancelTransactionUseCase: CancelTransactionUseCase,
@@ -669,7 +671,7 @@ class HomeViewModel @Inject constructor(
                 val customerId = preferenceManager.getCustomerID()
 
                 // Get batch details from database
-                val batch = homeRepository.getBatchDetails()
+                val batch = batchReportRepository.getBatchDetails()
 
                 // Generate order number
                 val orderNumber = generateOrderNumber()

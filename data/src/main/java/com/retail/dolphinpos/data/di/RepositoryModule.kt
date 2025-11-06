@@ -10,6 +10,7 @@ import com.retail.dolphinpos.data.repositories.auth.StoreRegisterRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.VerifyPinRepositoryImpl
 import com.retail.dolphinpos.data.repositories.home.HomeRepositoryImpl
 import com.retail.dolphinpos.data.repositories.orders_details.OrdersRepositoryImpl
+import com.retail.dolphinpos.data.repositories.report.BatchReportRepositoryImpl
 import com.retail.dolphinpos.data.repositories.setup.HardwareSetupRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService
@@ -19,6 +20,7 @@ import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
+import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.repositories.setup.HardwareSetupRepository
 import dagger.Module
 import dagger.Provides
@@ -96,6 +98,15 @@ object RepositoryModule {
         @ApplicationContext context: Context
     ): HardwareSetupRepository {
         return HardwareSetupRepositoryImpl(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideBatchReportRepository(
+        apiService: ApiService,
+        userDao: UserDao
+    ): BatchReportRepository {
+        return BatchReportRepositoryImpl(apiService, userDao)
     }
 
 }

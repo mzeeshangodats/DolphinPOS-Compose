@@ -146,7 +146,12 @@ fun MainLayout(
                 "products" -> ProductsScreen(navController = navController, preferenceManager = preferenceManager)
                 "orders" -> OrdersScreen(navController = navController, preferenceManager = preferenceManager)
                 "inventory" -> InventoryScreen(navController = navController, preferenceManager = preferenceManager)
-                "reports" -> ReportsScreen(navController = navController)
+                "reports" -> {
+                    // Use key to force recomposition when navigating to reports
+                    androidx.compose.runtime.key(currentDestination?.id ?: "reports") {
+                        ReportsScreen(navController = navController)
+                    }
+                }
                 "setup" -> HardwareSetupScreen(navController = navController)
             }
         }
@@ -171,18 +176,30 @@ fun MainLayout(
                         else -> null
                     }
                     route?.let {
-                        navController.navigate(it) {
-                            // Pop up to the start destination of the graph to
-                            // avoid building up a large stack of destinations
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
+                        // For reports and setup, always navigate (don't use restoreState)
+                        // to ensure they always show fresh content
+                        if (it == "reports" || it == "setup") {
+                            navController.navigate(it) {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = false
+                                }
+                                launchSingleTop = true
+                                restoreState = false
                             }
-                            // Avoid multiple copies of the same destination when
-                            // reselecting the same item
-                            launchSingleTop = true
-                            // Restore state when reselecting a previously selected item
-                            // This ensures navigation works consistently across all screens
-                            restoreState = true
+                        } else {
+                            navController.navigate(it) {
+                                // Pop up to the start destination of the graph to
+                                // avoid building up a large stack of destinations
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                // Avoid multiple copies of the same destination when
+                                // reselecting the same item
+                                launchSingleTop = true
+                                // Restore state when reselecting a previously selected item
+                                // This ensures navigation works consistently across all screens
+                                restoreState = true
+                            }
                         }
                     }
                 }

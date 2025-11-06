@@ -144,9 +144,4 @@ class HomeRepositoryImpl(
             }
     }
 
-    override suspend fun getBatchDetails(): com.retail.dolphinpos.domain.model.auth.batch.Batch {
-        val batchEntity = userDao.getBatchDetails()
-        return UserMapper.toBatchDetails(batchEntity)
-    }
-
 }
