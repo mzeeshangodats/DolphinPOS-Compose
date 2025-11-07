@@ -124,7 +124,8 @@ fun PrinterSetupScreen(
                     // Could use a snackbar here instead of dialog
                     DialogHandler.showDialog(
                         message = effect.message,
-                        buttonText = "OK"
+                        buttonText = "OK",
+                        iconRes = R.drawable.info_icon
                     ) {}
                 }
                 is PrinterViewEffect.ShowLoading -> {
@@ -423,7 +424,7 @@ fun PrinterSetupScreen(
                     border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
                     contentPadding = PaddingValues(horizontal = 4.dp),
                     fontSize = 12,
-                    onClick = { navController.popBackStack() }
+                    onClick = { /*navController.popBackStack()*/ }
                 )
 
                 BaseButton(
