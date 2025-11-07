@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
+import com.retail.dolphinpos.domain.usecases.order.GetPrintableOrderFromOrderDetailUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +23,9 @@ import javax.inject.Inject
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
     private val ordersRepository: OrdersRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val getPrintableOrderFromOrderDetailUseCase: GetPrintableOrderFromOrderDetailUseCase,
+    private val printOrderReceiptUseCase: PrintOrderReceiptUseCase
 ) : ViewModel() {
 
     private val _orders = MutableStateFlow<List<OrderDetailList>>(emptyList())
@@ -81,5 +85,33 @@ class OrdersViewModel @Inject constructor(
 
     init {
         loadOrders()
+    }
+
+    fun printOrder(order: OrderDetailList) {
+        viewModelScope.launch {
+            _uiEvent.emit(OrdersUiEvent.ShowLoading)
+            try {
+                val printableOrder = getPrintableOrderFromOrderDetailUseCase(order)
+                val statusMessages = mutableListOf<String>()
+                val result = printOrderReceiptUseCase(printableOrder) { statusMessages.add(it) }
+                if (result.isSuccess) {
+                    val successMessage = statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
+                        ?: "Print command sent successfully."
+                    _uiEvent.emit(OrdersUiEvent.ShowSuccess(successMessage))
+                } else {
+                    val errorMessage = result.exceptionOrNull()?.message
+                        ?: statusMessages.lastOrNull { message ->
+                            val normalized = message.lowercase(Locale.US)
+                            normalized.contains("error") || normalized.contains("fail")
+                        }
+                        ?: "Failed to print receipt."
+                    _uiEvent.emit(OrdersUiEvent.ShowError(errorMessage))
+                }
+            } catch (e: Exception) {
+                _uiEvent.emit(OrdersUiEvent.ShowError(e.message ?: "Failed to print receipt."))
+            } finally {
+                _uiEvent.emit(OrdersUiEvent.HideLoading)
+            }
+        }
     }
 }

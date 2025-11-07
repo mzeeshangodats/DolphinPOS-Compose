@@ -277,9 +277,7 @@ fun HomeScreen(
                         PaymentSuccessUI(
                             amountTendered = paymentSuccessAmount,
                             onPrint = {
-                                // TODO: Implement print functionality
-                                viewModel.clearCart()
-                                showPaymentSuccessDialog = false
+                                viewModel.printLatestOnlineOrder()
                             },
                             onDone = {
                                 viewModel.clearCart()
@@ -316,7 +314,11 @@ fun HomeScreen(
                                 } else {
                                     viewModel.saveHoldCart("Guest Cart")
                                 }
-                            })
+                            },
+                            onPrint = {
+                                viewModel.printLatestOnlineOrder()
+                            }
+                        )
 
                         // Payment Input
                         PaymentInput(
@@ -581,7 +583,10 @@ fun CartPanel(
 
 @Composable
 fun CartActionButtons(
-    cartItems: List<CartItem>, onClearCart: () -> Unit, onHoldCartClick: () -> Unit
+    cartItems: List<CartItem>,
+    onClearCart: () -> Unit,
+    onHoldCartClick: () -> Unit,
+    onPrint: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -630,7 +635,7 @@ fun CartActionButtons(
 
         // Price Check
         Card(
-            onClick = { /* TODO */ },
+            onClick = onPrint,
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),

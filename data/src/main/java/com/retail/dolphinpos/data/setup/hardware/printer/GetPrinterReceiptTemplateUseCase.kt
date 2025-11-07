@@ -14,11 +14,12 @@ import com.starmicronics.stario10.starxpandcommand.printer.CutType
 import com.starmicronics.stario10.starxpandcommand.printer.ImageParameter
 
 class GetPrinterReceiptTemplateUseCase(
-    val createImageParameterFromTextUseCase: CreateImageParameterFromTextUseCase,
-    val generateReceiptTextUseCase: GenerateReceiptTextUseCase,
-    val generateBarcodeImageUseCase: GenerateBarcodeImageUseCase,
-    val getStoreDetailsFromLocalUseCase: GetStoreDetailsFromLocalUseCase,
-    val downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase,
+    private val createImageParameterFromTextUseCase: CreateImageParameterFromTextUseCase,
+    private val generateReceiptTextUseCase: GenerateReceiptTextUseCase,
+    private val generateBarcodeImageUseCase: GenerateBarcodeImageUseCase,
+    private val getStoreDetailsFromLocalUseCase: GetStoreDetailsFromLocalUseCase,
+    private val downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase,
+    private val getAppLogoUseCase: GetAppLogoUseCase,
 ) {
 
     @SuppressLint("DefaultLocale")
@@ -30,16 +31,18 @@ class GetPrinterReceiptTemplateUseCase(
 
         order?.let {
 
-            val logo =
+            val storeLogo = try {
                 downloadAndUpdateCachedImageUseCase(getStoreDetailsFromLocalUseCase()?.logoUrl?.original)
+            } catch (_: Exception) {
+                null
+            }
 
-            val centeredLogo = logo?.let { createCenteredLogoBitmap(it) }
+            val baseLogo = storeLogo ?: getAppLogoUseCase()
+            val centeredLogo = createCenteredLogoBitmap(baseLogo)
 
             val printerBuilder = PrinterBuilder().styleAlignment(Alignment.Center)
 
-            centeredLogo?.let {
-                printerBuilder.actionPrintImage(ImageParameter(it, 600))
-            }
+            printerBuilder.actionPrintImage(ImageParameter(centeredLogo, 600))
 
             // Generate receipt text (suspend function)
             val receiptText = generateReceiptTextUseCase(

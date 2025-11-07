@@ -18,6 +18,7 @@ import com.retail.dolphinpos.data.setup.hardware.printer.OpenCashDrawerUseCaseIm
 import com.retail.dolphinpos.data.setup.hardware.printer.SavePrinterDetailsUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.StartDiscoveryUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.TestPrintUseCaseImpl
+import com.retail.dolphinpos.data.setup.hardware.printer.PrintOrderReceiptUseCaseImpl
 import com.retail.dolphinpos.data.setup.hardware.printer.GetPrinterReceiptTemplateUseCase
 import com.retail.dolphinpos.data.setup.hardware.printer.DownloadAndUpdateCachedImageUseCase
 import com.retail.dolphinpos.data.setup.hardware.receipt.GenerateBarcodeImageUseCase
@@ -33,8 +34,13 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDraw
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.SavePrinterDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.StartDiscoveryUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.TestPrintUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.order.GetLastPendingOrderUseCase
 import com.retail.dolphinpos.data.usecases.order.GetLastPendingOrderUseCaseImpl
+import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
+import com.retail.dolphinpos.domain.usecases.order.GetPrintableOrderFromOrderDetailUseCase
+import com.retail.dolphinpos.data.usecases.order.GetLatestOnlineOrderUseCaseImpl
+import com.retail.dolphinpos.data.usecases.order.GetPrintableOrderFromOrderDetailUseCaseImpl
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -125,6 +131,24 @@ abstract class SetupModule {
         impl: GetLastPendingOrderUseCaseImpl
     ): GetLastPendingOrderUseCase
 
+    @Binds
+    @Singleton
+    abstract fun bindGetLatestOnlineOrderUseCase(
+        impl: GetLatestOnlineOrderUseCaseImpl
+    ): GetLatestOnlineOrderUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindGetPrintableOrderFromOrderDetailUseCase(
+        impl: GetPrintableOrderFromOrderDetailUseCaseImpl
+    ): GetPrintableOrderFromOrderDetailUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindPrintOrderReceiptUseCase(
+        impl: PrintOrderReceiptUseCaseImpl
+    ): PrintOrderReceiptUseCase
+
     companion object {
         @Provides
         @Singleton
@@ -177,14 +201,16 @@ abstract class SetupModule {
             generateReceiptTextUseCase: GenerateReceiptTextUseCase,
             generateBarcodeImageUseCase: GenerateBarcodeImageUseCase,
             getStoreDetailsFromLocalUseCase: GetStoreDetailsFromLocalUseCase,
-            downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase
+            downloadAndUpdateCachedImageUseCase: DownloadAndUpdateCachedImageUseCase,
+            getAppLogoUseCase: GetAppLogoUseCase
         ): GetPrinterReceiptTemplateUseCase {
             return GetPrinterReceiptTemplateUseCase(
                 createImageParameterFromTextUseCase = createImageParameterFromTextUseCase,
                 generateReceiptTextUseCase = generateReceiptTextUseCase,
                 generateBarcodeImageUseCase = generateBarcodeImageUseCase,
                 getStoreDetailsFromLocalUseCase = getStoreDetailsFromLocalUseCase,
-                downloadAndUpdateCachedImageUseCase = downloadAndUpdateCachedImageUseCase
+                downloadAndUpdateCachedImageUseCase = downloadAndUpdateCachedImageUseCase,
+                getAppLogoUseCase = getAppLogoUseCase
             )
         }
     }

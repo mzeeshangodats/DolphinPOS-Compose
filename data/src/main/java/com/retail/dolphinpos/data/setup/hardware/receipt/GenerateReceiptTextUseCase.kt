@@ -108,6 +108,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
             append("Order No   : ${order.orderNumber?.take(30) ?: ""}\n")
             append(
                 String.format(
+                    Locale.US,
                     "%-20s %15s\n",
                     "Date : $date",
                     "Time : $time"
@@ -122,7 +123,8 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
             append(
                 String.format(
-                    "%-26s %12s\n",
+                    Locale.US,
+                    "%-26s %s\n",
                     "Items", "Price"
                 )
             )
@@ -176,13 +178,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         if (parts.size > 1) {
                             append(
                                 String.format(
+                                    Locale.US,
                                     "%-26s\n", // Indent variant slightly
                                     parts[1].trim()
                                 )
                             )
                         } else {
                             append(
-                                format(
+                                String.format(
+                                    Locale.US,
                                     "%-26s\n",
                                     item.productVariantName?.let { "Variant: $it" } ?: "-",
                                 )
@@ -191,27 +195,29 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         // (quantity x price) WITHOUT strikethrough
                         if (quantity > 1) {
 
-                            append(
-                                String.format(
-                                    "%-26s\n",
-                                    "(${quantity} x ${String.format("$%.2f", effectivePrice)})"
-                                )
+                        append(
+                            String.format(
+                                Locale.US,
+                                "%-26s\n",
+                                "(${quantity} x ${String.format(Locale.US, "$%.2f", effectivePrice)})"
                             )
+                        )
 
                             *//*if (isReceiptForRefund) {
                                 append(
                                     String.format(
-                                        "%-26s\n",
-                                        "(${quantity} x ${String.format("-$%.2f", effectivePrice)})"
+                                        Locale.US,
+                                    "(${quantity} x ${String.format(Locale.US, "-$%.2f", effectivePrice)})"
                                     )
                                 )
                             } else {
-                                append(
-                                    String.format(
-                                        "%-26s\n",
-                                        "(${quantity} x ${String.format("$%.2f", effectivePrice)})"
-                                    )
-                                )
+                        append(
+                            String.format(
+                                Locale.US,
+                                "%-26s\n",
+                                "(${quantity} x ${String.format(Locale.US, "$%.2f", effectivePrice)})"
+                            )
+                        )
                             }*//*
                         }
 
@@ -260,10 +266,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             if (isReceiptForRefund) discountedPrice * quantity else discountedPrice * quantity
 
                         val formattedEffectivePrice =
-                            String.format("%6.2f", effectivePrice).applyStrikethrough()
-                        val formattedEffectiveTotal =
-                            String.format("%12.2f", effectiveTotal).applyStrikethrough()
-
+                            formatCurrency(effectivePrice).applyStrikethrough()
                         val productNameString = item.name ?: "-"
                         val parts =
                             productNameString.split("\n", limit = 2)
@@ -279,13 +282,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         if (parts.size > 1)
                             append(
                                 String.format(
+                                    Locale.US,
                                     "%-26s\n", // Indent variant slightly
                                     parts[1].trim()
                                 )
                             )
                         else {
                             append(
-                                format(
+                                String.format(
+                                    Locale.US,
                                     "%-26s\n",
                                     item.productVariantName?.let { "Variant: $it" } ?: "-",
                                 )
@@ -295,6 +300,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         if (quantity > 1) {
                             append(
                                 String.format(
+                                    Locale.US,
                                     "%-26s\n",
                                     "(${quantity} x $formattedEffectivePrice)"
                                 )
@@ -303,14 +309,14 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             *//*if (isReceiptForRefund) {
                                 append(
                                     String.format(
-                                        "%-26s\n",
+                                        Locale.US,
                                         "(${quantity} x $formattedEffectivePrice)"
                                     )
                                 )
                             } else {
                                 append(
                                     String.format(
-                                        "%-26s\n",
+                                        Locale.US,
                                         "(${quantity} x $formattedEffectivePrice)"
                                     )
                                 )
@@ -334,13 +340,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         if (parts.size > 1)
                             append(
                                 String.format(
+                                    Locale.US,
                                     "%-26s\n", // Indent variant slightly
                                     parts[1].trim()
                                 )
                             )
                         else {
                             append(
-                                format(
+                                String.format(
+                                    Locale.US,
                                     "%-26s\n",
                                     item.productVariantName?.let { "Variant: $it" } ?: "-",
                                 )
@@ -350,8 +358,9 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         if (quantity > 1) {
                             append(
                                 String.format(
+                                    Locale.US,
                                     "%-26s\n",
-                                    "(${quantity} x ${String.format("$%.2f", effectivePrice)})"
+                                    "(${quantity} x ${formatCurrency(effectivePrice)})"
                                 )
                             )
                         }
@@ -369,31 +378,23 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
             if (discount != 0.0) {
                 append("\n")
-                if (isReceiptForRefund) {
-                    append(
-                        String.format(
-                            "%-25s %14s\n",
-                            "DISCOUNT:",
-                            String.format("-$%.2f", discount)
-                        )
-                    )
-                } else {
-                    append(
-                        String.format(
-                            "%-25s %14s\n",
-                            "DISCOUNT:",
-                            String.format("-$%.2f", discount)
-                        )
-                    )
-                }
+            val discountValue = if (isReceiptForRefund) {
+                String.format(Locale.US, "-$%.2f", discount)
+            } else {
+                String.format(Locale.US, "-$%.2f", discount)
+            }
+            append("${"DISCOUNT:".padEnd(25)} $discountValue\n")
             }
             append("\n")
             append(
-                String.format(
-                    "%-29s %10s\n", "SUBTOTAL:",
-                    if (isReceiptForRefund) String.format("-$%.2f", subtotal) else
-                        String.format("$%.2f", subtotal)
-                )
+            run {
+                val subtotalValue = if (isReceiptForRefund) {
+                    String.format(Locale.US, "-$%.2f", subtotal)
+                } else {
+                    String.format(Locale.US, "$%.2f", subtotal)
+                }
+                "${"SUBTOTAL:".padEnd(25)} $subtotalValue\n"
+            }
             )
             
             // Enhanced tax breakdown display - aggregate and show ALL taxes once
@@ -457,8 +458,11 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 // Display all taxes together
                 if (taxMap.isNotEmpty()) {
                     taxMap.forEach { (description, amount) ->
-                        val formattedAmount = if (isReceiptForRefund) String.format("-$%.2f", amount) 
-                                              else String.format("$%.2f", amount)
+                        val formattedAmount = if (isReceiptForRefund) {
+                            String.format(Locale.US, "-$%.2f", amount)
+                        } else {
+                            String.format(Locale.US, "$%.2f", amount)
+                        }
                         append(formatTaxLineWithWrapping("$description:", formattedAmount))
                     }
                 } else {
@@ -467,54 +471,42 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     val taxRate = storeData?.taxValue ?: 0.0
                     val taxDescription = if (taxRate > 0.0) "Tax ($taxRate%)" else "Tax"
                     
-                    append(
-                        String.format(
-                            "%-25s %14s\n",
-                            "  $taxDescription:",
-                            if (isReceiptForRefund) String.format("-$%.2f", tax) 
-                            else String.format("$%.2f", tax)
-                        )
-                    )
+                    val taxValue = if (isReceiptForRefund) {
+                        String.format(Locale.US, "-$%.2f", tax)
+                    } else {
+                        String.format(Locale.US, "$%.2f", tax)
+                    }
+                    append("${"  $taxDescription:".padEnd(25)} $taxValue\n")
                 }
             } else {
                 // No tax case
                 append("\n")
-                append(
-                    String.format(
-                        "%-25s %14s\n",
-                        "TAX:",
-                        if (isReceiptForRefund) String.format("-$%.2f", tax) else String.format(
-                            "$%.2f",
-                            tax
-                        )
-                    )
-                )
+                val taxValue = if (isReceiptForRefund) {
+                    String.format(Locale.US, "-$%.2f", tax)
+                } else {
+                    String.format(Locale.US, "$%.2f", tax)
+                }
+                append("${"TAX:".padEnd(25)} $taxValue\n")
             }
 
             // Combine reward discount and order-level discount into a single DISCOUNT line
 
             append("\n")
             append(divider)
-            append(
-                String.format(
-                    "%-25s %14s\n",
-                    totalAmountLabel,
-                    if (isReceiptForRefund) String.format("-$%.2f", total) else String.format(
-                        "$%.2f",
-                        total
-                    )
-                )
-            )
+            val totalFormatted = if (isReceiptForRefund) {
+                String.format(Locale.US, "-$%.2f", total)
+            } else {
+                String.format(Locale.US, "$%.2f", total)
+            }
+            append("${totalAmountLabel.padEnd(25)} $totalFormatted\n")
             append(divider)
-            append(
-                String.format(
-                    "%-25s %14s\n", order.paymentMethod?.uppercase(Locale.getDefault())
-                        ?: "-",
-                    if (isReceiptForRefund)
-                        String.format("-$%.2f", total)
-                    else String.format("$%.2f", total)
-                )
-            )
+            val paymentTotal = if (isReceiptForRefund) {
+                String.format(Locale.US, "-$%.2f", total)
+            } else {
+                String.format(Locale.US, "$%.2f", total)
+            }
+            val paymentLabel = order.paymentMethod?.uppercase(Locale.getDefault()) ?: "-"
+            append("${paymentLabel.padEnd(25)} $paymentTotal\n")
             append("\n")
 
             order.customer?.let { customer ->
@@ -530,13 +522,14 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     if (redeemedPoints > 0) {
                         append(
                             String.format(
-                                "%-25s %14s\n",
+                                Locale.US,
+                                "%-25s %s\n",
                                 "Redeemed Points :",
                                 "$redeemedPoints PTS"
                             )
                         )
                     }
-                    append(String.format("%-25s %14s\n", "Balance :", "$balancePoints PTS"))
+                    append(String.format(Locale.US, "%-25s %s\n", "Balance :", "$balancePoints PTS"))
                     append(divider)
                     append("\n")
 
@@ -563,21 +556,23 @@ class GenerateReceiptTextUseCase @Inject constructor(
         isReceiptForRefund: Boolean,
     ): String {
         val productNameColWidth = 30
-        val totalColWidth = 8
+        val totalColWidth = 10
 
         val formattedOutput = StringBuilder()
         val formattedTotal = if (isStrikethrough) {
-            String.format("$%.2f", effectiveTotal).applyStrikethrough()
+            formatCurrency(effectiveTotal).applyStrikethrough()
         } else {
             if (isReceiptForRefund) String.format(
+                Locale.US,
                 "-$%.2f",
                 effectiveTotal
-            ) else String.format("$%.2f", effectiveTotal)
+            ) else formatCurrency(effectiveTotal)
         }
 
         if (mainProductName.length <= productNameColWidth) {
             formattedOutput.append(
                 String.format(
+                    Locale.US,
                     "%-${productNameColWidth}s %${totalColWidth}s\n",
                     mainProductName,
                     formattedTotal
@@ -597,12 +592,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
             formattedOutput.append(
                 String.format(
+                    Locale.US,
                     "%-${productNameColWidth}s %${totalColWidth}s\n",
                     firstLineName,
                     formattedTotal
                 )
             )
-            formattedOutput.append(String.format("%-${productNameColWidth}s\n", remainingName))
+            formattedOutput.append(
+                String.format(Locale.US, "%-${productNameColWidth}s\n", remainingName)
+            )
         }
 
         return formattedOutput.toString()
@@ -627,7 +625,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
         val innerWidth = totalWidth - 2
 
         val totalLabel = "TOTAL"
-        val formattedAmount = String.format("$%.2f", total)
+        val formattedAmount = String.format(Locale.US, "$%.2f", total)
         val displayAmount = if (isReceiptForRefund) "-$formattedAmount" else formattedAmount
 
         val topBorder = "+" + "-".repeat(innerWidth) + "+"
@@ -666,30 +664,25 @@ class GenerateReceiptTextUseCase @Inject constructor(
         val receiptWidth = 40
         val valueWidth = taxValue.length
         val maxNameWidth = receiptWidth - valueWidth - 1 // -1 for space between name and value
-        
+
         return if (taxName.length <= maxNameWidth) {
-            // Tax name fits on one line - use standard formatting
             val padding = receiptWidth - taxName.length - valueWidth
-            String.format("%s%s%s\n", taxName, " ".repeat(padding), taxValue)
+            String.format(Locale.US, "%s%s%s\n", taxName, " ".repeat(padding), taxValue)
         } else {
-            // Tax name is too long - wrap to next line
-            // Print name on first line, value on same line if possible, otherwise on second line
             val wrappedName = wrapText(taxName, receiptWidth - valueWidth - 1)
             val lines = wrappedName.split("\n")
-            
+
             if (lines.size == 1) {
-                // Name fits on one line after wrapping
                 val padding = receiptWidth - lines[0].length - valueWidth
-                String.format("%s%s%s\n", lines[0], " ".repeat(padding), taxValue)
+                String.format(Locale.US, "%s%s%s\n", lines[0], " ".repeat(padding), taxValue)
             } else {
-                // Name takes multiple lines - put value on the last line
                 val result = StringBuilder()
                 for (i in 0 until lines.size - 1) {
                     result.append(lines[i]).append("\n")
                 }
                 val lastLine = lines.last()
                 val padding = receiptWidth - lastLine.length - valueWidth
-                result.append(String.format("%s%s%s\n", lastLine, " ".repeat(padding), taxValue))
+                result.append(String.format(Locale.US, "%s%s%s\n", lastLine, " ".repeat(padding), taxValue))
                 result.toString()
             }
         }
@@ -721,6 +714,17 @@ class GenerateReceiptTextUseCase @Inject constructor(
         }
         
         return result.toString()
+    }
+
+    private fun formatCurrency(value: Double): String =
+        "$" + String.format(Locale.US, "%.2f", value)
+ 
+     private fun formatNegativeCurrency(value: Double): String =
+        "-" + formatCurrency(value)
+
+    private fun formatLine(label: String, value: String, labelWidth: Int = 26): String {
+        val paddedLabel = if (label.length >= labelWidth) label else label.padEnd(labelWidth, ' ')
+        return "$paddedLabel $value\n"
     }
 
     @SuppressLint("DefaultLocale", "SimpleDateFormat")
@@ -762,6 +766,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 append("Order No   : ${order.orderNumber.take(30)}\n")
                 append(
                     String.format(
+                        Locale.US,
                         "%-20s %15s\n",
                         "Date : $date",
                         "Time : $time"
@@ -777,7 +782,8 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 // Items header
                 append(
                     String.format(
-                        "%-26s %12s\n",
+                        Locale.US,
+                        "%-26s %s\n",
                         "Items", "Price"
                     )
                 )
@@ -809,13 +815,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             itemName
                         }
 
-                        append(
-                            String.format(
-                                "%-26s $%12.2f\n",
-                                itemNameFormatted,
-                                itemTotal
-                            )
-                        )
+                        append(formatLine(itemNameFormatted, formatCurrency(itemTotal)))
 
                         // Show quantity if more than 1
                         if (quantity > 1) {
@@ -824,24 +824,13 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             } else {
                                 price
                             }
-                            append(
-                                String.format(
-                                    "%-26s\n",
-                                    "($quantity x $${String.format("%.2f", unitPrice)})"
-                                )
-                            )
+                            append("  ($quantity x ${formatCurrency(unitPrice)})\n")
                         }
 
                         // Show discount if applicable
                         if (discountedPrice != null && discountedPrice > 0.0 && discountedPrice < price) {
                             val discountAmount = (price - discountedPrice) * quantity
-                            append(
-                                String.format(
-                                    "%-26s -$%12.2f\n",
-                                    "  Discount",
-                                    discountAmount
-                                )
-                            )
+                            append(formatLine("  Discount", formatNegativeCurrency(discountAmount)))
                         }
 
                         append(divider)
@@ -853,60 +842,30 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 append(createStraightLine())
 
                 // Subtotal
-                append(
-                    String.format(
-                        "%-26s $%12.2f\n",
-                        "Subtotal",
-                        order.subTotal
-                    )
-                )
+                append(formatLine("Subtotal", formatCurrency(order.subTotal)))
 
                 // Cash discount
                 if (isCashPayment && order.cashDiscountAmount > 0.0) {
                     Log.d(TAG, "generatePendingOrderReceipt: Cash discount: ${order.cashDiscountAmount}")
-                    append(
-                        String.format(
-                            "%-26s -$%12.2f\n",
-                            "Cash Discount",
-                            order.cashDiscountAmount
-                        )
-                    )
+                    append(formatLine("Cash Discount", formatNegativeCurrency(order.cashDiscountAmount)))
                 }
 
                 // Order discount
                 if (order.discountAmount > 0.0) {
                     Log.d(TAG, "generatePendingOrderReceipt: Order discount: ${order.discountAmount}")
-                    append(
-                        String.format(
-                            "%-26s -$%12.2f\n",
-                            "Discount",
-                            order.discountAmount
-                        )
-                    )
+                    append(formatLine("Discount", formatNegativeCurrency(order.discountAmount)))
                 }
 
                 // Tax
                 if (order.taxValue > 0.0) {
                     Log.d(TAG, "generatePendingOrderReceipt: Tax: ${order.taxValue}")
-                    append(
-                        String.format(
-                            "%-26s $%12.2f\n",
-                            "Tax",
-                            order.taxValue
-                        )
-                    )
+                    append(formatLine("Tax", formatCurrency(order.taxValue)))
                 }
 
                 append(createStraightLine())
 
                 // Total
-                append(
-                    String.format(
-                        "%-26s $%12.2f\n",
-                        "TOTAL",
-                        order.total
-                    )
-                )
+                append(formatLine("TOTAL", formatCurrency(order.total)))
 
                 append(createStraightLine())
                 append("\n")

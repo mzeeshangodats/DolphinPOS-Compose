@@ -1,9 +1,16 @@
 package com.retail.dolphinpos.data.repositories.online_order
 
 import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
+import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.dao.OnlineOrderDao
 import com.retail.dolphinpos.data.entities.order.OnlineOrderEntity
+import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
+import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
+import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
+import com.retail.dolphinpos.domain.model.order.PendingOrder
+import java.lang.reflect.Type
 
 class OnlineOrderRepository(
     private val onlineOrderDao: OnlineOrderDao,
@@ -32,6 +39,9 @@ class OnlineOrderRepository(
             cashDiscountAmount = orderRequest.cashDiscountAmount,
             rewardDiscount = orderRequest.rewardDiscount,
             discountIds = orderRequest.discountIds?.let { gson.toJson(it) },
+            transactionId = orderRequest.transactionId,
+            transactions = orderRequest.transactions?.let { gson.toJson(it) },
+            cardDetails = orderRequest.cardDetails?.let { gson.toJson(it) },
             userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid
@@ -52,7 +62,7 @@ class OnlineOrderRepository(
             isRedeemed = pendingOrder.isRedeemed,
             source = pendingOrder.source,
             redeemPoints = pendingOrder.redeemPoints,
-            items = pendingOrder.items,
+            items = gson.toJson(pendingOrder.items),
             subTotal = pendingOrder.subTotal,
             total = pendingOrder.total,
             applyTax = pendingOrder.applyTax,
@@ -60,7 +70,10 @@ class OnlineOrderRepository(
             discountAmount = pendingOrder.discountAmount,
             cashDiscountAmount = pendingOrder.cashDiscountAmount,
             rewardDiscount = pendingOrder.rewardDiscount,
-            discountIds = pendingOrder.discountIds,
+            discountIds = pendingOrder.discountIds?.let { gson.toJson(it) },
+            transactionId = pendingOrder.transactionId,
+            transactions = pendingOrder.transactions?.let { gson.toJson(it) },
+            cardDetails = pendingOrder.cardDetails?.let { gson.toJson(it) },
             userId = pendingOrder.userId,
             voidReason = pendingOrder.voidReason,
             isVoid = pendingOrder.isVoid
@@ -70,6 +83,10 @@ class OnlineOrderRepository(
 
     suspend fun getAllOnlineOrders(): List<OnlineOrderEntity> {
         return onlineOrderDao.getAllOnlineOrders()
+    }
+
+    suspend fun getLatestOnlineOrder(): OnlineOrderEntity? {
+        return onlineOrderDao.getLatestOnlineOrder()
     }
 
     suspend fun getOrderById(orderId: Long): OnlineOrderEntity? {
@@ -94,6 +111,64 @@ class OnlineOrderRepository(
 
     suspend fun deleteOrder(orderId: Long) {
         onlineOrderDao.deleteOrderById(orderId)
+    }
+
+    fun convertToPendingOrder(entity: OnlineOrderEntity): PendingOrder {
+        val itemsType = object : TypeToken<List<CheckOutOrderItem>>() {}.type
+        val discountIdsType = object : TypeToken<List<Int>>() {}.type
+        val transactionsType = object : TypeToken<List<CheckoutSplitPaymentTransactions>>() {}.type
+        val cardDetailsType = object : TypeToken<CardDetails>() {}.type
+
+        val items: List<CheckOutOrderItem> = decodeJson(entity.items, itemsType) ?: emptyList()
+        val discountIds: List<Int>? = decodeJson(entity.discountIds, discountIdsType)
+        val transactions: List<CheckoutSplitPaymentTransactions>? = decodeJson(entity.transactions, transactionsType)
+        val cardDetails: CardDetails? = decodeJson(entity.cardDetails, cardDetailsType)
+
+        return PendingOrder(
+            id = entity.id,
+            orderNumber = entity.orderNumber,
+            invoiceNo = entity.invoiceNo,
+            customerId = entity.customerId,
+            storeId = entity.storeId,
+            locationId = entity.locationId,
+            storeRegisterId = entity.storeRegisterId,
+            batchNo = entity.batchNo,
+            paymentMethod = entity.paymentMethod,
+            isRedeemed = entity.isRedeemed,
+            source = entity.source,
+            redeemPoints = entity.redeemPoints,
+            items = items,
+            subTotal = entity.subTotal,
+            total = entity.total,
+            applyTax = entity.applyTax,
+            taxValue = entity.taxValue,
+            discountAmount = entity.discountAmount,
+            cashDiscountAmount = entity.cashDiscountAmount,
+            rewardDiscount = entity.rewardDiscount,
+            discountIds = discountIds,
+            transactionId = entity.transactionId,
+            userId = entity.userId,
+            voidReason = entity.voidReason,
+            isVoid = entity.isVoid,
+            transactions = transactions,
+            cardDetails = cardDetails,
+            createdAt = entity.createdAt,
+            isSynced = true
+        )
+    }
+
+    private fun <T> decodeJson(raw: String?, type: Type): T? {
+        if (raw.isNullOrBlank()) return null
+        return try {
+            gson.fromJson<T>(raw, type)
+        } catch (_: JsonSyntaxException) {
+            try {
+                val inner = gson.fromJson(raw, String::class.java)
+                if (inner.isNullOrBlank()) null else gson.fromJson(inner, type)
+            } catch (e: Exception) {
+                null
+            }
+        }
     }
 }
 

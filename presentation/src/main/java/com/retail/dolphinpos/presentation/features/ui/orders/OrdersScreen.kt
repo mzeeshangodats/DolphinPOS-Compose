@@ -319,7 +319,7 @@ fun OrdersScreen(
                                     ),
                                     cornerRadius = 4.dp,
                                     onClick = {
-//                                        viewModel.printReceipt(order)
+                                        viewModel.printOrder(order)
                                     }
                                 )
                                 // Refund Button

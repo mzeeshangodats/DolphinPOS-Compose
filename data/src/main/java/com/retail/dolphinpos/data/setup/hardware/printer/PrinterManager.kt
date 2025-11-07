@@ -80,16 +80,19 @@ class PrinterManager @Inject constructor(
         data: String,
         getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
         statusCallback: (String) -> Unit
-    ) {
+    ): Boolean {
         if (reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
-            try {
+            return try {
                 printer?.printAsync(data)?.await()
                 statusCallback("Print command sent successfully.")
+                true
             } catch (e: Exception) {
                 statusCallback("Error printing: ${e.localizedMessage}")
+                false
             }
         } else {
             statusCallback("Printer connection failed. Cannot send print command.")
+            return false
         }
     }
 

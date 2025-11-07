@@ -260,7 +260,7 @@ class PrinterSetupViewModel @Inject constructor(
                 // Send print command
                 Log.d(TAG, "printReceiptClicked: Sending print command to printer")
                 emitViewEffect(PrinterViewEffect.ShowInformationSnackBar("Sending print command..."))
-                printerManager.sendPrintCommand(
+                val success = printerManager.sendPrintCommand(
                     data = receiptTemplate,
                     getPrinterDetailsUseCase = getPrinterDetailsUseCase,
                     statusCallback = { message ->
@@ -269,12 +269,16 @@ class PrinterSetupViewModel @Inject constructor(
                     }
                 )
                 
-                Log.d(TAG, "printReceiptClicked: Receipt printed successfully")
-                emitViewEffect(
-                    PrinterViewEffect.ShowSuccessSnackBar(
-                        "Receipt printed successfully for order: ${lastPendingOrder.orderNumber}"
+                if (success) {
+                    Log.d(TAG, "printReceiptClicked: Receipt printed successfully")
+                    emitViewEffect(
+                        PrinterViewEffect.ShowSuccessSnackBar(
+                            "Receipt printed successfully for order: ${lastPendingOrder.orderNumber}"
+                        )
                     )
-                )
+                } else {
+                    Log.w(TAG, "printReceiptClicked: Printer reported failure")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "printReceiptClicked: Error printing receipt", e)
                 emitViewEffect(

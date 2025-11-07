@@ -528,7 +528,7 @@ fun PrinterSetupScreen(
             }
         }
 
-        // Print Last Pending Order Button
+        /*// Print Last Pending Order Button
         Spacer(modifier = Modifier.height(16.dp))
         Box(
             modifier = Modifier
@@ -547,7 +547,7 @@ fun PrinterSetupScreen(
                     viewModel.onPrintLastPendingOrderClicked()
                 }
             )
-        }
+        }*/
 
         Spacer(modifier = Modifier.height(16.dp))
     }

@@ -31,6 +31,8 @@ import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
+import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,8 @@ class HomeViewModel @Inject constructor(
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
     private val processTransactionUseCase: ProcessTransactionUseCase,
     private val cancelTransactionUseCase: CancelTransactionUseCase,
+    private val getLatestOnlineOrderUseCase: GetLatestOnlineOrderUseCase,
+    private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -331,6 +335,38 @@ class HomeViewModel @Inject constructor(
         isCashSelected = false  // Set default to card when cart is cleared
         resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
+    }
+
+    fun printLatestOnlineOrder() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val latestOrder = getLatestOnlineOrderUseCase()
+                if (latestOrder == null) {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No completed orders found to print."))
+                } else {
+                    val statusMessages = mutableListOf<String>()
+                    val result = printOrderReceiptUseCase(latestOrder) { statusMessages.add(it) }
+                    if (result.isSuccess) {
+                        val successMessage = statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
+                            ?: "Print command sent successfully."
+                        _homeUiEvent.emit(HomeUiEvent.ShowSuccess(successMessage))
+                    } else {
+                        val errorMessage = result.exceptionOrNull()?.message
+                            ?: statusMessages.lastOrNull { message ->
+                                val normalized = message.lowercase(Locale.US)
+                                normalized.contains("error") || normalized.contains("fail")
+                            }
+                            ?: "Failed to print receipt."
+                        _homeUiEvent.emit(HomeUiEvent.ShowError(errorMessage))
+                    }
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError(e.message ?: "Failed to print receipt."))
+            } finally {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+            }
+        }
     }
 
     private fun calculateCashDiscount(cartItems: List<CartItem>) {

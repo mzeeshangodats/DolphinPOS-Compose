@@ -17,6 +17,9 @@ interface OnlineOrderDao {
     @Query("SELECT * FROM online_orders ORDER BY created_at DESC")
     suspend fun getAllOnlineOrders(): List<OnlineOrderEntity>
 
+    @Query("SELECT * FROM online_orders ORDER BY created_at DESC LIMIT 1")
+    suspend fun getLatestOnlineOrder(): OnlineOrderEntity?
+
     @Query("SELECT * FROM online_orders WHERE id = :orderId")
     suspend fun getOrderById(orderId: Long): OnlineOrderEntity?
 

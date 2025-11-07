@@ -84,6 +84,9 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE pending_orders ADD COLUMN transaction_id TEXT")
                 db.execSQL("ALTER TABLE pending_orders ADD COLUMN split_transactions TEXT")
                 db.execSQL("ALTER TABLE pending_orders ADD COLUMN card_details TEXT")
+                db.execSQL("ALTER TABLE online_orders ADD COLUMN transaction_id TEXT")
+                db.execSQL("ALTER TABLE online_orders ADD COLUMN split_transactions TEXT")
+                db.execSQL("ALTER TABLE online_orders ADD COLUMN card_details TEXT")
             }
         }
 
