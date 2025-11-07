@@ -33,6 +33,7 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.Initiali
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,7 @@ class HomeViewModel @Inject constructor(
     private val cancelTransactionUseCase: CancelTransactionUseCase,
     private val getLatestOnlineOrderUseCase: GetLatestOnlineOrderUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
+    private val openCashDrawerUseCase: OpenCashDrawerUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -335,6 +337,26 @@ class HomeViewModel @Inject constructor(
         isCashSelected = false  // Set default to card when cart is cleared
         resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
+    }
+
+    fun openCashDrawer(reason: String) {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+            try {
+                val (success, message) = openCashDrawerUseCase { statusMessage ->
+                    // Status updates can be handled here if needed
+                }
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                if (success) {
+                    _homeUiEvent.emit(HomeUiEvent.ShowSuccess(message))
+                } else {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError(message))
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to open cash drawer: ${e.message}"))
+            }
+        }
     }
 
     fun printLatestOnlineOrder() {
