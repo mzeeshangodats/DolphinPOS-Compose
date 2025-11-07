@@ -77,9 +77,9 @@ fun OrdersScreen(
     val filteredOrders = if (searchQuery.isEmpty()) {
         orders
     } else {
-        orders.filter { 
+        orders.filter {
             it.orderNumber.contains(searchQuery, ignoreCase = true) ||
-            it.paymentMethod.contains(searchQuery, ignoreCase = true)
+                    it.paymentMethod.contains(searchQuery, ignoreCase = true)
         }
     }
 
@@ -104,6 +104,7 @@ fun OrdersScreen(
                         buttonText = "OK"
                     ) {}
                 }
+
                 is OrdersUiEvent.ShowSuccess -> {
                     DialogHandler.showDialog(
                         message = event.message,
@@ -247,12 +248,12 @@ fun OrdersScreen(
                         modifier = Modifier.width(100.dp)
                     )
                     BaseText(
-                        text = "Action",
+                        text = "Actions",
                         fontSize = 12f,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontFamily = GeneralSans,
-                        modifier = Modifier.width(60.dp)
+                        modifier = Modifier.width(200.dp)
                     )
                 }
 
@@ -287,30 +288,63 @@ fun OrdersScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             BaseText(
-                                text = "$${String.format("%.2f", order.total.toDoubleOrNull() ?: 0.0)}",
+                                text = "$${
+                                    String.format(
+                                        "%.2f",
+                                        order.total.toDoubleOrNull() ?: 0.0
+                                    )
+                                }",
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.width(100.dp)
                             )
-                            // Refund Button
-                            BaseButton(
-                                text = "REFUND",
-                                modifier = Modifier.width(70.dp),
-                                backgroundColor = Color(0xFFDC3E42),
-                                textColor = Color.White,
-                                fontSize = 10,
-                                height = 32.dp,
-                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                                cornerRadius = 4.dp,
-                                onClick = {
-                                    // Handle refund action
-                                    DialogHandler.showDialog(
-                                        message = "Refund will be implemented soon",
-                                        buttonText = "OK"
-                                    ) {}
-                                }
-                            )
+                            // Action Buttons Row
+                            Row(
+                                modifier = Modifier.width(200.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // Print Receipt Button
+                                BaseButton(
+                                    text = "PRINT RECEIPT",
+                                    modifier = Modifier.weight(1f),
+                                    backgroundColor = colorResource(id = R.color.primary),
+                                    textColor = Color.White,
+                                    fontSize = 9,
+                                    fontWeight = FontWeight.SemiBold,
+                                    height = 32.dp,
+                                    contentPadding = PaddingValues(
+                                        horizontal = 8.dp,
+                                        vertical = 4.dp
+                                    ),
+                                    cornerRadius = 4.dp,
+                                    onClick = {
+//                                        viewModel.printReceipt(order)
+                                    }
+                                )
+                                // Refund Button
+                                BaseButton(
+                                    text = "REFUND",
+                                    modifier = Modifier.weight(1f),
+                                    backgroundColor = colorResource(R.color.red_error),
+                                    textColor = Color.White,
+                                    fontSize = 9,
+                                    fontWeight = FontWeight.SemiBold,
+                                    height = 32.dp,
+                                    contentPadding = PaddingValues(
+                                        horizontal = 8.dp,
+                                        vertical = 4.dp
+                                    ),
+                                    cornerRadius = 4.dp,
+                                    onClick = {
+                                        // Handle refund action
+                                        DialogHandler.showDialog(
+                                            message = "Refund will be implemented soon",
+                                            buttonText = "OK"
+                                        ) {}
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -417,7 +451,42 @@ fun OrderDetailsDialog(
                             fontFamily = GeneralSans
                         )
                         BaseText(
-                            text = "-$${String.format("%.2f", order.discountAmount.toDoubleOrNull() ?: 0.0)}",
+                            text = "-$${
+                                String.format(
+                                    "%.2f",
+                                    order.discountAmount.toDoubleOrNull() ?: 0.0
+                                )
+                            }",
+                            fontSize = 14f,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF4CAF50),
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+
+                // Cash Discount
+                val cashDiscountValue = when (val amount = order.cashDiscountAmount) {
+                    is String -> amount.toDoubleOrNull() ?: 0.0
+                    is Double -> amount
+                    is Int -> amount.toDouble()
+                    is Float -> amount.toDouble()
+                    is Long -> amount.toDouble()
+                    else -> 0.0
+                }
+                if (cashDiscountValue > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BaseText(
+                            text = "Cash Discount:",
+                            fontSize = 14f,
+                            color = Color.Gray,
+                            fontFamily = GeneralSans
+                        )
+                        BaseText(
+                            text = "-$${String.format("%.2f", cashDiscountValue)}",
                             fontSize = 14f,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF4CAF50),
@@ -501,7 +570,8 @@ fun OrderDetailsDialog(
                     )
                     BaseText(
                         text = try {
-                            val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+                            val inputFormat =
+                                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
                             val outputFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.US)
                             val date = inputFormat.parse(order.createdAt)
                             outputFormat.format(date ?: java.util.Date())
@@ -552,14 +622,14 @@ fun OrderDetailsDialog(
                 )
 
                 if (order.orderItems.isNotEmpty()) {
-                    Column(
+                    LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(150.dp)
                             .padding(vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        order.orderItems.forEach { item ->
+                        items(order.orderItems) { item ->
                             OrderItemRow(item = item)
                         }
                     }

@@ -35,6 +35,7 @@ fun BaseButton(
     backgroundColor: Color? = null, // 👈 Dynamic color parameter
     textColor: Color? = null, // 👈 Text color parameter
     fontSize: Int = 16, // 👈 Font size parameter in sp
+    fontWeight: FontWeight = FontWeight.Medium, // 👈 Font weight parameter
     height: Dp? = null, // 👈 Height parameter
     border: BorderStroke? = null, // 👈 Optional border
     cornerRadius: Dp = 5.dp, // 👈 Corner radius parameter
@@ -72,7 +73,7 @@ fun BaseButton(
             text = text,
             style = MaterialTheme.typography.labelMedium.copy(
                 fontFamily = GeneralSans,
-                fontWeight = FontWeight.Medium,
+                fontWeight = fontWeight,
                 fontSize = fontSize.sp,
                 color = finalTextColor,
                 textAlign = TextAlign.Center
