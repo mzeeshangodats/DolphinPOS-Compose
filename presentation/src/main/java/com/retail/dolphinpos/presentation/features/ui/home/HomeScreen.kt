@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
@@ -124,6 +125,8 @@ fun HomeScreen(
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showPaymentSuccessDialog by remember { mutableStateOf(false) }
+    var paymentSuccessAmount by remember { mutableStateOf("0.00") }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
@@ -182,11 +185,11 @@ fun HomeScreen(
                 }
 
                 is HomeUiEvent.OrderCreatedSuccessfully -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.success_circle_icon
-                    ) {}
+                    // Calculate change (amount paid - order total)
+                    val paidAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                    val change = paidAmount - totalAmount
+                    paymentSuccessAmount = viewModel.formatAmount(change)
+                    showPaymentSuccessDialog = true
                 }
 
                 HomeUiEvent.NavigateToPinCode -> {
@@ -244,7 +247,7 @@ fun HomeScreen(
             Row(
                 modifier = Modifier.weight(1f)
             ) {
-                // Column 1 - Cart (25% width, full height)
+                // Column 1 - Cart (always visible)
                 CartPanel(
                     modifier = Modifier.weight(0.28f),
                     cartItems = cartItems,
@@ -263,132 +266,154 @@ fun HomeScreen(
                     canApplyProductDiscount = { viewModel.canApplyProductDiscount() },
                     canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() })
 
-                // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
-                Column(
-                    modifier = Modifier
-                        .weight(0.3f)
-                        .background(colorResource(id = R.color.light_grey))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Pricing Summary
-                    PricingSummary(
-                        subtotal = subtotal,
-                        cashDiscountTotal = cashDiscountTotal,
-                        orderDiscountTotal = orderDiscountTotal,
-                        tax = tax,
-                        totalAmount = totalAmount,
-                        isCashSelected = viewModel.isCashSelected
-                    )
-
-                    // Cart Action Buttons
-                    CartActionButtons(
-                        cartItems = cartItems,
-                        onClearCart = { viewModel.clearCart() },
-                        onHoldCartClick = {
-                            if (cartItems.isEmpty()) {
-                                showHoldCartDialog = true
-                            } else {
-                                viewModel.saveHoldCart("Guest Cart")
+                if (showPaymentSuccessDialog) {
+                    // Payment Success UI (replaces columns 2, 3, 4)
+                    Box(
+                        modifier = Modifier
+                            .weight(0.72f)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PaymentSuccessUI(
+                            amountTendered = paymentSuccessAmount,
+                            onPrint = {
+                                // TODO: Implement print functionality
+                                viewModel.clearCart()
+                                showPaymentSuccessDialog = false
+                            },
+                            onDone = {
+                                viewModel.clearCart()
+                                showPaymentSuccessDialog = false
                             }
-                        })
+                        )
+                    }
+                } else {
+                    // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
+                    Column(
+                        modifier = Modifier
+                            .weight(0.3f)
+                            .background(colorResource(id = R.color.light_grey))
+                            .padding(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Pricing Summary
+                        PricingSummary(
+                            subtotal = subtotal,
+                            cashDiscountTotal = cashDiscountTotal,
+                            orderDiscountTotal = orderDiscountTotal,
+                            tax = tax,
+                            totalAmount = totalAmount,
+                            isCashSelected = viewModel.isCashSelected
+                        )
 
-                    // Payment Input
-                    PaymentInput(
-                        paymentAmount = paymentAmount,
-                        onPaymentAmountChange = { paymentAmount = it },
-                        onRemoveDigit = {
+                        // Cart Action Buttons
+                        CartActionButtons(
+                            cartItems = cartItems,
+                            onClearCart = { viewModel.clearCart() },
+                            onHoldCartClick = {
+                                if (cartItems.isEmpty()) {
+                                    showHoldCartDialog = true
+                                } else {
+                                    viewModel.saveHoldCart("Guest Cart")
+                                }
+                            })
+
+                        // Payment Input
+                        PaymentInput(
+                            paymentAmount = paymentAmount,
+                            onPaymentAmountChange = { paymentAmount = it },
+                            onRemoveDigit = {
+                                val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                                val newAmount = viewModel.removeLastDigit(current)
+                                paymentAmount = viewModel.formatAmount(newAmount)
+                            })
+
+                        // Keypad
+                        Keypad(onDigitClick = { digit ->
                             val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                            val newAmount = viewModel.removeLastDigit(current)
+                            val newAmount = viewModel.appendDigitToAmount(current, digit)
                             paymentAmount = viewModel.formatAmount(newAmount)
+                        }, onAmountSet = { amount ->
+                            paymentAmount = viewModel.formatAmount(amount)
+                        }, onExactAmount = {
+                            paymentAmount = viewModel.formatAmount(totalAmount)
+                        }, onCashSelected = {
+                            viewModel.isCashSelected = true
+                            viewModel.updateCartPrices()
+                        }, onCardSelected = {
+                            viewModel.isCashSelected = false
+                            viewModel.updateCartPrices()
+                            if (cartItems.isEmpty()) {
+                                DialogHandler.showDialog(
+                                    message = "Cart is empty. Please add items to cart before creating an order.",
+                                    buttonText = "OK",
+                                    iconRes = R.drawable.info_icon
+                                )
+                            } else {
+                                viewModel.initCardPayment()
+//                            viewModel.createOrder("card")
+                            }
+                        }, onClear = {
+                            paymentAmount = "0.00"
+                        }, onNext = {
+                            if (cartItems.isEmpty()) {
+                                DialogHandler.showDialog(
+                                    message = "Cart is empty. Please add items to cart before creating an order.",
+                                    buttonText = "OK",
+                                    iconRes = R.drawable.info_icon
+                                )
+                            } else {
+                                when {
+                                    viewModel.isCashSelected -> viewModel.createOrder("cash")
+                                    else -> viewModel.initCardPayment()
+                                }
+                            }
+                        })
+                    }
+
+                    // Column 3 - Categories (25% width, full height)
+                    CategoriesPanel(
+                        modifier = Modifier.weight(0.12f),
+                        categories = categories,
+                        selectedCategory = selectedCategory,
+                        onCategorySelected = { category ->
+                            selectedCategory = category
+                            viewModel.loadProducts(category.id)
                         })
 
-                    // Keypad
-                    Keypad(onDigitClick = { digit ->
-                        val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                        val newAmount = viewModel.appendDigitToAmount(current, digit)
-                        paymentAmount = viewModel.formatAmount(newAmount)
-                    }, onAmountSet = { amount ->
-                        paymentAmount = viewModel.formatAmount(amount)
-                    }, onExactAmount = {
-                        paymentAmount = viewModel.formatAmount(totalAmount)
-                    }, onCashSelected = {
-                        viewModel.isCashSelected = true
-                        viewModel.updateCartPrices()
-                    }, onCardSelected = {
-                        viewModel.isCashSelected = false
-                        viewModel.updateCartPrices()
-                        if (cartItems.isEmpty()) {
-                            DialogHandler.showDialog(
-                                message = "Cart is empty. Please add items to cart before creating an order.",
-                                buttonText = "OK",
-                                iconRes = R.drawable.info_icon
-                            )
-                        } else {
-                            viewModel.initCardPayment()
-//                            viewModel.createOrder("card")
-                        }
-                    }, onClear = {
-                        paymentAmount = "0.00"
-                    }, onNext = {
-                        if (cartItems.isEmpty()) {
-                            DialogHandler.showDialog(
-                                message = "Cart is empty. Please add items to cart before creating an order.",
-                                buttonText = "OK",
-                                iconRes = R.drawable.info_icon
-                            )
-                        } else {
-                            when {
-                                viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                else -> viewModel.initCardPayment()
+                    // Column 4 - Products (25% width)
+                    ProductsPanel(
+                        modifier = Modifier.weight(0.3f),
+                        navController = navController,
+                        products = if (searchQuery.isNotEmpty()) searchResults else products,
+                        cartItems = cartItems,
+                        onShowOrderDiscountDialog = {
+                            if (cartItems.isEmpty()) {
+                                DialogHandler.showDialog("There are no items in cart")
+                            } else if (!viewModel.canApplyOrderLevelDiscount()) {
+                                DialogHandler.showDialog("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
+                            } else {
+                                showOrderDiscountDialog = true
                             }
-                        }
-                    })
+                        },
+                        onShowAddCustomerDialog = {
+                            showAddCustomerDialog = true
+                        },
+                        onProductClick = { product ->
+                            val variants = product.variants
+                            if (variants != null && variants.isNotEmpty()) {
+                                // Show variant selection dialog
+                                selectedProductForVariant = product
+                            } else {
+                                // Add directly to cart if no variants
+                                val success = viewModel.addToCart(product)
+                                if (!success) {
+                                    DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                                }
+                            }
+                        })
                 }
-
-                // Column 3 - Categories (25% width, full height)
-                CategoriesPanel(
-                    modifier = Modifier.weight(0.12f),
-                    categories = categories,
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { category ->
-                        selectedCategory = category
-                        viewModel.loadProducts(category.id)
-                    })
-
-                // Column 4 - Products (25% width)
-                ProductsPanel(
-                    modifier = Modifier.weight(0.3f),
-                    navController = navController,
-                    products = if (searchQuery.isNotEmpty()) searchResults else products,
-                    cartItems = cartItems,
-                    onShowOrderDiscountDialog = {
-                        if (cartItems.isEmpty()) {
-                            DialogHandler.showDialog("There are no items in cart")
-                        } else if (!viewModel.canApplyOrderLevelDiscount()) {
-                            DialogHandler.showDialog("You can't apply order level discount after applied cash discount. If you need to apply order level discount click on card first")
-                        } else {
-                            showOrderDiscountDialog = true
-                        }
-                    },
-                    onShowAddCustomerDialog = {
-                        showAddCustomerDialog = true
-                    },
-                    onProductClick = { product ->
-                        val variants = product.variants
-                        if (variants != null && variants.isNotEmpty()) {
-                            // Show variant selection dialog
-                            selectedProductForVariant = product
-                        } else {
-                            // Add directly to cart if no variants
-                            val success = viewModel.addToCart(product)
-                            if (!success) {
-                                DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
-                            }
-                        }
-                    })
             }
-
 
             // Order Level Discount Dialog
             if (showOrderDiscountDialog) {
@@ -1579,6 +1604,7 @@ fun ActionButtonsPanel(
                     "Pending Orders" -> {
                         navController.navigate("pending_orders")
                     }
+
                     else -> {
                         showComingSoonDialog()
                     }
@@ -1619,9 +1645,11 @@ fun ActionButtonsPanel(
                     "Order Discount" -> {
                         onShowOrderDiscountDialog()
                     }
+
                     "Add Customer" -> {
                         onShowAddCustomerDialog()
                     }
+
                     else -> {
                         showComingSoonDialog()
                     }
@@ -2730,4 +2758,103 @@ fun VariantSelectionDialog(
             Text("Cancel", fontFamily = GeneralSans)
         }
     })
+}
+
+@Composable
+fun PaymentSuccessUI(
+    amountTendered: String,
+    onPrint: () -> Unit,
+    onDone: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(5.dp),
+        elevation = CardDefaults.cardElevation(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier
+            .width(500.dp)
+            .height(300.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Green Checkmark Icon
+            Icon(
+                painter = painterResource(id = R.drawable.success_circle_icon),
+                contentDescription = "Success",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(80.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Payment Successful Text
+            BaseText(
+                text = "Payment Successful",
+                fontSize = 20f,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4CAF50),
+                fontFamily = GeneralSans
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Amount Tendered
+            BaseText(
+                text = "Amount Tender: $$amountTendered",
+                fontSize = 16f,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                fontFamily = GeneralSans
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Print Button
+                OutlinedButton(
+                    onClick = onPrint,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color.Black
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    BaseText(
+                        text = "Print",
+                        fontSize = 14f,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black,
+                        fontFamily = GeneralSans
+                    )
+                }
+
+                // Done Button
+                Button(
+                    onClick = onDone,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    BaseText(
+                        text = "Done",
+                        fontSize = 14f,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        fontFamily = GeneralSans
+                    )
+                }
+            }
+        }
+    }
 }
