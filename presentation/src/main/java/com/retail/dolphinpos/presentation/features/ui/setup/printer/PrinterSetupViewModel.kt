@@ -12,7 +12,12 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDraw
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.SavePrinterDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.StartDiscoveryUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.TestPrintUseCase
+import com.retail.dolphinpos.domain.usecases.order.GetLastPendingOrderUseCase
+import com.retail.dolphinpos.domain.model.order.PendingOrder
+import com.retail.dolphinpos.data.setup.hardware.printer.GetPrinterReceiptTemplateUseCase
+import com.retail.dolphinpos.data.setup.hardware.printer.PrinterManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import android.util.Log
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -23,12 +28,15 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PrinterSetupViewModel @Inject constructor(
-    getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
+    private val getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
     private val testPrintUseCase: TestPrintUseCase,
     private val savePrinterDetailsUseCase: SavePrinterDetailsUseCase,
     private val startDiscoveryUseCase: StartDiscoveryUseCase,
     private val connectPrinterUseCase: ConnectPrinterUseCase,
-    private val openCashDrawerUseCase: OpenCashDrawerUseCase
+    private val openCashDrawerUseCase: OpenCashDrawerUseCase,
+    private val getLastPendingOrderUseCase: GetLastPendingOrderUseCase,
+    private val getReceiptTemplateUseCase: GetPrinterReceiptTemplateUseCase,
+    private val printerManager: PrinterManager
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(PrinterViewState())
@@ -48,7 +56,7 @@ class PrinterSetupViewModel @Inject constructor(
 
     fun startDiscovery(context: Context, excludeBluetooth: Boolean = false) {
         _viewState.value = _viewState.value.copy(discoveredPrinters = emptyList())
-        
+
         startDiscoveryUseCase.invoke(
             context = context,
             excludeBluetooth = excludeBluetooth,
@@ -79,7 +87,7 @@ class PrinterSetupViewModel @Inject constructor(
     fun onDeviceClicked(printer: PrinterDetails) {
         viewModelScope.launch {
             emitViewEffect(PrinterViewEffect.ShowLoading(true))
-            
+
             val success = connectPrinterUseCase(
                 printer = printer,
                 onStatusUpdate = { message ->
@@ -97,7 +105,7 @@ class PrinterSetupViewModel @Inject constructor(
             } else {
                 emitViewEffect(PrinterViewEffect.ShowErrorSnackBar("Failed to connect to the printer."))
             }
-            
+
             emitViewEffect(PrinterViewEffect.ShowLoading(false))
         }
     }
@@ -109,15 +117,19 @@ class PrinterSetupViewModel @Inject constructor(
                 emitViewEffect(PrinterViewEffect.ShowErrorSnackBar("Please connect a printer first before testing print."))
                 return@launch
             }
-            
+
             emitViewEffect(PrinterViewEffect.ShowInformationSnackBar("Sending test print command..."))
-            
+
             try {
                 val isGraphicPrinter = savedPrinter.isGraphic
                 testPrintUseCase(isGraphicPrinter)
                 emitViewEffect(PrinterViewEffect.ShowSuccessSnackBar("Test print sent successfully."))
             } catch (e: Exception) {
-                emitViewEffect(PrinterViewEffect.ShowErrorSnackBar("Error during test print: ${e.localizedMessage ?: e.message ?: "Unknown error"}"))
+                emitViewEffect(
+                    PrinterViewEffect.ShowErrorSnackBar(
+                        "Error during test print: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+                    )
+                )
             }
         }
     }
@@ -127,7 +139,7 @@ class PrinterSetupViewModel @Inject constructor(
             val (success, message) = openCashDrawerUseCase { statusMessage ->
                 emitViewEffect(PrinterViewEffect.ShowInformationSnackBar(statusMessage))
             }
-            
+
             if (success) {
                 emitViewEffect(PrinterViewEffect.ShowSuccessSnackBar(message))
             } else {
@@ -166,6 +178,117 @@ class PrinterSetupViewModel @Inject constructor(
         _viewState.value = _viewState.value.copy(isAutoOpenDrawerEnabled = enabled)
     }
 
+    fun onPrintLastPendingOrderClicked() {
+        Log.d(TAG, "onPrintLastPendingOrderClicked: Button clicked, fetching last pending order...")
+        viewModelScope.launch {
+            emitViewEffect(PrinterViewEffect.ShowLoading(true))
+            try {
+                Log.d(TAG, "onPrintLastPendingOrderClicked: Calling getLastPendingOrderUseCase...")
+                val lastPendingOrder = getLastPendingOrderUseCase()
+
+                if (lastPendingOrder != null) {
+                    Log.d(
+                        TAG,
+                        "onPrintLastPendingOrderClicked: Last pending order found - OrderNumber: ${lastPendingOrder.orderNumber}, OrderId: ${lastPendingOrder.id}, Total: ${lastPendingOrder.total}"
+                    )
+                    Log.d(
+                        TAG,
+                        "onPrintLastPendingOrderClicked: Order details - InvoiceNo: ${lastPendingOrder.invoiceNo}, PaymentMethod: ${lastPendingOrder.paymentMethod}, ItemsCount: ${lastPendingOrder.items}"
+                    )
+
+                    // Store the order for now - printing logic will be added in next command
+                    emitViewEffect(
+                        PrinterViewEffect.ShowInformationSnackBar(
+                            "Last pending order found: ${lastPendingOrder.orderNumber}. Ready to print."
+                        )
+                    )
+                    printReceiptClicked(lastPendingOrder)
+                    Log.d(TAG, "onPrintLastPendingOrderClicked: Success message displayed to user")
+                } else {
+                    Log.w(
+                        TAG,
+                        "onPrintLastPendingOrderClicked: No pending orders found in database"
+                    )
+                    emitViewEffect(
+                        PrinterViewEffect.ShowErrorSnackBar("No pending orders found.")
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "onPrintLastPendingOrderClicked: Error fetching last pending order", e)
+                Log.e(
+                    TAG,
+                    "onPrintLastPendingOrderClicked: Error message: ${e.message}, StackTrace: ${e.stackTraceToString()}"
+                )
+                emitViewEffect(
+                    PrinterViewEffect.ShowErrorSnackBar(
+                        "Error fetching last pending order: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+                    )
+                )
+            } finally {
+                Log.d(TAG, "onPrintLastPendingOrderClicked: Operation completed, hiding loading")
+                emitViewEffect(PrinterViewEffect.ShowLoading(false))
+            }
+        }
+    }
+
+    private fun printReceiptClicked(lastPendingOrder: PendingOrder) {
+        Log.d(TAG, "printReceiptClicked: Starting print receipt for order: ${lastPendingOrder.orderNumber}")
+        viewModelScope.launch {
+            emitViewEffect(PrinterViewEffect.ShowLoading(true))
+            
+            try {
+                val printerDetails = getPrinterDetailsUseCase()
+                if (printerDetails == null) {
+                    Log.w(TAG, "printReceiptClicked: No printer connected")
+                    emitViewEffect(
+                        PrinterViewEffect.ShowErrorSnackBar("No printer connected. Please set up printer first.")
+                    )
+                    return@launch
+                }
+                
+                Log.d(TAG, "printReceiptClicked: Printer found - Name: ${printerDetails.name}, IsGraphic: ${printerDetails.isGraphic}")
+                
+                // Generate receipt template
+                Log.d(TAG, "printReceiptClicked: Generating receipt template")
+                emitViewEffect(PrinterViewEffect.ShowInformationSnackBar("Generating receipt template..."))
+                val receiptTemplate = getReceiptTemplateUseCase(
+                    order = lastPendingOrder,
+                    isReceiptForRefund = false
+                )
+                Log.d(TAG, "printReceiptClicked: Receipt template generated, length: ${receiptTemplate.length}")
+                
+                // Send print command
+                Log.d(TAG, "printReceiptClicked: Sending print command to printer")
+                emitViewEffect(PrinterViewEffect.ShowInformationSnackBar("Sending print command..."))
+                printerManager.sendPrintCommand(
+                    data = receiptTemplate,
+                    getPrinterDetailsUseCase = getPrinterDetailsUseCase,
+                    statusCallback = { message ->
+                        Log.d(TAG, "printReceiptClicked: Printer status: $message")
+                        emitViewEffect(PrinterViewEffect.ShowInformationSnackBar(message))
+                    }
+                )
+                
+                Log.d(TAG, "printReceiptClicked: Receipt printed successfully")
+                emitViewEffect(
+                    PrinterViewEffect.ShowSuccessSnackBar(
+                        "Receipt printed successfully for order: ${lastPendingOrder.orderNumber}"
+                    )
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "printReceiptClicked: Error printing receipt", e)
+                emitViewEffect(
+                    PrinterViewEffect.ShowErrorSnackBar(
+                        "Error printing receipt: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
+                    )
+                )
+            } finally {
+                Log.d(TAG, "printReceiptClicked: Operation completed")
+                emitViewEffect(PrinterViewEffect.ShowLoading(false))
+            }
+        }
+    }
+
     private fun addPrinter(printer: PrinterDetails) {
         val currentList = _viewState.value.discoveredPrinters.toMutableList()
         if (currentList.none { it.address == printer.address }) {
@@ -183,6 +306,10 @@ class PrinterSetupViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         stopDiscovery()
+    }
+
+    companion object {
+        private const val TAG = "PrinterSetupViewModel"
     }
 }
 

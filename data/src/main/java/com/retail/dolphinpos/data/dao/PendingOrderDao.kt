@@ -20,6 +20,9 @@ interface PendingOrderDao {
     @Query("SELECT * FROM pending_orders WHERE id = :orderId")
     suspend fun getOrderById(orderId: Long): PendingOrderEntity?
 
+    @Query("SELECT * FROM pending_orders WHERE is_synced = 0 ORDER BY id DESC LIMIT 1")
+    suspend fun getLastPendingOrder(): PendingOrderEntity?
+
     @Update
     suspend fun updatePendingOrder(order: PendingOrderEntity)
 
