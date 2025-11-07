@@ -42,7 +42,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, TransactionEntity::class, TimeSlotEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -70,7 +70,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -87,6 +87,12 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE online_orders ADD COLUMN transaction_id TEXT")
                 db.execSQL("ALTER TABLE online_orders ADD COLUMN split_transactions TEXT")
                 db.execSQL("ALTER TABLE online_orders ADD COLUMN card_details TEXT")
+            }
+        }
+
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE variants ADD COLUMN barCode TEXT")
             }
         }
 

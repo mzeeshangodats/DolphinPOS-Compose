@@ -11,6 +11,7 @@ data class VariantsEntity(
     val cardPrice: String?,
     val cashPrice: String?,
     val quantity: Int,
+    val barCode: String?,
     val sku: String?,
     val title: String?
 )

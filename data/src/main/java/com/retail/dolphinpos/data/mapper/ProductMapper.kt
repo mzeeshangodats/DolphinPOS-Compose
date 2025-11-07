@@ -60,6 +60,7 @@ object ProductMapper {
             cardPrice = variants.cardPrice,
             cashPrice = variants.cashPrice,
             quantity = variants.quantity,
+            barCode = variants.barCode,
             title = variants.title,
             sku = variants.sku
         )
@@ -141,7 +142,7 @@ object ProductMapper {
             sku = variantsEntity.sku,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
-            barCode = null,
+            barCode = variantsEntity.barCode,
             attributes = null,
             images = emptyList()
         )
@@ -156,7 +157,7 @@ object ProductMapper {
             sku = variantsEntity.sku,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
-            barCode = null,
+            barCode = variantsEntity.barCode,
             attributes = null,
             images = variantImages
         )

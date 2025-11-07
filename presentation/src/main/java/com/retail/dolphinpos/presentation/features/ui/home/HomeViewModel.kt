@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
+import android.os.SystemClock
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
@@ -12,6 +13,7 @@ import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
 import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.domain.model.home.barcode.BarcodeLookupResult
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
@@ -30,6 +32,7 @@ import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
+import com.retail.dolphinpos.domain.usecases.home.GetProductByBarcodeUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
@@ -63,6 +66,7 @@ class HomeViewModel @Inject constructor(
     private val storeRegistersRepository: StoreRegistersRepository,
     private val verifyPinRepository: VerifyPinRepository,
     private val batchReportRepository: BatchReportRepository,
+    private val getProductByBarcodeUseCase: GetProductByBarcodeUseCase,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
     private val processTransactionUseCase: ProcessTransactionUseCase,
     private val cancelTransactionUseCase: CancelTransactionUseCase,
@@ -71,6 +75,11 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
+
+    private val cashDiscountBlockedMessage = "You can't add product after applying cash discount. If you want to add click on card first"
+
+    private var lastProcessedBarcode: String? = null
+    private var lastProcessedBarcodeAt: Long = 0L
 
     private val _homeUiEvent = MutableSharedFlow<HomeUiEvent>()
     val homeUiEvent: SharedFlow<HomeUiEvent> = _homeUiEvent.asSharedFlow()
@@ -197,6 +206,66 @@ class HomeViewModel @Inject constructor(
                 _searchProductResults.value = homeRepository.searchProducts(query)
             } else {
                 _searchProductResults.value = emptyList()
+            }
+        }
+    }
+
+    fun handleBarcodeInput(rawInput: String) {
+        viewModelScope.launch {
+            val trimmedInput = rawInput.trim()
+            if (trimmedInput.isEmpty()) {
+                return@launch
+            }
+
+            try {
+                val now = SystemClock.elapsedRealtime()
+                if (lastProcessedBarcode == trimmedInput && now - lastProcessedBarcodeAt < 300) {
+                    return@launch
+                }
+
+                _searchProductResults.value = emptyList()
+
+                val shouldClear = when (val result = getProductByBarcodeUseCase(trimmedInput)) {
+                    is BarcodeLookupResult.SingleProduct -> {
+                        val added = addToCart(result.product)
+                        if (!added) {
+                            _homeUiEvent.emit(HomeUiEvent.ShowError(cashDiscountBlockedMessage))
+                        }
+                        true
+                    }
+
+                    is BarcodeLookupResult.SingleVariant -> {
+                        val added = addVariantToCart(result.product, result.variant)
+                        if (!added) {
+                            _homeUiEvent.emit(HomeUiEvent.ShowError(cashDiscountBlockedMessage))
+                        }
+                        true
+                    }
+
+                    is BarcodeLookupResult.MultipleVariants -> {
+                        _homeUiEvent.emit(HomeUiEvent.ShowVariantSelection(result.product))
+                        true
+                    }
+
+                    BarcodeLookupResult.NotFound -> {
+                        _homeUiEvent.emit(
+                            HomeUiEvent.ShowError("No product found for barcode $trimmedInput")
+                        )
+                        true
+                    }
+                }
+
+                lastProcessedBarcode = trimmedInput
+                lastProcessedBarcodeAt = SystemClock.elapsedRealtime()
+
+                if (shouldClear) {
+                    _homeUiEvent.emit(HomeUiEvent.ClearSearchQuery)
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowError(e.message ?: "Unable to process barcode. Please try again.")
+                )
+                _homeUiEvent.emit(HomeUiEvent.ClearSearchQuery)
             }
         }
     }

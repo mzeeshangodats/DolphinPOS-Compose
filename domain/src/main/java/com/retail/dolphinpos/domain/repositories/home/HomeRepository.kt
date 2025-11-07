@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.domain.repositories.home
 
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
+import com.retail.dolphinpos.domain.model.home.barcode.ProductVariantMatch
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.customer.Customer
 
@@ -9,6 +10,8 @@ interface HomeRepository {
     suspend fun getAllProducts(): List<Products>
     suspend fun getProductsByCategoryID(categoryID: Int): List<Products>
     suspend fun searchProducts(query: String): List<Products>
+    suspend fun getProductByBarcode(barcode: String): Products?
+    suspend fun getVariantByBarcode(barcode: String): ProductVariantMatch?
 
     suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long
 

@@ -184,6 +184,15 @@ fun HomeScreen(
                     }
                 }
 
+                is HomeUiEvent.ShowVariantSelection -> {
+                    selectedProductForVariant = event.product
+                }
+
+                HomeUiEvent.ClearSearchQuery -> {
+                    searchQuery = ""
+                    viewModel.searchProducts("")
+                }
+
                 is HomeUiEvent.OrderCreatedSuccessfully -> {
                     // Calculate change (amount paid - order total)
                     val paidAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
@@ -232,6 +241,13 @@ fun HomeScreen(
                 searchQuery = searchQuery, onSearchQueryChange = { query ->
                     searchQuery = query
                     viewModel.searchProducts(query)
+                }, onBarcodeSubmit = { barcode ->
+                    val sanitized = barcode.trim()
+                    if (sanitized.isNotEmpty()) {
+                        searchQuery = ""
+                        viewModel.searchProducts("")
+                        viewModel.handleBarcodeInput(sanitized)
+                    }
                 }, onLogout = {
                     showLogoutDialog = true
                 }, searchResults = searchResults, onProductClick = { product ->

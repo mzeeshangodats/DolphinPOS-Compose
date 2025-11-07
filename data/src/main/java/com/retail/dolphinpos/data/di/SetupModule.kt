@@ -39,8 +39,10 @@ import com.retail.dolphinpos.domain.usecases.order.GetLastPendingOrderUseCase
 import com.retail.dolphinpos.data.usecases.order.GetLastPendingOrderUseCaseImpl
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.order.GetPrintableOrderFromOrderDetailUseCase
+import com.retail.dolphinpos.data.usecases.home.GetProductByBarcodeUseCaseImpl
 import com.retail.dolphinpos.data.usecases.order.GetLatestOnlineOrderUseCaseImpl
 import com.retail.dolphinpos.data.usecases.order.GetPrintableOrderFromOrderDetailUseCaseImpl
+import com.retail.dolphinpos.domain.usecases.home.GetProductByBarcodeUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -130,6 +132,12 @@ abstract class SetupModule {
     abstract fun bindGetLastPendingOrderUseCase(
         impl: GetLastPendingOrderUseCaseImpl
     ): GetLastPendingOrderUseCase
+
+    @Binds
+    @Singleton
+    abstract fun bindGetProductByBarcodeUseCase(
+        impl: GetProductByBarcodeUseCaseImpl
+    ): GetProductByBarcodeUseCase
 
     @Binds
     @Singleton

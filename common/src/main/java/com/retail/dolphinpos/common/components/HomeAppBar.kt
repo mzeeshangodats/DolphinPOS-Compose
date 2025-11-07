@@ -30,6 +30,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -46,6 +51,7 @@ import java.util.Locale
 fun HomeAppBar(
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
+    onBarcodeSubmit: (String) -> Unit = {},
     onLogout: () -> Unit = {},
     searchResults: List<Products> = emptyList(),
     onProductClick: (Products) -> Unit = {},
@@ -93,8 +99,27 @@ fun HomeAppBar(
             ) {
                 BasicTextField(
                     value = searchQuery,
-                    onValueChange = onSearchQueryChange,
-                    modifier = Modifier.fillMaxWidth(),
+                    onValueChange = { newValue ->
+                        val sanitized = newValue.replace("\n", "").replace("\r", "")
+                        if (sanitized != searchQuery) {
+                            onSearchQueryChange(sanitized)
+                        }
+                        if (newValue.any { it == '\n' || it == '\r' }) {
+                            onBarcodeSubmit(sanitized)
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyUp &&
+                                (event.key == Key.Enter || event.key == Key.NumPadEnter)
+                            ) {
+                                onBarcodeSubmit(searchQuery)
+                                true
+                            } else {
+                                false
+                            }
+                        },
                     textStyle = androidx.compose.ui.text.TextStyle(
                         fontFamily = GeneralSans,
                         fontSize = 12.sp,
