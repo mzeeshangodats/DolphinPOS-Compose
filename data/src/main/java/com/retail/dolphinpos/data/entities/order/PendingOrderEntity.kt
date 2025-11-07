@@ -28,6 +28,9 @@ data class PendingOrderEntity(
     @ColumnInfo(name = "cash_discount_amount") val cashDiscountAmount: Double = 0.0,
     @ColumnInfo(name = "reward_discount") val rewardDiscount: Double = 0.0,
     @ColumnInfo(name = "discount_ids") val discountIds: String? = null, // JSON string of List<Int>
+    @ColumnInfo(name = "transaction_id") val transactionId: String? = null,
+    @ColumnInfo(name = "split_transactions") val transactions: String? = null, // JSON string of List<CheckoutSplitPaymentTransactions>
+    @ColumnInfo(name = "card_details") val cardDetails: String? = null, // JSON string of CardDetails
     @ColumnInfo(name = "user_id") val userId: Int = 0,
     @ColumnInfo(name = "void_reason") val voidReason: String? = null,
     @ColumnInfo(name = "is_void") val isVoid: Boolean = false,

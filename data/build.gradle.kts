@@ -34,6 +34,10 @@ android {
     }
 }
 
+kapt {
+    correctErrorTypes = true
+}
+
 dependencies {
 
     implementation(platform(libs.firebaseBom))

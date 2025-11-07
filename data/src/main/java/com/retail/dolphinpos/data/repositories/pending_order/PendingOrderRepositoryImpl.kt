@@ -38,6 +38,9 @@ class PendingOrderRepositoryImpl(
             cashDiscountAmount = orderRequest.cashDiscountAmount,
             rewardDiscount = orderRequest.rewardDiscount,
             discountIds = orderRequest.discountIds?.let { gson.toJson(it) },
+            transactionId = orderRequest.transactionId,
+            transactions = orderRequest.transactions?.let { gson.toJson(it) },
+            cardDetails = orderRequest.cardDetails?.let { gson.toJson(it) },
             userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
@@ -87,6 +90,8 @@ class PendingOrderRepositoryImpl(
     private fun convertToCreateOrderRequest(entity: PendingOrderEntity): CreateOrderRequest {
         val itemsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>() {}.type
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
+        val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
+        val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
 
         return CreateOrderRequest(
             orderNumber = entity.orderNumber,
@@ -108,13 +113,13 @@ class PendingOrderRepositoryImpl(
             discountAmount = entity.discountAmount,
             cashDiscountAmount = entity.cashDiscountAmount,
             rewardDiscount = entity.rewardDiscount,
-            discountIds = entity.discountIds?.let { gson.fromJson(it, discountIdsType) },
-            transactionId = null,
+            discountIds = entity.discountIds?.let { gson.fromJson<List<Int>>(it, discountIdsType) },
+            transactionId = entity.transactionId,
             userId = entity.userId,
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
-            transactions = null,
-            cardDetails = null
+            transactions = entity.transactions?.let { gson.fromJson<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>(it, transactionsType) },
+            cardDetails = entity.cardDetails?.let { gson.fromJson<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>(it, cardDetailsType) }
         )
     }
 
@@ -141,6 +146,19 @@ class PendingOrderRepositoryImpl(
         val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
 
+        val items: List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem> =
+            gson.fromJson<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>(entity.items, itemsType)
+                ?: emptyList()
+        val discountIds: List<Int>? = entity.discountIds?.let {
+            gson.fromJson(it, discountIdsType)
+        }
+        val transactions: List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>? = entity.transactions?.let {
+            gson.fromJson(it, transactionsType)
+        }
+        val cardDetails: com.retail.dolphinpos.domain.model.home.create_order.CardDetails? = entity.cardDetails?.let {
+            gson.fromJson<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>(it, cardDetailsType)
+        }
+
         return PendingOrder(
             id = entity.id,
             orderNumber = entity.orderNumber,
@@ -154,7 +172,7 @@ class PendingOrderRepositoryImpl(
             isRedeemed = entity.isRedeemed,
             source = entity.source,
             redeemPoints = entity.redeemPoints,
-            items = gson.fromJson(entity.items, itemsType),
+            items = items,
             subTotal = entity.subTotal,
             total = entity.total,
             applyTax = entity.applyTax,
@@ -162,13 +180,13 @@ class PendingOrderRepositoryImpl(
             discountAmount = entity.discountAmount,
             cashDiscountAmount = entity.cashDiscountAmount,
             rewardDiscount = entity.rewardDiscount,
-            discountIds = entity.discountIds?.let { gson.fromJson(it, discountIdsType) },
+            discountIds = discountIds,
             transactionId = entity.transactionId,
             userId = entity.userId,
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
-            transactions = entity.transactions?.let { gson.fromJson(it, transactionsType) },
-            cardDetails = entity.cardDetails?.let { gson.fromJson(it, cardDetailsType) },
+            transactions = transactions,
+            cardDetails = cardDetails,
             createdAt = entity.createdAt,
             isSynced = entity.isSynced
         )

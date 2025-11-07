@@ -42,7 +42,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, TransactionEntity::class, TimeSlotEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -70,8 +70,8 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
+                    .addMigrations(MIGRATION_5_6)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                    //.fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
@@ -79,11 +79,13 @@ abstract class DolphinDatabase : RoomDatabase() {
         }
 
 
-        // Method to delete the database file
-//        fun deleteDatabase(context: Context) {
-//            context.deleteDatabase("lingerie_pos_local_database")
-//            INSTANCE = null // Reset the INSTANCE so Room can recreate it when needed
-//        }
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_orders ADD COLUMN transaction_id TEXT")
+                db.execSQL("ALTER TABLE pending_orders ADD COLUMN split_transactions TEXT")
+                db.execSQL("ALTER TABLE pending_orders ADD COLUMN card_details TEXT")
+            }
+        }
 
     }
 }
