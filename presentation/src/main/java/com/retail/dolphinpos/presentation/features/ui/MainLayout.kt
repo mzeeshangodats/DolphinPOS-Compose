@@ -153,6 +153,22 @@ fun MainLayout(
                     }
                 }
                 "setup" -> HardwareSetupScreen(navController = navController)
+                "cash_drawer" -> {
+                    // Handle cash drawer route if navigated to directly (fallback)
+                    // Normally handled by button click, but keep this as safety
+                    LaunchedEffect(currentDestination?.id) {
+                        homeViewModel.openCashDrawer("Manual Open")
+                        navController.navigate("home") {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                    // Show home screen while processing
+                    HomeScreen(navController = navController, preferenceManager = preferenceManager)
+                }
             }
         }
 
@@ -165,40 +181,45 @@ fun MainLayout(
                 menus = bottomNavMenus,
                 selectedIndex = selectedIndex,
                 onMenuClick = { menu ->
-                    // Map resource IDs to navigation routes
-                    val route = when (menu.destinationId) {
-                        R.id.homeScreen -> "home"
-                        R.id.productsScreen -> "products"
-                        R.id.ordersScreen -> "orders"
-                        R.id.inventoryScreen -> "inventory"
-                        R.id.reportsScreen -> "reports"
-                        R.id.setupScreen -> "setup"
-                        else -> null
-                    }
-                    route?.let {
-                        // For reports and setup, always navigate (don't use restoreState)
-                        // to ensure they always show fresh content
-                        if (it == "reports" || it == "setup") {
-                            navController.navigate(it) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = false
+                    // Handle cash drawer button - just call function, don't navigate
+                    if (menu.destinationId == R.id.cashDrawerScreen) {
+                        homeViewModel.openCashDrawer("Manual Open")
+                    } else {
+                        // Map resource IDs to navigation routes
+                        val route = when (menu.destinationId) {
+                            R.id.homeScreen -> "home"
+                            R.id.productsScreen -> "products"
+                            R.id.ordersScreen -> "orders"
+                            R.id.inventoryScreen -> "inventory"
+                            R.id.reportsScreen -> "reports"
+                            R.id.setupScreen -> "setup"
+                            else -> null
+                        }
+                        route?.let {
+                            // For reports and setup, always navigate (don't use restoreState)
+                            // to ensure they always show fresh content
+                            if (it == "reports" || it == "setup") {
+                                navController.navigate(it) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = false
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = false
                                 }
-                                launchSingleTop = true
-                                restoreState = false
-                            }
-                        } else {
-                            navController.navigate(it) {
-                                // Pop up to the start destination of the graph to
-                                // avoid building up a large stack of destinations
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+                            } else {
+                                navController.navigate(it) {
+                                    // Pop up to the start destination of the graph to
+                                    // avoid building up a large stack of destinations
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    // Avoid multiple copies of the same destination when
+                                    // reselecting the same item
+                                    launchSingleTop = true
+                                    // Restore state when reselecting a previously selected item
+                                    // This ensures navigation works consistently across all screens
+                                    restoreState = true
                                 }
-                                // Avoid multiple copies of the same destination when
-                                // reselecting the same item
-                                launchSingleTop = true
-                                // Restore state when reselecting a previously selected item
-                                // This ensures navigation works consistently across all screens
-                                restoreState = true
                             }
                         }
                     }

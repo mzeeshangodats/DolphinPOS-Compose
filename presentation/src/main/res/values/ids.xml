@@ -7,6 +7,7 @@
     <item name="inventoryScreen" type="id" />
     <item name="reportsScreen" type="id" />
     <item name="setupScreen" type="id" />
+    <item name="cashDrawerScreen" type="id" />
     <item name="businessInfoScreen" type="id" />
     <item name="ccProcessingScreen" type="id" />
     <item name="customerDisplayScreen" type="id" />

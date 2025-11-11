@@ -101,6 +101,11 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
             MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
+        // Cash Drawer Screen (accessed through MainLayout)
+        composable("cash_drawer") {
+            MainLayout(navController = navController, preferenceManager = preferenceManager)
+        }
+
         // Pending Orders Screen
         composable("pending_orders") {
             PendingOrdersScreen(

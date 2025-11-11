@@ -163,6 +163,8 @@ class HomeViewModel @Inject constructor(
                 menuName = "Reports", destinationId = R.id.reportsScreen
             ), BottomMenu(
                 menuName = "Setup", destinationId = R.id.setupScreen
+            ), BottomMenu(
+                menuName = "Cash Drawer", destinationId = R.id.cashDrawerScreen
             )
         )
     }

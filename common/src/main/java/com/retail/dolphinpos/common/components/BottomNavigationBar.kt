@@ -35,7 +35,7 @@ fun BottomNavigationBar(
             .fillMaxWidth()
             .height(56.dp) // actionBarSize equivalent
             .background(Color.White)
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 2.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -73,13 +73,13 @@ private fun BottomNavButton(
         onClick = onClick,
         modifier = modifier
             .height(48.dp)
-            .padding(horizontal = 2.dp),
+            .padding(horizontal = 1.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = backgroundColor,
             contentColor = textColor
         ),
         shape = RoundedCornerShape(4.dp),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
     ) {
         Text(
             text = menu.menuName,
