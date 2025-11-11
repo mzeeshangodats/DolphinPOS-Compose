@@ -248,6 +248,14 @@ fun OrdersScreen(
                         modifier = Modifier.width(100.dp)
                     )
                     BaseText(
+                        text = "Status",
+                        fontSize = 12f,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.width(100.dp)
+                    )
+                    BaseText(
                         text = "Actions",
                         fontSize = 12f,
                         fontWeight = FontWeight.Bold,
@@ -296,6 +304,21 @@ fun OrdersScreen(
                                 }",
                                 fontSize = 12f,
                                 color = Color.Black,
+                                fontFamily = GeneralSans,
+                                modifier = Modifier.width(100.dp)
+                            )
+                            // Status Column
+                            BaseText(
+                                text = order.status.replaceFirstChar { 
+                                    if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() 
+                                },
+                                fontSize = 12f,
+                                color = when (order.status.lowercase()) {
+                                    "completed" -> colorResource(id = R.color.green_success)
+                                    "pending" -> colorResource(id = R.color.orange)
+                                    else -> Color.Black
+                                },
+                                fontWeight = FontWeight.SemiBold,
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.width(100.dp)
                             )

@@ -6,13 +6,16 @@ import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
 import com.retail.dolphinpos.data.dao.OnlineOrderDao
+import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
+import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.room.DolphinDatabase
 import dagger.Module
 import dagger.Provides
@@ -30,16 +33,7 @@ object RoomDatabaseModule {
     fun provideDatabase(
         @ApplicationContext context: Context
     ): DolphinDatabase {
-        return Room.databaseBuilder(
-            context, DolphinDatabase::class.java, "dolphin_retail_pos"
-        )
-//            .addMigrations(
-//                DolphinDatabase.MIGRATION_1_2,
-//                DolphinDatabase.MIGRATION_2_3,
-//                DolphinDatabase.MIGRATION_3_4,
-//                DolphinDatabase.MIGRATION_4_5
-//            )
-            .build()
+        return DolphinDatabase.getDatabase(context)
     }
 
     @Provides
@@ -109,5 +103,20 @@ object RoomDatabaseModule {
     @Provides
     fun provideTransactionDao(database: DolphinDatabase): TransactionDao {
         return database.transactionDao()
+    }
+
+    @Provides
+    fun provideOrderDao(database: DolphinDatabase): OrderDao {
+        return database.orderDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideOrderRepository(
+        orderDao: OrderDao,
+        apiService: ApiService,
+        gson: Gson
+    ): OrderRepositoryImpl {
+        return OrderRepositoryImpl(orderDao, apiService, gson)
     }
 }

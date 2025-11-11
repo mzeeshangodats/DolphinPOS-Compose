@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
@@ -13,19 +13,22 @@ import dagger.assisted.AssistedInject
 class OrderSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
-    private val pendingOrderRepository: PendingOrderRepositoryImpl
+    private val orderRepository: OrderRepositoryImpl
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         return try {
-            val unsyncedOrders = pendingOrderRepository.getUnsyncedOrders()
+            // Get all unsynced local orders (orderSource = 'local' AND isSynced = false)
+            val unsyncedOrders = orderRepository.getUnsyncedLocalOrders()
             
             Log.d("OrderSyncWorker", "Found ${unsyncedOrders.size} unsynced orders")
             
             for (order in unsyncedOrders) {
                 try {
-                    pendingOrderRepository.syncOrderToServer(order).onSuccess {
-                        Log.d("OrderSyncWorker", "Successfully synced order ${order.orderNumber}")
+                    // Sync order to server
+                    // On success, OrderRepository automatically updates isSynced = true and status = "completed"
+                    orderRepository.syncOrderToServer(order).onSuccess { response ->
+                        Log.d("OrderSyncWorker", "Successfully synced order ${order.orderNumber}. Response: ${response.message}")
                     }.onFailure { e ->
                         Log.e("OrderSyncWorker", "Failed to sync order ${order.orderNumber}: ${e.message}")
                     }

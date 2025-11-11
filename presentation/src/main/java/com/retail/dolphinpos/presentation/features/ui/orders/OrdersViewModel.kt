@@ -6,7 +6,8 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.utils.PreferenceManager
-import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
+import com.retail.dolphinpos.data.entities.order.OrderEntity
+import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
@@ -31,16 +32,22 @@ import javax.inject.Inject
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
     private val ordersRepository: OrdersRepository,
+    private val orderRepository: OrderRepositoryImpl,
     private val preferenceManager: PreferenceManager,
     private val getPrintableOrderFromOrderDetailUseCase: GetPrintableOrderFromOrderDetailUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val networkMonitor: NetworkMonitor,
-    private val onlineOrderRepository: OnlineOrderRepository,
     private val gson: Gson
 ) : ViewModel() {
 
     private val _orders = MutableStateFlow<List<OrderDetailList>>(emptyList())
     val orders: StateFlow<List<OrderDetailList>> = _orders.asStateFlow()
+
+    private val _completedOrders = MutableStateFlow<List<OrderDetailList>>(emptyList())
+    val completedOrders: StateFlow<List<OrderDetailList>> = _completedOrders.asStateFlow()
+
+    private val _pendingOrders = MutableStateFlow<List<OrderDetailList>>(emptyList())
+    val pendingOrders: StateFlow<List<OrderDetailList>> = _pendingOrders.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -53,14 +60,13 @@ class OrdersViewModel @Inject constructor(
             _isLoading.value = true
             _uiEvent.emit(OrdersUiEvent.ShowLoading)
             try {
-                // Check network availability
-                if (!networkMonitor.isNetworkAvailable()) {
-                    // Load orders from Room database when offline
-                    loadOrdersFromRoom(keyword)
-                } else {
-                    // Load orders from API when online
+                // If internet is available, fetch orders from API and save to unified table
+                if (networkMonitor.isNetworkAvailable()) {
                     loadOrdersFromApi(keyword)
                 }
+                
+                // Always load orders from unified table (works for both online and offline)
+                loadOrdersFromLocalDatabase(keyword)
             } catch (e: Exception) {
                 _isLoading.value = false
                 _uiEvent.emit(OrdersUiEvent.HideLoading)
@@ -98,41 +104,50 @@ class OrdersViewModel @Inject constructor(
                 keyword = keyword
             )
             result.onSuccess { response ->
-                _orders.value = response.data.list
-                _uiEvent.emit(OrdersUiEvent.HideLoading)
+                // Save API orders to unified table
+                orderRepository.saveApiOrders(response.data.list)
+                // Clean up any duplicate orders
+                orderRepository.removeDuplicateOrders()
+                // Orders will be loaded from local database in loadOrdersFromLocalDatabase
             }.onFailure { e ->
-                _uiEvent.emit(OrdersUiEvent.HideLoading)
-                _uiEvent.emit(OrdersUiEvent.ShowError("Failed to load orders: ${e.message}"))
+                // Even if API fails, we can still load from local database
+                android.util.Log.e("OrdersViewModel", "Failed to fetch orders from API: ${e.message}")
             }
         } catch (e: Exception) {
-            _uiEvent.emit(OrdersUiEvent.HideLoading)
-            _uiEvent.emit(OrdersUiEvent.ShowError("Failed to load orders: ${e.message}"))
+            android.util.Log.e("OrdersViewModel", "Error loading orders from API: ${e.message}")
         }
     }
 
-    private suspend fun loadOrdersFromRoom(keyword: String?) {
+    private suspend fun loadOrdersFromLocalDatabase(keyword: String?) {
         try {
             val storeId = preferenceManager.getStoreID()
+            
+            // Clean up any duplicate orders before loading
+            orderRepository.removeDuplicateOrders()
 
-            // Get orders from Room database
-            val onlineOrders = onlineOrderRepository.getOrdersByStoreId(storeId)
-
-            // Filter by keyword if provided
-            val filteredOrders = if (keyword.isNullOrBlank()) {
-                onlineOrders
+            // Get all orders from unified table
+            val allOrders = if (keyword.isNullOrBlank()) {
+                orderRepository.getOrdersByStoreId(storeId)
             } else {
-                onlineOrders.filter {
-                    it.orderNumber.contains(keyword, ignoreCase = true) ||
-                            it.paymentMethod.contains(keyword, ignoreCase = true)
+                orderRepository.searchOrdersByStoreId(storeId, keyword)
+            }
+
+            // Convert OrderEntity to OrderDetailList and group by isSynced status
+            val completedList = mutableListOf<OrderDetailList>()
+            val pendingList = mutableListOf<OrderDetailList>()
+            
+            allOrders.forEach { entity ->
+                val orderDetail = convertOrderEntityToOrderDetailList(entity)
+                if (entity.isSynced) {
+                    completedList.add(orderDetail)
+                } else {
+                    pendingList.add(orderDetail)
                 }
             }
 
-            // Convert OnlineOrderEntity to OrderDetailList
-            val orderDetailList = filteredOrders.map { entity ->
-                convertToOrderDetailList(entity)
-            }
-
-            _orders.value = orderDetailList
+            _orders.value = allOrders.map { convertOrderEntityToOrderDetailList(it) }
+            _completedOrders.value = completedList
+            _pendingOrders.value = pendingList
             _uiEvent.emit(OrdersUiEvent.HideLoading)
         } catch (e: Exception) {
             _uiEvent.emit(OrdersUiEvent.HideLoading)
@@ -140,7 +155,7 @@ class OrdersViewModel @Inject constructor(
         }
     }
 
-    private fun convertToOrderDetailList(entity: com.retail.dolphinpos.data.entities.order.OnlineOrderEntity): OrderDetailList {
+    private fun convertOrderEntityToOrderDetailList(entity: OrderEntity): OrderDetailList {
         // Parse items from JSON
         val itemsType = object : TypeToken<List<CheckOutOrderItem>>() {}.type
         val orderItems: List<CheckOutOrderItem> = try {
@@ -172,8 +187,15 @@ class OrdersViewModel @Inject constructor(
         dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
         val createdAtString = dateFormat.format(Date(entity.createdAt))
 
-        // Format updatedAt (use createdAt if not available)
-        val updatedAtString = createdAtString
+        // Format updatedAt (use updatedAt if available, otherwise use createdAt)
+        val updatedAtString = dateFormat.format(Date(entity.updatedAt))
+
+        // Determine status based on isSynced: isSynced = 1 (true) -> "completed", isSynced = 0 (false) -> "pending"
+        val orderStatus: String = when {
+            entity.isVoid -> "void"
+            entity.isSynced -> "completed"  // isSynced = 1 (true) -> completed
+            else -> "pending"  // isSynced = 0 (false) -> pending
+        }
 
         return OrderDetailList(
             applyTax = entity.applyTax,
@@ -189,7 +211,7 @@ class OrdersViewModel @Inject constructor(
             discountAmount = entity.discountAmount.toString(),
             discountId = 0,
             giftyCardId = 0,
-            id = entity.id.toInt(),
+            id = entity.serverId?.toLong()?.toInt() ?: entity.id.toInt(),
             isRedeemed = entity.isRedeemed,
             locationId = entity.locationId,
             loyaltyPoints = 0,
@@ -197,7 +219,7 @@ class OrdersViewModel @Inject constructor(
             orderItems = convertedOrderItems,
             orderNumber = entity.orderNumber,
             paymentMethod = entity.paymentMethod,
-            paymentStatus = "completed",
+            paymentStatus = if (entity.isSynced) "completed" else "pending",
             redeemPoints = entity.redeemPoints ?: 0,
             refundedDiscount = "0.0",
             refundedSubTotal = "0.0",
@@ -207,14 +229,14 @@ class OrdersViewModel @Inject constructor(
             rewardDiscount = entity.rewardDiscount,
             rewardRefundDiscount = 0.0,
             source = entity.source,
-            status = if (entity.isVoid) "void" else "completed",
+            status = orderStatus,
             storeId = entity.storeId,
             storeRegisterId = entity.storeRegisterId ?: 0,
             subTotal = entity.subTotal.toString(),
             taxValue = entity.taxValue,
             timeline = Unit,
             total = entity.total.toString(),
-            transactions = emptyList(), // Transactions not stored in OnlineOrderEntity
+            transactions = emptyList(), // Transactions not stored in OrderEntity
             updatedAt = updatedAtString,
             voidReason = entity.voidReason ?: "",
             wpId = 0
@@ -254,3 +276,4 @@ class OrdersViewModel @Inject constructor(
         }
     }
 }
+

@@ -10,8 +10,7 @@ import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
 import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
-import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
-import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
@@ -56,8 +55,7 @@ class HomeViewModel @Inject constructor(
     private val homeRepository: HomeRepository,
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
-    private val pendingOrderRepository: PendingOrderRepositoryImpl,
-    private val onlineOrderRepository: OnlineOrderRepository,
+    private val orderRepository: OrderRepositoryImpl,
     private val transactionDao: TransactionDao,
     private val gson: Gson,
     private val networkMonitor: NetworkMonitor,
@@ -834,8 +832,9 @@ class HomeViewModel @Inject constructor(
                     cardDetails = cardDetails
                 )
 
-                // Always save to local database first
-                val pendingOrderId = pendingOrderRepository.saveOrderToLocal(orderRequest)
+                // Always save to local database first (with isSynced = false, status = "pending")
+                val orderId = orderRepository.saveOrderToLocal(orderRequest)
+                android.util.Log.d("Order", "Order saved locally with ID: $orderId")
                 
                 // Save transaction to transactions table
                 try {
@@ -863,35 +862,30 @@ class HomeViewModel @Inject constructor(
                 // Try to sync with server if internet is available
                 if (networkMonitor.isNetworkAvailable()) {
                     try {
-                        val unsyncedOrders = pendingOrderRepository.getUnsyncedOrders()
-                        if (unsyncedOrders.isNotEmpty()) {
-                            val lastOrder = unsyncedOrders.last()
-                            pendingOrderRepository.syncOrderToServer(lastOrder).onSuccess {
-                                // Save successful order to online_orders table
-                                try {
-                                    onlineOrderRepository.saveSuccessfulOrderFromEntity(lastOrder)
-                                    android.util.Log.d("Order", "Order saved to online_orders table successfully")
-                                } catch (e: Exception) {
-                                    android.util.Log.e("Order", "Failed to save order to online_orders: ${e.message}")
-                                }
+                        // Get the order we just saved
+                        val savedOrder = orderRepository.getOrderById(orderId)
+                        if (savedOrder != null) {
+                            // Sync order to server
+                            orderRepository.syncOrderToServer(savedOrder).onSuccess { response ->
+                                android.util.Log.d("Order", "Order synced to server successfully. Response: ${response.message}")
                                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                                 _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
                             }.onFailure { e ->
                                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                                 android.util.Log.e(
                                     "Order",
-                                    "Failed to sync order: ${e.message}\n Your order has been saved in pending orders"
+                                    "Failed to sync order: ${e.message}\n Your order has been saved locally and will sync when internet is available"
                                 )
-                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
+                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
                             }
                         } else {
                             _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                            _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("No Orders Found"))
+                            _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved but could not be retrieved for syncing"))
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("Order", "Failed to sync order: ${e.message}")
                         _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                        _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved in pending orders"))
+                        _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
                     }
                 } else {
                     _homeUiEvent.emit(HomeUiEvent.HideLoading)
