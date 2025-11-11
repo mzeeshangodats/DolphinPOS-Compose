@@ -175,7 +175,14 @@ class VerifyPinViewModel @Inject constructor(
                     onFailure = { err ->
                         val msg = err.message
                         if (msg == "OFFLINE_QUEUED") {
-                            _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog("Clock ${if (slug=="check-in") "In" else "Out"} request queued for sync"))
+                            val action = if (slug == "check-in") "in" else "out"
+                            _verifyPinUiEvent.emit(
+                                VerifyPinUiEvent.ShowDialog(
+                                    "Your clock $action request has been queued successfully. " +
+                                            "It will be synchronized automatically when the internet connection is restored.",
+                                    success = true
+                                )
+                            )
                         } else if (!msg.isNullOrBlank()) {
                             _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(msg))
                         } else {

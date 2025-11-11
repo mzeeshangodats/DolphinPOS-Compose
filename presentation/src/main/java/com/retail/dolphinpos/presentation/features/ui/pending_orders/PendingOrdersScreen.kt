@@ -194,7 +194,7 @@ fun PendingOrdersScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF1976D2))
+                        .background(colorResource(R.color.primary))
                         .padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

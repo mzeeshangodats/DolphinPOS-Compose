@@ -242,14 +242,6 @@ fun ProductsScreen(
                         fontFamily = GeneralSans,
                         modifier = Modifier.width(100.dp)
                     )
-                    BaseText(
-                        text = "Quantity",
-                        fontSize = 12f,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontFamily = GeneralSans,
-                        modifier = Modifier.width(80.dp)
-                    )
                 }
 
                 // Products List
@@ -301,13 +293,6 @@ fun ProductsScreen(
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.width(100.dp)
-                            )
-                            BaseText(
-                                text = "${product.quantity}",
-                                fontSize = 12f,
-                                color = Color.Black,
-                                fontFamily = GeneralSans,
-                                modifier = Modifier.width(80.dp)
                             )
                         }
                     }
