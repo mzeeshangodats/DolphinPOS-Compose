@@ -93,6 +93,7 @@ import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
+import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
@@ -340,8 +341,13 @@ fun HomeScreen(
                         }, onExactAmount = {
                             paymentAmount = viewModel.formatAmount(totalAmount)
                         }, onCashSelected = {
-                            viewModel.isCashSelected = true
-                            viewModel.updateCartPrices()
+                            // Calculate subtotal after order-level discounts
+                            val subtotalAfterOrderDiscounts = subtotal - orderDiscountTotal
+                            // Don't apply cash discount if subtotal is already 0 or less - just return silently
+                            if (subtotalAfterOrderDiscounts > 0) {
+                                viewModel.isCashSelected = true
+                                viewModel.updateCartPrices()
+                            }
                         }, onCardSelected = {
                             viewModel.isCashSelected = false
                             viewModel.updateCartPrices()
@@ -952,18 +958,14 @@ fun CartItemRow(
     var offsetX by remember { mutableStateOf(0f) }
     val swipeThreshold = with(density) { 100.dp.toPx() } // Reduced threshold for easier removal
 
-    val finalPrice = run {
-        val discount = when (item.discountType) {
-            com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> (item.selectedPrice * (item.discountValue
-                ?: 0.0) / 100.0)
-
-            com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> item.discountValue
-                ?: 0.0
-
-            else -> 0.0
-        }
-        (item.selectedPrice - discount).coerceAtLeast(0.0)
-    }
+    // Calculate unit price after discount
+    val unitPriceAfterDiscount = item.getProductDiscountedPrice()
+    
+    // Calculate total price (unit price × quantity)
+    val totalPrice = unitPriceAfterDiscount * item.quantity
+    
+    // Original unit price for comparison
+    val originalUnitPrice = item.selectedPrice
 
     Box(
         modifier = Modifier.fillMaxWidth()
@@ -1065,23 +1067,25 @@ fun CartItemRow(
             Column(
                 horizontalAlignment = Alignment.End
             ) {
-                if (finalPrice < item.selectedPrice) {
-                    // Show discount
+                if (unitPriceAfterDiscount < originalUnitPrice) {
+                    // Show discount - display original total and discounted total
+                    val originalTotal = originalUnitPrice * item.quantity
                     BaseText(
-                        text = "$${String.format("%.2f", item.selectedPrice)}",
+                        text = "$${String.format("%.2f", originalTotal)}",
                         color = Color.Gray,
                         fontSize = 10f,
                         textDecoration = TextDecoration.LineThrough
                     )
                     BaseText(
-                        text = "$${String.format("%.2f", finalPrice)}",
+                        text = "$${String.format("%.2f", totalPrice)}",
                         color = Color.Black,
                         fontSize = 12f,
                         fontFamily = GeneralSans
                     )
                 } else {
+                    // No discount - show total price
                     BaseText(
-                        text = "$${String.format("%.2f", finalPrice)}",
+                        text = "$${String.format("%.2f", totalPrice)}",
                         color = Color.Black,
                         fontSize = 12f,
                         fontFamily = GeneralSans
@@ -1969,6 +1973,11 @@ fun ProductLevelDiscountDialog(
                         // If percentage discount, must be <= 100
                         discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE && discountValueDouble > 100 -> {
                             DialogHandler.showDialog("Percentage cannot be more than 100")
+                            return@Button
+                        }
+                        // If amount discount, must not exceed product price
+                        discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT && discountValueDouble > cartItem.selectedPrice -> {
+                            DialogHandler.showDialog("Discount amount cannot be more than product price")
                             return@Button
                         }
                         // If discount applied, reason must not be empty

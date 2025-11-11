@@ -526,7 +526,15 @@ class HomeViewModel @Inject constructor(
             calculateCashDiscount(cartItems)
 
             // Get the current cash discount value after recalculation
-            val currentCashDiscount = _cashDiscountTotal.value
+            var currentCashDiscount = _cashDiscountTotal.value
+
+            // Don't apply cash discount if subtotal is already 0 or less
+            if (discountedSubtotal <= 0) {
+                currentCashDiscount = 0.0
+                withContext(Dispatchers.Main) {
+                    _cashDiscountTotal.value = 0.0
+                }
+            }
 
             // 5️⃣ Apply cash discount (after order-level discounts)
             val finalSubtotal = discountedSubtotal - currentCashDiscount
