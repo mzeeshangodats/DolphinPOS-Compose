@@ -332,38 +332,30 @@ fun HomeScreen(
                             })
 
                         // Keypad
-                        Keypad(onDigitClick = { digit ->
-                            val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                            val newAmount = viewModel.appendDigitToAmount(current, digit)
-                            paymentAmount = viewModel.formatAmount(newAmount)
-                        }, onAmountSet = { amount ->
-                            paymentAmount = viewModel.formatAmount(amount)
-                        }, onExactAmount = {
-                            paymentAmount = viewModel.formatAmount(totalAmount)
-                        }, onCashSelected = {
-                            // Calculate subtotal after order-level discounts
-                            val subtotalAfterOrderDiscounts = subtotal - orderDiscountTotal
-                            // Don't apply cash discount if subtotal is already 0 or less - just return silently
-                            if (subtotalAfterOrderDiscounts > 0) {
-                                viewModel.isCashSelected = true
-                                viewModel.updateCartPrices()
-                            }
+                        Keypad(
+                            isCashSelected = viewModel.isCashSelected,
+                            onDigitClick = { digit ->
+                                val current = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                                val newAmount = viewModel.appendDigitToAmount(current, digit)
+                                paymentAmount = viewModel.formatAmount(newAmount)
+                            }, onAmountSet = { amount ->
+                                paymentAmount = viewModel.formatAmount(amount)
+                            }, onExactAmount = {
+                                paymentAmount = viewModel.formatAmount(totalAmount)
+                            }, onCashSelected = {
+                                // Calculate subtotal after order-level discounts
+                                val subtotalAfterOrderDiscounts = subtotal - orderDiscountTotal
+                                // Don't apply cash discount if subtotal is already 0 or less - just return silently
+                                if (subtotalAfterOrderDiscounts > 0) {
+                                    viewModel.isCashSelected = true
+                                    viewModel.updateCartPrices()
+                                }
                         }, onCardSelected = {
                             viewModel.isCashSelected = false
                             viewModel.updateCartPrices()
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                viewModel.initCardPayment()
-//                            viewModel.createOrder("card")
-                            }
                         }, onClear = {
-                            paymentAmount = "0.00"
-                        }, onNext = {
+                                paymentAmount = "0.00"
+                            }, onNext = {
                             if (cartItems.isEmpty()) {
                                 DialogHandler.showDialog(
                                     message = "Cart is empty. Please add items to cart before creating an order.",
@@ -1181,6 +1173,7 @@ fun PaymentInput(
 
 @Composable
 fun Keypad(
+    isCashSelected: Boolean,
     onDigitClick: (String) -> Unit,
     onAmountSet: (Double) -> Unit,
     onExactAmount: () -> Unit,
@@ -1196,6 +1189,7 @@ fun Keypad(
 
         // Row 1: 7, 8, 9, $1, $5
         KeypadRow(
+            isCashSelected = isCashSelected,
             buttons = listOf("7", "8", "9", "$1", "$5"),
             onDigitClick = onDigitClick,
             onAmountSet = onAmountSet,
@@ -1207,6 +1201,7 @@ fun Keypad(
 
         // Row 2: 4, 5, 6, $10, $20
         KeypadRow(
+            isCashSelected = isCashSelected,
             buttons = listOf("4", "5", "6", "$10", "$20"),
             onDigitClick = onDigitClick,
             onAmountSet = onAmountSet,
@@ -1218,6 +1213,7 @@ fun Keypad(
 
         // Row 3: 1, 2, 3, $50, $100
         KeypadRow(
+            isCashSelected = isCashSelected,
             buttons = listOf("1", "2", "3", "$50", "$100"),
             onDigitClick = onDigitClick,
             onAmountSet = onAmountSet,
@@ -1229,6 +1225,7 @@ fun Keypad(
 
         // Row 4: Exact, 0, Next, Cash
         KeypadRow(
+            isCashSelected = isCashSelected,
             buttons = listOf(
                 stringResource(id = R.string.exact),
                 stringResource(id = R.string._0),
@@ -1247,6 +1244,7 @@ fun Keypad(
 
         // Row 5: Empty, 00, Clear, Card
         KeypadRow(
+            isCashSelected = isCashSelected,
             buttons = listOf(
                 "",
                 stringResource(id = R.string._00),
@@ -1266,6 +1264,7 @@ fun Keypad(
 
 @Composable
 fun KeypadRow(
+    isCashSelected: Boolean,
     buttons: List<String>,
     onDigitClick: (String) -> Unit,
     onAmountSet: (Double) -> Unit,
@@ -1343,7 +1342,8 @@ fun KeypadRow(
                 ) || button == stringResource(id = R.string.clear),
                 isPaymentButton = button == stringResource(id = R.string.cash) || button == stringResource(
                     id = R.string.card
-                )
+                ),
+                isCashSelected = isCashSelected
             )
         }
     }
@@ -1355,7 +1355,8 @@ fun KeypadButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
     isActionButton: Boolean = false,
-    isPaymentButton: Boolean = false
+    isPaymentButton: Boolean = false,
+    isCashSelected: Boolean = false
 ) {
     if (text.isEmpty()) {
         Spacer(modifier = modifier.height(36.dp))
@@ -1363,7 +1364,17 @@ fun KeypadButton(
     }
 
     val backgroundColor = when {
-        isPaymentButton -> colorResource(id = if (text == stringResource(id = R.string.cash)) R.color.primary else R.color.green_success)
+        isPaymentButton -> {
+            val cash = stringResource(id = R.string.cash)
+            val card = stringResource(id = R.string.card)
+            when {
+                text == cash && isCashSelected -> colorResource(id = R.color.green_success) // Cash selected = green
+                text == cash && !isCashSelected -> colorResource(id = R.color.primary) // Cash not selected = primary
+                text == card && !isCashSelected -> colorResource(id = R.color.green_success) // Card selected (default) = green
+                text == card && isCashSelected -> colorResource(id = R.color.primary) // Card not selected = primary
+                else -> colorResource(id = R.color.primary)
+            }
+        }
         isActionButton -> colorResource(id = R.color.primary)
         else -> colorResource(id = R.color.pricing_calculator_clr)
     }
@@ -2780,6 +2791,12 @@ fun PaymentSuccessUI(
     onPrint: () -> Unit,
     onDone: () -> Unit
 ) {
+    // Format amount to ensure no minus sign for zero or negative values
+    val formattedAmount = remember(amountTendered) {
+        val amount = amountTendered.toDoubleOrNull() ?: 0.0
+        // Ensure amount is at least 0 to avoid showing minus sign
+        String.format(Locale.US, "%.2f", maxOf(0.0, amount))
+    }
     Card(
         shape = RoundedCornerShape(5.dp),
         elevation = CardDefaults.cardElevation(8.dp),
@@ -2818,7 +2835,7 @@ fun PaymentSuccessUI(
 
             // Amount Tendered
             BaseText(
-                text = "Amount Tender: $$amountTendered",
+                text = "Amount Tender: $$formattedAmount",
                 fontSize = 16f,
                 fontWeight = FontWeight.Medium,
                 color = Color.Black,
