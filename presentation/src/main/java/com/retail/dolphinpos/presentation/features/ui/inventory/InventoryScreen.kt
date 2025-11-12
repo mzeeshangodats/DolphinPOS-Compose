@@ -37,6 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseText
@@ -61,6 +63,7 @@ fun InventoryScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedProduct by remember { mutableStateOf<Products?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
 
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
@@ -138,6 +141,7 @@ fun InventoryScreen(
                             color = Color(0xFFF5F5F5),
                             shape = RoundedCornerShape(8.dp)
                         )
+                        .clickable { searchFocusRequester.requestFocus() }
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -157,11 +161,12 @@ fun InventoryScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            modifier = Modifier.focusRequester(searchFocusRequester),
                             decorationBox = { innerTextField ->
                                 Box {
                                     if (searchQuery.isEmpty()) {
                                         BaseText(
-                                            text = "Search by product name",
+                                            text = "Search by product name or barcode",
                                             fontSize = 14f,
                                             color = Color.Gray,
                                             fontFamily = GeneralSans

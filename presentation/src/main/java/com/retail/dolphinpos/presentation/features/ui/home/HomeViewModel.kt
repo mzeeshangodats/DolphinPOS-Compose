@@ -839,12 +839,20 @@ class HomeViewModel @Inject constructor(
                 // Save transaction to transactions table
                 try {
                     val paymentMethodEnum = PaymentMethod.fromString(paymentMethod)
+                    // If no internet and payment is cash, set status as "paid"
+                    // Otherwise, set as "pending" to be synced later
+                    val transactionStatus = if (!networkMonitor.isNetworkAvailable() && paymentMethod == "cash") {
+                        "paid"
+                    } else {
+                        "pending"
+                    }
+                    
                     val transactionEntity = TransactionEntity(
                         orderNo = orderNumber, // orderId will be updated when order is synced to server and we get the server order ID
                         storeId = storeId,
                         locationId = locationId,
                         paymentMethod = paymentMethodEnum,
-                        status = "pending", // Initial status - will be updated to "paid" when order is successfully synced
+                        status = transactionStatus, // "paid" for offline cash, "pending" for others
                         amount = finalTotal,
                         invoiceNo = invoiceNo,
                         batchNo = batch.batchNo,
@@ -854,7 +862,7 @@ class HomeViewModel @Inject constructor(
                         cardDetails = cardDetails?.let { gson.toJson(it) }
                     )
                     transactionDao.insertTransaction(transactionEntity)
-                    android.util.Log.d("Transaction", "Transaction saved successfully with invoice: $invoiceNo")
+                    android.util.Log.d("Transaction", "Transaction saved successfully with invoice: $invoiceNo, status: $transactionStatus")
                 } catch (e: Exception) {
                     android.util.Log.e("Transaction", "Failed to save transaction: ${e.message}")
                 }
@@ -939,7 +947,7 @@ class HomeViewModel @Inject constructor(
     private fun processTransaction(sessionId: String, amount: String) {
         viewModelScope.launch {
             _homeUiEvent.emit(
-                HomeUiEvent.ShowSuccess("Please check Pax Terminal Screen and Pay with Card to Proceed")
+                HomeUiEvent.ShowError("Please check Pax Terminal Screen and Pay with Card to Proceed")
             )
 
             processTransactionUseCase(

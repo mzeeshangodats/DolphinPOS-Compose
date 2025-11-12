@@ -166,7 +166,7 @@ fun HomeScreen(
                     DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK",
-                        iconRes = R.drawable.add_customer_icon_blue
+                        iconRes = R.drawable.success_circle_icon
                     ) {}
                 }
 

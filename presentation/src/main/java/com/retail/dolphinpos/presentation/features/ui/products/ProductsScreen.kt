@@ -37,6 +37,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseText
@@ -61,6 +63,7 @@ fun ProductsScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedProduct by remember { mutableStateOf<Products?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val searchFocusRequester = remember { FocusRequester() }
 
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
@@ -139,6 +142,7 @@ fun ProductsScreen(
                             color = Color(0xFFF5F5F5),
                             shape = RoundedCornerShape(8.dp)
                         )
+                        .clickable { searchFocusRequester.requestFocus() }
                         .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
@@ -158,6 +162,7 @@ fun ProductsScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            modifier = Modifier.focusRequester(searchFocusRequester),
                             decorationBox = { innerTextField ->
                                 Box {
                                     if (searchQuery.isEmpty()) {

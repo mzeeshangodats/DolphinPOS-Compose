@@ -60,6 +60,17 @@ interface ApiService {
         @Query("storeId") storeId: Int, @Query("locationId") locationId: Int
     ): ProductsResponse
 
+//    @GET("transaction")
+//    suspend fun getTransactions(
+//        @Query("storeId") storeId: Int,
+//        @Query("locationId") locationId: Int? = null,
+//        @Query("paginate") paginate: Boolean = true,
+//        @Query("page") page: Int = 1,
+//        @Query("limit") limit: Int = 100,
+//        @Query("orderBy") orderBy: String = "createdAt",
+//        @Query("order") order: String = "desc"
+//    ): TransactionResponse
+
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse
 
