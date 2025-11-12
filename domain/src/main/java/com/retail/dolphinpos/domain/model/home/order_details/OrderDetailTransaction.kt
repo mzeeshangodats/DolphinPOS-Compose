@@ -2,7 +2,7 @@ package com.retail.dolphinpos.domain.model.home.order_details
 
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 
-data class Transaction(
+data class OrderDetailTransaction(
     val amount: String,
     val batch: Any,
     val batchId: Any,

@@ -6,9 +6,9 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.google.gson.Gson
-import com.retail.dolphinpos.data.dao.TransactionDao
+import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
+import com.retail.dolphinpos.data.entities.transaction.CreateOrderTransactionEntity
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
-import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
@@ -56,7 +56,7 @@ class HomeViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
     private val orderRepository: OrderRepositoryImpl,
-    private val transactionDao: TransactionDao,
+    private val createOrderTransactionDao: CreateOrderTransactionDao,
     private val gson: Gson,
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
@@ -847,7 +847,7 @@ class HomeViewModel @Inject constructor(
                         "pending"
                     }
                     
-                    val transactionEntity = TransactionEntity(
+                    val transactionEntity = CreateOrderTransactionEntity(
                         orderNo = orderNumber, // orderId will be updated when order is synced to server and we get the server order ID
                         storeId = storeId,
                         locationId = locationId,
@@ -861,7 +861,7 @@ class HomeViewModel @Inject constructor(
                         tax = finalTax,
                         cardDetails = cardDetails?.let { gson.toJson(it) }
                     )
-                    transactionDao.insertTransaction(transactionEntity)
+                    createOrderTransactionDao.insertTransaction(transactionEntity)
                     android.util.Log.d("Transaction", "Transaction saved successfully with invoice: $invoiceNo, status: $transactionStatus")
                 } catch (e: Exception) {
                     android.util.Log.e("Transaction", "Failed to save transaction: ${e.message}")

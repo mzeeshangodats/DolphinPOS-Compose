@@ -5,17 +5,14 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 
-@Entity(tableName = "transactions")
+@Entity(tableName = "create_order_transaction")
 @TypeConverters(PaymentMethodConverter::class)
-data class TransactionEntity(
+data class CreateOrderTransactionEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     
     @ColumnInfo(name = "order_no")
     val orderNo: String? = null,
-    
-    @ColumnInfo(name = "order_id")
-    val orderId: Int? = null,
     
     @ColumnInfo(name = "store_id")
     val storeId: Int? = null,
@@ -33,10 +30,7 @@ data class TransactionEntity(
     @ColumnInfo(name = "invoice_no")
     val invoiceNo: String? = null, // STRING(100), unique
     
-    @ColumnInfo(name = "batch_id")
-    val batchId: Int? = null,
-    
-    @ColumnInfo(name = "batch_no")
+    @ColumnInfo(name = "batchNo")
     val batchNo: String? = null,
     
     @ColumnInfo(name = "user_id")
@@ -46,8 +40,6 @@ data class TransactionEntity(
     val orderSource: String? = null, // ENUM: 'register', 'online', 'store'
     
     val tax: Double? = null, // FLOAT
-    
-    val tip: Double? = null, // FLOAT
 
     @ColumnInfo(name = "card_details")
     val cardDetails: String? = null, // JSON stored as String
@@ -58,3 +50,4 @@ data class TransactionEntity(
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long = System.currentTimeMillis()
 )
+

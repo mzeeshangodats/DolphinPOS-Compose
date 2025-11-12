@@ -39,7 +39,7 @@ data class OrderDetailList(
     val taxValue: Double,
     val timeline: Any,
     val total: String,
-    val transactions: List<Transaction>,
+    val transactions: List<OrderDetailTransaction>,
     val updatedAt: String,
     val voidReason: Any,
     val wpId: Any

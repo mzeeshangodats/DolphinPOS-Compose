@@ -14,6 +14,7 @@ import com.retail.dolphinpos.data.dao.OnlineOrderDao
 import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
+import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
 import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.category.CategoryEntity
@@ -23,6 +24,7 @@ import com.retail.dolphinpos.data.entities.order.OnlineOrderEntity
 import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
 import com.retail.dolphinpos.data.entities.products.CachedImageEntity
+import com.retail.dolphinpos.data.entities.transaction.CreateOrderTransactionEntity
 import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.entities.products.ProductImagesEntity
 import com.retail.dolphinpos.data.entities.products.ProductsEntity
@@ -43,8 +45,9 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
-        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, TransactionEntity::class, TimeSlotEntity::class],
-    version = 7,
+        CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
+        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class],
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -57,6 +60,7 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun pendingOrderDao(): PendingOrderDao
     abstract fun onlineOrderDao(): OnlineOrderDao
     abstract fun orderDao(): OrderDao
+    abstract fun createOrderTransactionDao(): CreateOrderTransactionDao
     abstract fun transactionDao(): TransactionDao
 
     companion object {
@@ -73,7 +77,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -207,6 +211,83 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_orders_source_synced ON orders(order_source, is_synced)")
                 // Create index on store_id for faster queries
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_orders_store_id ON orders(store_id)")
+            }
+        }
+
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // SQLite doesn't support ALTER TABLE RENAME directly, so we need to:
+                // 1. Create new table with new name
+                // 2. Copy data from old table
+                // 3. Drop old table
+                
+                // Step 1: Create create_order_transaction table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS create_order_transaction (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        order_no TEXT,
+                        store_id INTEGER,
+                        location_id INTEGER,
+                        payment_method TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        amount REAL NOT NULL,
+                        invoice_no TEXT,
+                        batchNo TEXT,
+                        user_id INTEGER,
+                        order_source TEXT,
+                        tax REAL,
+                        card_details TEXT,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Step 2: Copy data from old transactions table to create_order_transaction
+                db.execSQL("""
+                    INSERT INTO create_order_transaction (
+                        id, order_no, store_id, location_id, payment_method, status, 
+                        amount, invoice_no, batchNo, user_id, order_source, tax, 
+                        card_details, created_at, updated_at
+                    )
+                    SELECT 
+                        id, order_no, store_id, location_id, payment_method, status,
+                        amount, invoice_no, batchNo, user_id, order_source, tax,
+                        card_details, created_at, updated_at
+                    FROM transactions
+                """.trimIndent())
+                
+                // Step 3: Drop old transactions table
+                db.execSQL("DROP TABLE IF EXISTS transactions")
+                
+                // Step 4: Create new transactions table for API transactions
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS transactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        order_no TEXT,
+                        order_id INTEGER,
+                        store_id INTEGER,
+                        location_id INTEGER,
+                        payment_method TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        amount REAL NOT NULL,
+                        invoice_no TEXT,
+                        batch_id INTEGER,
+                        batch_no TEXT,
+                        user_id INTEGER,
+                        order_source TEXT,
+                        tax REAL,
+                        tip REAL,
+                        card_details TEXT,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Create indexes for the new transactions table
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_store_id ON transactions(store_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_order_no ON transactions(order_no)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_status ON transactions(status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_invoice_no ON transactions(invoice_no)")
             }
         }
 

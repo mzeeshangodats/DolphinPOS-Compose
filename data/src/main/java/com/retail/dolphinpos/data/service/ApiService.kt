@@ -20,6 +20,7 @@ import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
 import com.retail.dolphinpos.domain.model.report.BatchReport
+import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -60,16 +61,16 @@ interface ApiService {
         @Query("storeId") storeId: Int, @Query("locationId") locationId: Int
     ): ProductsResponse
 
-//    @GET("transaction")
-//    suspend fun getTransactions(
-//        @Query("storeId") storeId: Int,
-//        @Query("locationId") locationId: Int? = null,
-//        @Query("paginate") paginate: Boolean = true,
-//        @Query("page") page: Int = 1,
-//        @Query("limit") limit: Int = 100,
-//        @Query("orderBy") orderBy: String = "createdAt",
-//        @Query("order") order: String = "desc"
-//    ): TransactionResponse
+    @GET("transaction")
+    suspend fun getTransactions(
+        @Query("storeId") storeId: Int,
+        @Query("locationId") locationId: Int? = null,
+        @Query("paginate") paginate: Boolean = true,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10,
+        @Query("orderBy") orderBy: String = "createdAt",
+        @Query("order") order: String = "desc"
+    ): TransactionResponse
 
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse

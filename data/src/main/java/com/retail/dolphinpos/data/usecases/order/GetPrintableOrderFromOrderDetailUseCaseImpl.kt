@@ -1,11 +1,10 @@
 package com.retail.dolphinpos.data.usecases.order
 
-import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
-import com.retail.dolphinpos.domain.model.home.order_details.Transaction
+import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailTransaction
 import com.retail.dolphinpos.domain.model.order.PendingOrder
 import com.retail.dolphinpos.domain.usecases.order.GetPrintableOrderFromOrderDetailUseCase
 import java.text.ParseException
@@ -76,7 +75,7 @@ class GetPrintableOrderFromOrderDetailUseCaseImpl @Inject constructor() : GetPri
         )
     }
 
-    private fun mapTransaction(transaction: Transaction): CheckoutSplitPaymentTransactions {
+    private fun mapTransaction(transaction: OrderDetailTransaction): CheckoutSplitPaymentTransactions {
         val amount = transaction.amount.toCleanDouble() ?: 0.0
         return CheckoutSplitPaymentTransactions(
             invoiceNo = transaction.invoiceNo,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -21,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
@@ -52,7 +54,11 @@ fun TransactionActivityContent(
 ) {
     val transactions by viewModel.transactions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMorePages by viewModel.hasMorePages.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    
+    val listState = rememberLazyListState()
 
     // Filter transactions based on search query
     val filteredTransactions = if (searchQuery.isEmpty()) {
@@ -67,6 +73,17 @@ fun TransactionActivityContent(
 
     LaunchedEffect(Unit) {
         viewModel.loadTransactions()
+    }
+    
+    // Load more when scrolling near the bottom
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisibleIndex ->
+                val totalItems = filteredTransactions.size
+                if (lastVisibleIndex != null && lastVisibleIndex >= totalItems - 3 && hasMorePages && !isLoadingMore) {
+                    viewModel.loadMoreTransactions()
+                }
+            }
     }
 
     LaunchedEffect(Unit) {
@@ -126,6 +143,7 @@ fun TransactionActivityContent(
                 }
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .weight(1f)
@@ -134,6 +152,25 @@ fun TransactionActivityContent(
                 ) {
                     items(filteredTransactions) { transaction ->
                         TransactionActivityItem(transaction = transaction)
+                    }
+                    
+                    // Show loading indicator at the bottom when loading more
+                    if (isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                contentAlignment = androidx.compose.ui.Alignment.Center
+                            ) {
+                                BaseText(
+                                    text = "Loading more...",
+                                    color = Color.Gray,
+                                    fontSize = 14f,
+                                    fontFamily = GeneralSans
+                                )
+                            }
+                        }
                     }
                 }
             }
