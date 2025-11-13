@@ -203,6 +203,44 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun handleBarcodeScan(barcode: String) {
+        viewModelScope.launch {
+            if (barcode.isBlank()) {
+                return@launch
+            }
+
+            try {
+                val product = homeRepository.searchProductByBarcode(barcode)
+                if (product != null) {
+                    // Check if the barcode matches a variant SKU
+                    val matchingVariant = product.variants?.find { it.sku == barcode }
+                    
+                    if (matchingVariant != null) {
+                        // Add variant to cart
+                        val success = addVariantToCart(product, matchingVariant)
+                        if (success) {
+                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name} - ${matchingVariant.title}"))
+                        } else {
+                            _homeUiEvent.emit(HomeUiEvent.ShowError("Cannot add product to cart. Cash discount may be applied."))
+                        }
+                    } else {
+                        // Add product to cart
+                        val success = addToCart(product)
+                        if (success) {
+                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name}"))
+                        } else {
+                            _homeUiEvent.emit(HomeUiEvent.ShowError("Cannot add product to cart. Cash discount may be applied."))
+                        }
+                    }
+                } else {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Product not found for barcode: $barcode"))
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Error scanning barcode: ${e.message}"))
+            }
+        }
+    }
+
     fun addToCart(product: Products): Boolean {
         if (hasCashDiscountApplied()) {
             return false  // Cannot add products after cash discount is applied

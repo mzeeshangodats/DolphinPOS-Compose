@@ -42,8 +42,17 @@ interface ProductsDao {
     @Query("SELECT * FROM products WHERE categoryId = :categoryId")
     suspend fun getProductsByCategoryID(categoryId: Int?): List<ProductsEntity>
 
+    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    suspend fun getProductById(productId: Int): ProductsEntity?
+
     @Query("SELECT * FROM products WHERE name LIKE '%' || :query || '%'")
     suspend fun searchProducts(query: String): List<ProductsEntity>
+
+    @Query("SELECT * FROM products WHERE barCode = :barcode LIMIT 1")
+    suspend fun searchProductByBarcode(barcode: String): ProductsEntity?
+
+    @Query("SELECT * FROM variants WHERE sku = :sku LIMIT 1")
+    suspend fun searchVariantBySku(sku: String): VariantsEntity?
 
     // Cached Images methods
     @Insert(onConflict = OnConflictStrategy.REPLACE)

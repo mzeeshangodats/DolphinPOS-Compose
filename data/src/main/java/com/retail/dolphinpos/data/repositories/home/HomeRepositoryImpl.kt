@@ -132,6 +132,82 @@ class HomeRepositoryImpl(
         }
     }
 
+    override suspend fun searchProductByBarcode(barcode: String): Products? {
+        // First, try to find a product by barcode
+        val productEntity = productsDao.searchProductByBarcode(barcode)
+        if (productEntity != null) {
+            // Get product images with local paths
+            val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
+            
+            // Get variants for this product
+            val variantEntities = productsDao.getVariantsByProductId(productEntity.id)
+            val variants = variantEntities.map { variantEntity ->
+                // Get variant images with local cached paths
+                val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(variantEntity.id)
+                ProductMapper.toVariant(variantEntity, variantImages)
+            }
+            
+            return Products(
+                id = productEntity.id,
+                categoryId = productEntity.categoryId,
+                storeId = productEntity.storeId,
+                name = productEntity.name,
+                description = productEntity.description,
+                quantity = productEntity.quantity,
+                status = productEntity.status,
+                cashPrice = productEntity.cashPrice,
+                cardPrice = productEntity.cardPrice,
+                barCode = productEntity.barCode,
+                locationId = productEntity.locationId,
+                chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
+                vendor = null,
+                variants = variants,
+                images = productImages,
+                secondaryBarcodes = null
+            )
+        }
+        
+        // If product not found, try to find a variant by SKU
+        val variantEntity = productsDao.searchVariantBySku(barcode)
+        if (variantEntity != null) {
+            // Get the parent product
+            val parentProductEntity = productsDao.getProductById(variantEntity.productId)
+                ?: return null
+            
+            // Get product images with local paths
+            val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(parentProductEntity.id)
+            
+            // Get all variants for this product
+            val variantEntities = productsDao.getVariantsByProductId(parentProductEntity.id)
+            val variants = variantEntities.map { vEntity ->
+                // Get variant images with local cached paths
+                val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(vEntity.id)
+                ProductMapper.toVariant(vEntity, variantImages)
+            }
+            
+            return Products(
+                id = parentProductEntity.id,
+                categoryId = parentProductEntity.categoryId,
+                storeId = parentProductEntity.storeId,
+                name = parentProductEntity.name,
+                description = parentProductEntity.description,
+                quantity = parentProductEntity.quantity,
+                status = parentProductEntity.status,
+                cashPrice = parentProductEntity.cashPrice,
+                cardPrice = parentProductEntity.cardPrice,
+                barCode = parentProductEntity.barCode,
+                locationId = parentProductEntity.locationId,
+                chargeTaxOnThisProduct = parentProductEntity.chargeTaxOnThisProduct,
+                vendor = null,
+                variants = variants,
+                images = productImages,
+                secondaryBarcodes = null
+            )
+        }
+        
+        return null
+    }
+
     override suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long {
             try {
                 return customerDao.insertCustomer(
