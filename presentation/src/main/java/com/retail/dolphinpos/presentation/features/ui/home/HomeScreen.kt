@@ -343,13 +343,9 @@ fun HomeScreen(
                             }, onExactAmount = {
                                 paymentAmount = viewModel.formatAmount(totalAmount)
                             }, onCashSelected = {
-                                // Calculate subtotal after order-level discounts
-                                val subtotalAfterOrderDiscounts = subtotal - orderDiscountTotal
-                                // Don't apply cash discount if subtotal is already 0 or less - just return silently
-                                if (subtotalAfterOrderDiscounts > 0) {
-                                    viewModel.isCashSelected = true
-                                    viewModel.updateCartPrices()
-                                }
+                                // Allow cash selection even when total is 0
+                                viewModel.isCashSelected = true
+                                viewModel.updateCartPrices()
                         }, onCardSelected = {
                             viewModel.isCashSelected = false
                             viewModel.updateCartPrices()
@@ -438,7 +434,8 @@ fun HomeScreen(
                     preFilledDiscountValue = viewModel.getOrderDiscountValue(),
                     preFilledDiscountType = viewModel.getOrderDiscountType(),
                     preFilledDiscountReason = viewModel.getOrderDiscountReason(),
-                    existingOrderDiscounts = orderLevelDiscounts
+                    existingOrderDiscounts = orderLevelDiscounts,
+                    maxDiscountAmount = viewModel.getCurrentSubtotalAfterOrderDiscounts()
                 )
             }
 
@@ -2033,7 +2030,8 @@ fun OrderLevelDiscountDialog(
     preFilledDiscountValue: String = "",
     preFilledDiscountType: String = "PERCENTAGE",
     preFilledDiscountReason: String = "Select Reason",
-    existingOrderDiscounts: List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount> = emptyList()
+    existingOrderDiscounts: List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount> = emptyList(),
+    maxDiscountAmount: Double = 0.0
 ) {
     val context = LocalContext.current
     var discountValue by remember { mutableStateOf(preFilledDiscountValue) }
@@ -2048,6 +2046,24 @@ fun OrderLevelDiscountDialog(
     }
     var selectedReason by remember { mutableStateOf(preFilledDiscountReason) }
     var orderDiscounts by remember { mutableStateOf(existingOrderDiscounts) }
+    
+    // Calculate available discount amount considering discounts already added in dialog
+    val availableDiscountAmount = remember(orderDiscounts, maxDiscountAmount) {
+        var available = maxDiscountAmount
+        for (discount in orderDiscounts) {
+            available = when (discount.type) {
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                    available - (available * discount.value / 100.0)
+                }
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                    available - discount.value
+                }
+                else -> available
+            }
+            if (available < 0) available = 0.0
+        }
+        available.coerceAtLeast(0.0)
+    }
 
     val reasons = listOf(
         "Select Reason",
@@ -2302,24 +2318,51 @@ fun OrderLevelDiscountDialog(
                     onClick = {
                         val value = discountValue.toDoubleOrNull()
                         if (selectedReason != "Select Reason" && value != null && value > 0) {
-                            val newDiscount =
-                                com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
-                                    reason = selectedReason, type = discountType, value = value
+                            // Validate discount amount based on type
+                            val isValidDiscount = when (discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    // For amount type, check if discount doesn't exceed availableDiscountAmount
+                                    if (value > availableDiscountAmount) {
+                                        DialogHandler.showDialog(
+                                            "Discount amount cannot exceed $${String.format("%.2f", availableDiscountAmount)}"
+                                        )
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    // For percentage type, check if it doesn't exceed 100%
+                                    if (value > 100) {
+                                        DialogHandler.showDialog("Discount percentage cannot exceed 100%")
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                }
+                                else -> true
+                            }
+                            
+                            if (isValidDiscount) {
+                                val newDiscount =
+                                    com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
+                                        reason = selectedReason, type = discountType, value = value
+                                    )
+                                orderDiscounts = orderDiscounts + newDiscount
+
+                                // Save current values for persistence
+                                onSaveDiscountValues(
+                                    discountValue,
+                                    if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
+                                    selectedReason
                                 )
-                            orderDiscounts = orderDiscounts + newDiscount
 
-                            // Save current values for persistence
-                            onSaveDiscountValues(
-                                discountValue,
-                                if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
-                                selectedReason
-                            )
-
-                            // Reset fields
-                            discountValue = ""
-                            selectedReason = "Select Reason"
-                            discountType =
-                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                                // Reset fields
+                                discountValue = ""
+                                selectedReason = "Select Reason"
+                                discountType =
+                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                            }
                         } else {
                             DialogHandler.showDialog("Please select reason and enter value")
                         }

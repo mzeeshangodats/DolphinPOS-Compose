@@ -595,6 +595,49 @@ class HomeViewModel @Inject constructor(
         return !isCashSelected || _cashDiscountTotal.value <= 0
     }
 
+    /**
+     * Calculate the current subtotal after applying all existing order-level discounts.
+     * This is used to validate that new discounts don't exceed the available amount.
+     */
+    fun getCurrentSubtotalAfterOrderDiscounts(): Double {
+        val cartItems = _cartItems.value
+        
+        // Calculate product-level discounted subtotal
+        val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
+            val cardPrice = cartItem.cardPrice
+            val discountedPrice = when (cartItem.discountType) {
+                DiscountType.PERCENTAGE -> {
+                    cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                }
+                DiscountType.AMOUNT -> {
+                    cardPrice - (cartItem.discountValue ?: 0.0)
+                }
+                else -> cardPrice
+            }
+            discountedPrice * cartItem.quantity
+        }
+        
+        // Apply all existing order-level discounts sequentially
+        var discountedSubtotal = productDiscountedSubtotal
+        for (discount in _orderLevelDiscounts.value) {
+            discountedSubtotal = when (discount.type) {
+                DiscountType.PERCENTAGE -> {
+                    discountedSubtotal - (discountedSubtotal * discount.value / 100.0)
+                }
+                DiscountType.AMOUNT -> {
+                    discountedSubtotal - discount.value
+                }
+            }
+            // Ensure subtotal doesn't go below 0
+            if (discountedSubtotal < 0) {
+                discountedSubtotal = 0.0
+                break
+            }
+        }
+        
+        return discountedSubtotal.coerceAtLeast(0.0)
+    }
+
     fun canRemoveItemFromCart(): Boolean {
         return !isCashSelected || _cashDiscountTotal.value <= 0
     }
