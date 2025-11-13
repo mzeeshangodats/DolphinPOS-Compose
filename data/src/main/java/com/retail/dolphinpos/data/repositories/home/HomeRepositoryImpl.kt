@@ -97,8 +97,20 @@ class HomeRepositoryImpl(
     }
 
     override suspend fun searchProducts(query: String): List<Products> {
+        // Search products by name and barcode
         val productEntities = productsDao.searchProducts(query)
-        return productEntities.map { productEntity ->
+        
+        // Also search variants by SKU and get their parent products
+        val variantEntities = productsDao.searchVariantsBySku(query)
+        val variantProductIds = variantEntities.map { it.productId }.distinct()
+        val variantParentProducts = variantProductIds.mapNotNull { productId ->
+            productsDao.getProductById(productId)
+        }
+        
+        // Combine and deduplicate product entities
+        val allProductEntities = (productEntities + variantParentProducts).distinctBy { it.id }
+        
+        return allProductEntities.map { productEntity ->
             // Get product images with local paths
             val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
             

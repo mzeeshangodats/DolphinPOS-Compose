@@ -35,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.style.TextOverflow
 import com.retail.dolphinpos.common.R
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
@@ -100,6 +101,8 @@ fun HomeAppBar(
                         fontSize = 12.sp,
                         color = Color.Black
                     ),
+                    singleLine = true,
+                    maxLines = 1,
                     decorationBox = { innerTextField ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -228,7 +231,9 @@ fun HomeAppBar(
                                     .padding(vertical = 8.dp, horizontal = 12.dp),
                                 color = Color.Black,
                                 fontSize = 12.sp,
-                                fontFamily = GeneralSans
+                                fontFamily = GeneralSans,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
