@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.domain.model.home.create_order
 
+import com.retail.dolphinpos.domain.model.TaxDetail
+
 data class CreateOrderRequest(
     val orderNumber: String?,
     val invoiceNo: String? = null,
@@ -26,5 +28,8 @@ data class CreateOrderRequest(
     val voidReason: String? = null,
     val isVoid: Boolean = false,
     val transactions: List<CheckoutSplitPaymentTransactions>? = null,
-    val cardDetails: CardDetails? = null
+    val cardDetails: CardDetails? = null,
+    // Tax-related fields
+    val taxDetails: List<TaxDetail>? = null,  // Store-level default taxes breakdown
+    val taxExempt: Boolean = false
 )

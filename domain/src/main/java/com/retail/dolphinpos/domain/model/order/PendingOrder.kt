@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.domain.model.order
 
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
@@ -33,6 +34,9 @@ data class PendingOrder(
     val transactions: List<CheckoutSplitPaymentTransactions>? = null,
     val cardDetails: CardDetails? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    // Tax-related fields
+    val taxDetails: List<TaxDetail>? = emptyList(),  // Store-level default taxes breakdown
+    val taxExempt: Boolean = false
 )
 

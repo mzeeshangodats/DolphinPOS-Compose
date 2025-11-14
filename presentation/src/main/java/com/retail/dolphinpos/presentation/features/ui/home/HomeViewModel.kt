@@ -33,6 +33,10 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessT
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
+import com.retail.dolphinpos.domain.usecases.tax.PricingCalculationUseCase
+import com.retail.dolphinpos.domain.usecases.tax.DiscountOrder
+import com.retail.dolphinpos.domain.usecases.tax.PricingConfiguration
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +72,7 @@ class HomeViewModel @Inject constructor(
     private val getLatestOnlineOrderUseCase: GetLatestOnlineOrderUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
+    private val pricingCalculationUseCase: PricingCalculationUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -101,6 +106,9 @@ class HomeViewModel @Inject constructor(
 
     private val _totalAmount = MutableStateFlow(0.0)
     val totalAmount: StateFlow<Double> = _totalAmount.asStateFlow()
+
+    private val _isTaxExempt = MutableStateFlow(false)
+    val isTaxExempt: StateFlow<Boolean> = _isTaxExempt.asStateFlow()
 
     private val _categories =
         MutableStateFlow<List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData>>(
@@ -228,7 +236,8 @@ class HomeViewModel @Inject constructor(
                     cardPrice = product.cardPrice.toDouble(),
                     cashPrice = product.cashPrice.toDouble(),
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
-                    selectedPrice = product.cardPrice.toDouble()  // Always add new products at card price
+                    selectedPrice = product.cardPrice.toDouble(),  // Always add new products at card price
+                    productTaxDetails = product.taxDetails  // Include product tax details
                 )
             )
         }
@@ -269,7 +278,8 @@ class HomeViewModel @Inject constructor(
                     cardPrice = variantCardPrice,
                     cashPrice = variantCashPrice,
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
-                    selectedPrice = variantCardPrice  // Always add new products at card price
+                    selectedPrice = variantCardPrice,  // Always add new products at card price
+                    productTaxDetails = variant.taxDetails ?: product.taxDetails  // Prefer variant tax details, fallback to product
                 )
             )
         }
@@ -332,9 +342,16 @@ class HomeViewModel @Inject constructor(
         calculateSubtotal(currentList)
     }
 
+    fun toggleTaxExempt() {
+        _isTaxExempt.value = !_isTaxExempt.value
+        // Recalculate totals after toggling tax exempt status
+        calculateSubtotal(_cartItems.value)
+    }
+
     fun clearCart() {
         _cartItems.value = emptyList()
         isCashSelected = false  // Set default to card when cart is cleared
+        _isTaxExempt.value = false  // Reset tax exempt status when cart is cleared
         resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
     }
@@ -537,16 +554,66 @@ class HomeViewModel @Inject constructor(
             // 5️⃣ Apply cash discount (after order-level discounts)
             val finalSubtotal = discountedSubtotal - currentCashDiscount
 
-            // 6️⃣ Tax (only for taxable products, proportional to discount)
-            val taxableBase = cartItems.sumOf { cart ->
-                if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
+            // 6️⃣ Tax calculation using PricingCalculationUseCase (supports fixed and percentage tax)
+            var taxValue: Double
+            var updatedCartItems: List<CartItem>
+            
+            try {
+                // Get location tax details
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val location = verifyPinRepository.getLocationByLocationID(locationId)
+                val locationTaxDetails = location.taxDetails
+                
+                // Convert OrderDiscount to DiscountOrder for PricingCalculationUseCase
+                val discountOrder = if (_orderLevelDiscounts.value.isNotEmpty()) {
+                    val firstDiscount = _orderLevelDiscounts.value.first()
+                    DiscountOrder(
+                        discountType = when (firstDiscount.type) {
+                            DiscountType.PERCENTAGE -> "percentage"
+                            DiscountType.AMOUNT -> "amount"
+                        },
+                        percentage = if (firstDiscount.type == DiscountType.PERCENTAGE) firstDiscount.value else 0.0,
+                        amount = if (firstDiscount.type == DiscountType.AMOUNT) firstDiscount.value else 0.0
+                    )
+                } else null
+                
+                // Calculate tax rate from location (fallback to 10% if not available)
+                val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                
+                // Use PricingCalculationUseCase to calculate tax
+                val pricingConfig = PricingConfiguration(
+                    isTaxApplied = true,
+                    taxRate = taxRate,
+                    useCardPricing = !isCashSelected,
+                    taxDetails = locationTaxDetails,
+                    taxExempt = _isTaxExempt.value  // Use tax exempt state
+                )
+                
+                val pricingResult = pricingCalculationUseCase.calculatePricing(
+                    cartItems = cartItems,
+                    discountOrder = discountOrder,
+                    rewardAmount = 0.0, // TODO: Add reward discount if needed
+                    config = pricingConfig
+                )
+                
+                taxValue = pricingResult.tax
+                updatedCartItems = pricingResult.cartItemsWithTax
+                
+                // Update cart items with tax information
+                withContext(Dispatchers.Main) {
+                    _cartItems.value = updatedCartItems
+                }
+            } catch (e: Exception) {
+                // Fallback to simple tax calculation if PricingCalculationUseCase fails
+                val taxableBase = cartItems.sumOf { cart ->
+                    if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
+                }
+                val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0) {
+                    taxableBase * (finalSubtotal / productDiscountedSubtotal)
+                } else 0.0
+                taxValue = taxableAfterOrderDiscounts * 10 / 100.0
+                updatedCartItems = cartItems
             }
-
-            val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0) {
-                taxableBase * (finalSubtotal / productDiscountedSubtotal)
-            } else 0.0
-
-            val taxValue = taxableAfterOrderDiscounts * 10 / 100.0
 
             // 7️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
@@ -789,7 +856,11 @@ class HomeViewModel @Inject constructor(
                             DiscountType.PERCENTAGE -> "percentage"
                             else -> ""
                         },
-                        cardPrice = cartItem.cardPrice
+                        cardPrice = cartItem.cardPrice,
+                        // Include product-level tax (totalTax = productTaxAmount per item)
+                        totalTax = cartItem.productTaxAmount.takeIf { it > 0.0 },
+                        // Include tax breakdown for receipt generation (store + product taxes)
+                        appliedTaxes = cartItem.productTaxDetails?.takeIf { it.isNotEmpty() }
                     )
                 }
 
@@ -806,6 +877,36 @@ class HomeViewModel @Inject constructor(
                         merchantId = "MERCH${storeId}",
                         terminalId = "TERM${registerId}",
                     )
+                }
+
+                // Calculate store-level tax details (default taxes only) for order-level breakdown
+                val storeTaxDetails = try {
+                    val location = verifyPinRepository.getLocationByLocationID(locationId)
+                    location.taxDetails?.filter { it.isDefault == true }?.map { taxDetail ->
+                        // Calculate tax amount based on final subtotal (after all discounts)
+                        val taxAmount = when (taxDetail.type?.lowercase()) {
+                            "percentage" -> {
+                                val rate = taxDetail.value / 100.0
+                                finalSubtotal * rate
+                            }
+                            "fixed amount" -> taxDetail.value
+                            else -> {
+                                val rate = taxDetail.value / 100.0
+                                finalSubtotal * rate
+                            }
+                        }
+                        // Return taxDetail with calculated amount
+                        TaxDetail(
+                            type = taxDetail.type,
+                            title = taxDetail.title,
+                            value = taxDetail.value,
+                            amount = taxAmount,
+                            isDefault = taxDetail.isDefault,
+                            refundedTax = taxDetail.refundedTax
+                        )
+                    } ?: emptyList()
+                } catch (e: Exception) {
+                    emptyList<TaxDetail>()
                 }
 
                 // Create order request using captured values
@@ -829,7 +930,9 @@ class HomeViewModel @Inject constructor(
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
                     userId = userId,
-                    cardDetails = cardDetails
+                    cardDetails = cardDetails,
+                    taxDetails = storeTaxDetails,  // Store-level default taxes breakdown
+                    taxExempt = _isTaxExempt.value  // Use tax exempt state
                 )
 
                 // Always save to local database first (with isSynced = false, status = "pending")

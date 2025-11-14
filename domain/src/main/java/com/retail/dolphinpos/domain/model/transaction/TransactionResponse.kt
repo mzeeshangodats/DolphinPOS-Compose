@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.domain.model.transaction
 
 import com.google.gson.annotations.SerializedName
+import com.retail.dolphinpos.domain.model.TaxDetail
 
 data class TransactionResponse(
     val data: TransactionData?
@@ -45,7 +46,18 @@ data class TransactionItem(
 data class TransactionOrder(
     @SerializedName("orderNumber")
     val orderNumber: String?,
-    val source: String?
+    val source: String?,
+    @SerializedName("taxDetails")
+    val taxDetails: List<TaxDetail>? = null,  // Store-level tax breakdown
+    @SerializedName("orderItems")
+    val orderItems: List<TransactionOrderItem>? = null  // Order items with tax details
+)
+
+data class TransactionOrderItem(
+    @SerializedName("totalTax")
+    val totalTax: Double? = null,  // Product-level tax amount
+    @SerializedName("appliedTaxes")
+    val appliedTaxes: List<TaxDetail>? = null  // Product-level tax breakdown
 )
 
 data class TransactionBatch(

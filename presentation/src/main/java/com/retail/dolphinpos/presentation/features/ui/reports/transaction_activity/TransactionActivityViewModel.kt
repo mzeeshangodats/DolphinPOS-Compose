@@ -25,7 +25,8 @@ data class TransactionActivityItemData(
     val status: String,
     val amount: Double,
     val tax: Double?,
-    val createdAt: Long
+    val createdAt: Long,
+    val taxDetails: List<com.retail.dolphinpos.domain.model.TaxDetail>? = null  // Tax breakdown
 )
 
 sealed class TransactionActivityUiEvent {
@@ -133,7 +134,8 @@ class TransactionActivityViewModel @Inject constructor(
                         status = transaction.status,
                         amount = transaction.amount,
                         tax = transaction.tax,
-                        createdAt = transaction.createdAt
+                        createdAt = transaction.createdAt,
+                        taxDetails = transaction.taxDetails
                     )
                 }
 

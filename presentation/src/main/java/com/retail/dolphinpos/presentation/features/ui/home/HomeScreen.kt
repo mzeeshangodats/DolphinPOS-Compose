@@ -1548,7 +1548,8 @@ fun ProductsPanel(
             navController = navController,
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
-            onShowAddCustomerDialog = onShowAddCustomerDialog
+            onShowAddCustomerDialog = onShowAddCustomerDialog,
+            viewModel = viewModel
         )
     }
 }
@@ -1605,8 +1606,10 @@ fun ActionButtonsPanel(
     navController: NavController,
     cartItems: List<CartItem>,
     onShowOrderDiscountDialog: () -> Unit,
-    onShowAddCustomerDialog: () -> Unit
+    onShowAddCustomerDialog: () -> Unit,
+    viewModel: HomeViewModel
 ) {
+    val isTaxExempt by viewModel.isTaxExempt.collectAsStateWithLifecycle()
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -1637,9 +1640,16 @@ fun ActionButtonsPanel(
                 ActionButton("EBT", R.drawable.ebt_btn),
                 ActionButton("Rewards", R.drawable.rewards_btn),
                 ActionButton("Online Order", R.drawable.online_order_btn),
-                ActionButton("Tax Exempt", R.drawable.tax_exempt_btn)
+                ActionButton(if (isTaxExempt) "Apply Tax" else "Exempt", R.drawable.tax_exempt_btn)
             ), onActionClick = { action ->
-                showComingSoonDialog()
+                when (action) {
+                    "Exempt", "Apply Tax" -> {
+                        viewModel.toggleTaxExempt()
+                    }
+                    else -> {
+                        showComingSoonDialog()
+                    }
+                }
             })
 
         // Row 3
@@ -1701,11 +1711,22 @@ fun ActionButtonRow(
                 Box(
                     modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = button.iconRes),
-                        contentDescription = button.label,
-                        contentScale = ContentScale.Fit
-                    )
+                    // Show text for tax exempt button, image for others
+                    if (button.label == "Exempt" || button.label == "Apply Tax") {
+                        BaseText(
+                            text = button.label,
+                            color = Color.Black,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = button.iconRes),
+                            contentDescription = button.label,
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
             }
         }

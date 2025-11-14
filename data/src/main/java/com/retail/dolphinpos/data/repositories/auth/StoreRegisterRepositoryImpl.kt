@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.repositories.auth
 
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.products.CachedImageEntity
@@ -37,6 +38,7 @@ class StoreRegisterRepositoryImpl(
     private val userDao: UserDao,
     private val productsDao: ProductsDao,
     private val imageDownloadService: ImageDownloadService,
+    private val gson: Gson
 ) : StoreRegistersRepository {
 
     override suspend fun updateStoreRegister(updateStoreRegisterRequest: UpdateStoreRegisterRequest): UpdateStoreRegisterResponse {
@@ -109,7 +111,7 @@ class StoreRegisterRepositoryImpl(
 
     override suspend fun getLocations(storeID: Int): List<Locations> {
         val locationEntities = userDao.getLocationsByStoreId(storeID)
-        return UserMapper.toLocationsAgainstStoreID(locationEntities)
+        return UserMapper.toLocationsAgainstStoreID(locationEntities, gson)
     }
 
     override suspend fun getRegistersByLocationID(locationID: Int): List<Registers> {

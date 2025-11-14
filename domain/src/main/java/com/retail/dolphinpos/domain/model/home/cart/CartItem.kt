@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.domain.model.home.cart
 
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.home.catrgories_products.VariantImage
 
 data class CartItem(
@@ -29,6 +30,11 @@ data class CartItem(
     val discountType: DiscountType? = null,
     val discountValue: Double? = 0.0,
     var cashDiscountedPrice: Double = 0.0,
+    // Tax-related fields for product-level tax calculation
+    val productTaxDetails: List<TaxDetail>? = null,
+    var productTaxAmount: Double = 0.0,
+    var productTaxRate: Double = 0.0,
+    var productTaxableAmount: Double = 0.0
 )
 enum class DiscountType {
     PERCENTAGE, AMOUNT
@@ -60,3 +66,10 @@ fun CartItem.getProductDiscountAmount(): Double {
         else -> 0.0
     }
 }
+
+// Extension properties for PricingCalculationUseCase compatibility
+val CartItem.applyTax: Boolean
+    get() = chargeTaxOnThisProduct ?: true
+
+val CartItem.price: Double?
+    get() = cardPrice.takeIf { it > 0.0 }

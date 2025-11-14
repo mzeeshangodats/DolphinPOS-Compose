@@ -1,5 +1,8 @@
 package com.retail.dolphinpos.data.mapper
 
+import com.google.gson.Gson
+import com.google.gson.JsonSyntaxException
+import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.entities.user.ActiveUserDetailsEntity
 import com.retail.dolphinpos.data.entities.user.BatchEntity
 import com.retail.dolphinpos.data.entities.user.LocationEntity
@@ -8,6 +11,7 @@ import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
 import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.batch.Batch
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
@@ -16,6 +20,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.Registers
 import com.retail.dolphinpos.domain.model.auth.login.response.Store
 import com.retail.dolphinpos.domain.model.auth.login.response.StoreLogoUrl
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.updateRegister.UpdateStoreRegisterData
+import java.lang.reflect.Type
 
 object UserMapper {
 
@@ -64,7 +69,10 @@ object UserMapper {
         )
     }
 
-    fun toLocationEntity(storeID: Int, location: Locations): LocationEntity {
+    fun toLocationEntity(storeID: Int, location: Locations, gson: Gson? = null): LocationEntity {
+        val taxDetailsJson = location.taxDetails?.let { taxDetails ->
+            gson?.toJson(taxDetails) ?: null
+        }
         return LocationEntity(
             id = location.id,
             storeID = storeID,
@@ -74,6 +82,7 @@ object UserMapper {
             zipCode = location.zipCode,
             taxValue = location.taxValue,
             taxTitle = location.taxTitle,
+            taxDetails = taxDetailsJson,
             startTime = location.startTime,
             endTime = location.endTime,
             multiCashier = location.multiCashier
@@ -173,7 +182,8 @@ object UserMapper {
         storeEntity: StoreEntity,
         storeLogoUrlEntity: StoreLogoUrlEntity?,
         locationEntities: List<LocationEntity>,
-        registerEntities: List<RegisterEntity>
+        registerEntities: List<RegisterEntity>,
+        gson: Gson? = null
     ): Store {
         return Store(
             id = storeEntity.id,
@@ -184,7 +194,7 @@ object UserMapper {
             advertisementImg = storeEntity.advertisementImg,
             isAdvertisement = storeEntity.isAdvertisement,
             logoUrl = toStoreLogoUrl(storeLogoUrlEntity),
-            locations = toLocations(locationEntities, registerEntities)
+            locations = toLocations(locationEntities, registerEntities, gson)
         )
     }
 
@@ -198,9 +208,11 @@ object UserMapper {
 
     fun toLocations(
         locationEntities: List<LocationEntity>,
-        registerEntities: List<RegisterEntity>
+        registerEntities: List<RegisterEntity>,
+        gson: Gson? = null
     ): List<Locations> {
         return locationEntities.map { location ->
+            val taxDetails = decodeTaxDetails(location.taxDetails, gson)
             Locations(
                 id = location.id,
                 name = location.name,
@@ -209,6 +221,7 @@ object UserMapper {
                 zipCode = location.zipCode,
                 taxValue = location.taxValue,
                 taxTitle = location.taxTitle,
+                taxDetails = taxDetails,
                 startTime = location.startTime,
                 endTime = location.endTime,
                 multiCashier = location.multiCashier,
@@ -228,8 +241,9 @@ object UserMapper {
         )
     }
 
-    fun toLocationsAgainstStoreID(entities: List<LocationEntity>): List<Locations> {
+    fun toLocationsAgainstStoreID(entities: List<LocationEntity>, gson: Gson? = null): List<Locations> {
         return entities.map { entity ->
+            val taxDetails = decodeTaxDetails(entity.taxDetails, gson)
             Locations(
                 id = entity.id,
                 name = entity.name,
@@ -238,6 +252,7 @@ object UserMapper {
                 zipCode = entity.zipCode,
                 taxValue = entity.taxValue,
                 taxTitle = entity.taxTitle,
+                taxDetails = taxDetails,
                 startTime = entity.startTime,
                 endTime = entity.endTime,
                 multiCashier = entity.multiCashier,
@@ -275,7 +290,8 @@ object UserMapper {
         )
     }
 
-    fun toLocationAgainstLocationID(locationEntity: LocationEntity): Locations {
+    fun toLocationAgainstLocationID(locationEntity: LocationEntity, gson: Gson? = null): Locations {
+        val taxDetails = decodeTaxDetails(locationEntity.taxDetails, gson)
         return Locations(
             id = locationEntity.id,
             name = locationEntity.name,
@@ -284,6 +300,7 @@ object UserMapper {
             zipCode = locationEntity.zipCode,
             taxValue = locationEntity.taxValue,
             taxTitle = locationEntity.taxTitle,
+            taxDetails = taxDetails,
             startTime = locationEntity.startTime,
             endTime = locationEntity.endTime,
             multiCashier = locationEntity.multiCashier,
@@ -358,5 +375,19 @@ object UserMapper {
             locationId = batchEntity.locationId,
             startingCashAmount = batchEntity.startingCashAmount
         )
+    }
+
+    // -------------------------
+    // Helper functions for TaxDetails
+    // -------------------------
+
+    private fun decodeTaxDetails(json: String?, gson: Gson?): List<TaxDetail>? {
+        if (json.isNullOrBlank() || gson == null) return null
+        return try {
+            val type: Type = object : TypeToken<List<TaxDetail>>() {}.type
+            gson.fromJson<List<TaxDetail>>(json, type)
+        } catch (e: JsonSyntaxException) {
+            null
+        }
     }
 }

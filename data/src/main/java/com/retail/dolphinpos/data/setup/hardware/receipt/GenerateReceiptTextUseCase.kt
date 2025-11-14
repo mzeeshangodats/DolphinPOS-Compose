@@ -13,7 +13,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
     //private val pricingCalculationUseCase: PricingCalculationUseCase,
     //private val generateSplitPaymentReceiptTextUseCase: GenerateSplitPaymentReceiptTextUseCase
 ) {
-    
+
     companion object {
         private const val TAG = "GenerateReceiptTextUseCase"
     }
@@ -656,7 +656,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
      * - Tax name starts on the left
      * - Tax value aligned to the right
      * - If tax name is too long, it wraps to next line but value stays on the right
-     * 
+     *
      * Receipt width: 40 characters
      * Format: "Tax Name:                  $10.00"
      */
@@ -682,7 +682,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 }
                 val lastLine = lines.last()
                 val padding = receiptWidth - lastLine.length - valueWidth
-                result.append(String.format(Locale.US, "%s%s%s\n", lastLine, " ".repeat(padding), taxValue))
+                result.append(
+                    String.format(
+                        Locale.US,
+                        "%s%s%s\n",
+                        lastLine,
+                        " ".repeat(padding),
+                        taxValue
+                    )
+                )
                 result.toString()
             }
         }
@@ -693,11 +701,11 @@ class GenerateReceiptTextUseCase @Inject constructor(
      */
     private fun wrapText(text: String, maxWidth: Int): String {
         if (text.length <= maxWidth) return text
-        
+
         val result = StringBuilder()
         var currentLine = ""
         val words = text.split(" ")
-        
+
         for (word in words) {
             if (currentLine.isEmpty()) {
                 currentLine = word
@@ -708,18 +716,18 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 currentLine = word
             }
         }
-        
+
         if (currentLine.isNotEmpty()) {
             result.append(currentLine)
         }
-        
+
         return result.toString()
     }
 
     private fun formatCurrency(value: Double): String =
         "$" + String.format(Locale.US, "%.2f", value)
- 
-     private fun formatNegativeCurrency(value: Double): String =
+
+    private fun formatNegativeCurrency(value: Double): String =
         "-" + formatCurrency(value)
 
     private fun formatLine(label: String, value: String, labelWidth: Int = 26): String {
@@ -732,18 +740,27 @@ class GenerateReceiptTextUseCase @Inject constructor(
         order: PendingOrder,
         isReceiptForRefund: Boolean = false
     ): String {
-        Log.d(TAG, "generatePendingOrderReceipt: Starting receipt generation for order: ${order.orderNumber}")
-        
+        Log.d(
+            TAG,
+            "generatePendingOrderReceipt: Starting receipt generation for order: ${order.orderNumber}"
+        )
+
         return try {
             val store = getStoreDetailsFromLocalUseCase()
             val storeName = store?.name ?: ""
             val storeLocation = store?.address ?: ""
             val storePolicy = store?.policy ?: ""
-            
-            Log.d(TAG, "generatePendingOrderReceipt: Store details - Name: $storeName, Location: $storeLocation")
+
+            Log.d(
+                TAG,
+                "generatePendingOrderReceipt: Store details - Name: $storeName, Location: $storeLocation"
+            )
 
             val isCashPayment = order.paymentMethod.equals("CASH", ignoreCase = true)
-            Log.d(TAG, "generatePendingOrderReceipt: Payment method: ${order.paymentMethod}, IsCash: $isCashPayment")
+            Log.d(
+                TAG,
+                "generatePendingOrderReceipt: Payment method: ${order.paymentMethod}, IsCash: $isCashPayment"
+            )
 
             // Format date and time from timestamp
             val dateFormat = SimpleDateFormat("MM/dd/yyyy", Locale.getDefault())
@@ -806,7 +823,10 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             price * quantity
                         }
 
-                        Log.d(TAG, "generatePendingOrderReceipt: Item $index - Name: $itemName, Qty: $quantity, Price: $price, Total: $itemTotal")
+                        Log.d(
+                            TAG,
+                            "generatePendingOrderReceipt: Item $index - Name: $itemName, Qty: $quantity, Price: $price, Total: $itemTotal"
+                        )
 
                         // Format item entry
                         val itemNameFormatted = if (itemName.length > 26) {
@@ -846,20 +866,122 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
                 // Cash discount
                 if (isCashPayment && order.cashDiscountAmount > 0.0) {
-                    Log.d(TAG, "generatePendingOrderReceipt: Cash discount: ${order.cashDiscountAmount}")
-                    append(formatLine("Cash Discount", formatNegativeCurrency(order.cashDiscountAmount)))
+                    Log.d(
+                        TAG,
+                        "generatePendingOrderReceipt: Cash discount: ${order.cashDiscountAmount}"
+                    )
+                    append(
+                        formatLine(
+                            "Cash Discount",
+                            formatNegativeCurrency(order.cashDiscountAmount)
+                        )
+                    )
                 }
 
                 // Order discount
                 if (order.discountAmount > 0.0) {
-                    Log.d(TAG, "generatePendingOrderReceipt: Order discount: ${order.discountAmount}")
+                    Log.d(
+                        TAG,
+                        "generatePendingOrderReceipt: Order discount: ${order.discountAmount}"
+                    )
                     append(formatLine("Discount", formatNegativeCurrency(order.discountAmount)))
                 }
 
-                // Tax
+                // Tax breakdown
                 if (order.taxValue > 0.0) {
                     Log.d(TAG, "generatePendingOrderReceipt: Tax: ${order.taxValue}")
-                    append(formatLine("Tax", formatCurrency(order.taxValue)))
+
+                    // Aggregate all taxes from orderItems.appliedTaxes (which includes both store and product taxes)
+                    // This ensures we use the actual calculated tax amounts per item, avoiding double-counting
+                    val taxMap = mutableMapOf<String, Double>()
+
+                    order.items.forEach { orderItem ->
+                        orderItem.appliedTaxes?.forEach { taxDetail ->
+                            // Use the amount from taxDetail if available (pre-calculated per item)
+                            // Otherwise calculate based on item price and quantity
+                            val taxAmount = taxDetail.amount ?: when (taxDetail.type?.lowercase()) {
+                                "percentage" -> {
+                                    val rate = taxDetail.value / 100.0
+                                    val itemPrice =
+                                        orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                    itemPrice * (orderItem.quantity ?: 1) * rate
+                                }
+
+                                "fixed amount" -> taxDetail.value * (orderItem.quantity ?: 1)
+                                else -> {
+                                    val rate = taxDetail.value / 100.0
+                                    val itemPrice =
+                                        orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                    itemPrice * (orderItem.quantity ?: 1) * rate
+                                }
+                            }
+
+                            val taxValue = taxDetail.value
+                            val taxType = taxDetail.type ?: "Percentage"
+                            val taxDescription = when (taxType.lowercase()) {
+                                "percentage" -> "${taxDetail.title} ($taxValue%)"
+                                "fixed amount" -> "${taxDetail.title} ($$taxValue)"
+                                else -> "${taxDetail.title} ($taxValue%)"
+                            }
+                            // Aggregate taxes by description (same tax from multiple items will be summed)
+                            taxMap[taxDescription] = (taxMap[taxDescription] ?: 0.0) + taxAmount
+                        }
+                    }
+
+                    // If no item-level taxes, try using order-level taxDetails as fallback
+                    if (taxMap.isEmpty() && order.taxDetails != null
+                        && (order.taxDetails?.isNotEmpty() ?: false)
+                    ) {
+                        order.taxDetails.let {
+                            it?.forEach { taxDetail ->
+                                val taxAmount =
+                                    taxDetail.amount ?: when (taxDetail.type?.lowercase()) {
+                                        "percentage" -> {
+                                            val rate = taxDetail.value / 100.0
+                                            order.subTotal * rate
+                                        }
+
+                                        "fixed amount" -> taxDetail.value
+                                        else -> {
+                                            val rate = taxDetail.value / 100.0
+                                            order.subTotal * rate
+                                        }
+                                    }
+
+                                val taxValue = taxDetail.value
+                                val taxType = taxDetail.type ?: "Percentage"
+                                val taxDescription = when (taxType.lowercase()) {
+                                    "percentage" -> "${taxDetail.title} ($taxValue%)"
+                                    "fixed amount" -> "${taxDetail.title} ($$taxValue)"
+                                    else -> "${taxDetail.title} ($taxValue%)"
+                                }
+                                taxMap[taxDescription] = (taxMap[taxDescription] ?: 0.0) + taxAmount
+                            }
+                        }
+                    }
+
+                    // Display tax breakdown if available, otherwise show simple tax
+                    if (taxMap.isNotEmpty()) {
+                        append("\n")
+                        append("TAX BREAKDOWN:\n")
+                        taxMap.forEach { (description, amount) ->
+                            val formattedAmount = if (isReceiptForRefund) {
+                                formatNegativeCurrency(amount)
+                            } else {
+                                formatCurrency(amount)
+                            }
+                            // Use formatLine for consistent alignment
+                            val descriptionFormatted = if (description.length > 26) {
+                                description.take(23) + "..."
+                            } else {
+                                description
+                            }
+                            append(formatLine(descriptionFormatted, formattedAmount))
+                        }
+                    } else {
+                        // Fallback to simple tax display
+                        append(formatLine("Tax", formatCurrency(order.taxValue)))
+                    }
                 }
 
                 append(createStraightLine())
@@ -902,7 +1024,10 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 append("Thank you for your business!\n")
                 append("\n\n")
             }.also {
-                Log.d(TAG, "generatePendingOrderReceipt: Receipt text generated successfully, length: ${it.length}")
+                Log.d(
+                    TAG,
+                    "generatePendingOrderReceipt: Receipt text generated successfully, length: ${it.length}"
+                )
             }
         } catch (e: Exception) {
             Log.e(TAG, "generatePendingOrderReceipt: Error generating receipt text", e)

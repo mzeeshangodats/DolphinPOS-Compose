@@ -220,9 +220,37 @@ fun TransactionActivityItem(transaction: TransactionActivityItemData) {
 
             InfoRow("Amount:", "$${String.format("%.2f", transaction.amount)}")
             InfoRow("Payment Method:", transaction.paymentMethod.value.uppercase())
-            transaction.tax?.let {
-                InfoRow("Tax:", "$${String.format("%.2f", it)}")
+            
+            // Tax breakdown or single tax value
+            if (transaction.taxDetails != null && transaction.taxDetails.isNotEmpty()) {
+                // Show tax breakdown
+                BaseText(
+                    text = "Tax Breakdown:",
+                    fontSize = 14f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black
+                )
+                transaction.taxDetails.forEach { taxDetail ->
+                    val taxDescription = when (taxDetail.type?.lowercase()) {
+                        "percentage" -> "${taxDetail.title} (${taxDetail.value}%)"
+                        "fixed amount" -> "${taxDetail.title} ($${taxDetail.value})"
+                        else -> "${taxDetail.title} (${taxDetail.value}%)"
+                    }
+                    // Use taxDetail.amount if available, otherwise show 0.00
+                    val taxAmount = taxDetail.amount ?: 0.0
+                    InfoRow(
+                        label = taxDescription,
+                        value = "$${String.format("%.2f", taxAmount)}"
+                    )
+                }
+            } else {
+                // Fallback to single tax value
+                transaction.tax?.let {
+                    InfoRow("Tax:", "$${String.format("%.2f", it)}")
+                }
             }
+            
             InfoRow("Date:", formatTimestamp(transaction.createdAt))
         }
     }

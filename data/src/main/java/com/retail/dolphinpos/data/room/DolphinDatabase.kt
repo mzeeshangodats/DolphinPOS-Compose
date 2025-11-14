@@ -47,7 +47,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class],
-    version = 8,
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -77,7 +77,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -288,6 +288,28 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_order_no ON transactions(order_no)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_status ON transactions(status)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_invoice_no ON transactions(invoice_no)")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add tax_details column to store_locations table
+                db.execSQL("ALTER TABLE store_locations ADD COLUMN tax_details TEXT")
+            }
+        }
+
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add tax_details and tax_exempt columns to pending_orders table
+                db.execSQL("ALTER TABLE pending_orders ADD COLUMN tax_details TEXT")
+                db.execSQL("ALTER TABLE pending_orders ADD COLUMN tax_exempt INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add tax_details column to transactions table
+                db.execSQL("ALTER TABLE transactions ADD COLUMN tax_details TEXT")
             }
         }
 

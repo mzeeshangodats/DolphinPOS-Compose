@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.repositories.auth
 
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
@@ -13,7 +14,7 @@ import com.retail.dolphinpos.domain.model.auth.login.response.StoreLogoUrl
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
 
 class LoginRepositoryImpl(
-    private val api: ApiService, private val userDao: UserDao
+    private val api: ApiService, private val userDao: UserDao, private val gson: Gson
 ) : LoginRepository {
 
     override suspend fun login(request: LoginRequest): LoginResponse {
@@ -82,7 +83,7 @@ class LoginRepositoryImpl(
         try {
             locationsList.forEach { location ->
                 // Save location only (registers will be fetched from API when needed)
-                val locationEntity = UserMapper.toLocationEntity(storeID, location)
+                val locationEntity = UserMapper.toLocationEntity(storeID, location, gson)
                 userDao.insertLocations(locationEntity)
             }
 

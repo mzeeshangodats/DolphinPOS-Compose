@@ -44,7 +44,9 @@ class PendingOrderRepositoryImpl(
             userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
-            isSynced = false
+            isSynced = false,
+            taxDetails = orderRequest.taxDetails?.let { gson.toJson(it) },
+            taxExempt = orderRequest.taxExempt
         )
         return pendingOrderDao.insertPendingOrder(orderEntity)
     }
@@ -92,6 +94,7 @@ class PendingOrderRepositoryImpl(
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
+        val taxDetailsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.TaxDetail>>() {}.type
 
         return CreateOrderRequest(
             orderNumber = entity.orderNumber,
@@ -119,7 +122,9 @@ class PendingOrderRepositoryImpl(
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
             transactions = entity.transactions?.let { gson.fromJson<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>(it, transactionsType) },
-            cardDetails = entity.cardDetails?.let { gson.fromJson<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>(it, cardDetailsType) }
+            cardDetails = entity.cardDetails?.let { gson.fromJson<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>(it, cardDetailsType) },
+            taxDetails = entity.taxDetails?.let { gson.fromJson<List<com.retail.dolphinpos.domain.model.TaxDetail>>(it, taxDetailsType) },
+            taxExempt = entity.taxExempt
         )
     }
 
@@ -145,6 +150,7 @@ class PendingOrderRepositoryImpl(
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
+        val taxDetailsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.TaxDetail>>() {}.type
 
         val items: List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem> =
             gson.fromJson<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>(entity.items, itemsType)
@@ -157,6 +163,9 @@ class PendingOrderRepositoryImpl(
         }
         val cardDetails: com.retail.dolphinpos.domain.model.home.create_order.CardDetails? = entity.cardDetails?.let {
             gson.fromJson<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>(it, cardDetailsType)
+        }
+        val taxDetails: List<com.retail.dolphinpos.domain.model.TaxDetail>? = entity.taxDetails?.let {
+            gson.fromJson(it, taxDetailsType)
         }
 
         return PendingOrder(
@@ -188,7 +197,9 @@ class PendingOrderRepositoryImpl(
             transactions = transactions,
             cardDetails = cardDetails,
             createdAt = entity.createdAt,
-            isSynced = entity.isSynced
+            isSynced = entity.isSynced,
+            taxDetails = taxDetails,
+            taxExempt = entity.taxExempt
         )
     }
 }
