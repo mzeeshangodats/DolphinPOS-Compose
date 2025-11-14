@@ -163,12 +163,12 @@ class VerifyPinViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { resp ->
                         // Toggle local status
-//                        if (slug == "check-in") {
-//                            preferenceManager.setClockInStatus(true)
-//                            preferenceManager.setClockInTime(System.currentTimeMillis())
-//                        } else {
-//                            preferenceManager.clockOut()
-//                        }
+                        if (slug == "check-in") {
+                            preferenceManager.setClockInStatus(true)
+                            preferenceManager.setClockInTime(System.currentTimeMillis())
+                        } else {
+                            preferenceManager.clockOut()
+                        }
                         // Show message
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(resp.message, true))
                     },
@@ -176,6 +176,13 @@ class VerifyPinViewModel @Inject constructor(
                         val msg = err.message
                         if (msg == "OFFLINE_QUEUED") {
                             val action = if (slug == "check-in") "in" else "out"
+                            // Set clock-in status even when offline (for check-in)
+                            if (slug == "check-in") {
+                                preferenceManager.setClockInStatus(true)
+                                preferenceManager.setClockInTime(System.currentTimeMillis())
+                            } else {
+                                preferenceManager.clockOut()
+                            }
                             _verifyPinUiEvent.emit(
                                 VerifyPinUiEvent.ShowDialog(
                                     "Your clock $action request has been queued successfully. " +

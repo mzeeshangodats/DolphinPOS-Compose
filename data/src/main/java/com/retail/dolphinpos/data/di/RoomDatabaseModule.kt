@@ -9,6 +9,7 @@ import com.retail.dolphinpos.data.dao.OnlineOrderDao
 import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.PendingOrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
+import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
 import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
@@ -117,6 +118,11 @@ object RoomDatabaseModule {
     @Provides
     fun provideOrderDao(database: DolphinDatabase): OrderDao {
         return database.orderDao()
+    }
+
+    @Provides
+    fun provideBatchReportDao(database: DolphinDatabase): BatchReportDao {
+        return database.batchReportDao()
     }
 
     @Provides

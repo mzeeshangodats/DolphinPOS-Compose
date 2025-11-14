@@ -1,6 +1,8 @@
 package com.retail.dolphinpos.data.di
 
 import android.content.Context
+import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
@@ -104,9 +106,11 @@ object RepositoryModule {
     @Singleton
     fun provideBatchReportRepository(
         apiService: ApiService,
-        userDao: UserDao
+        userDao: UserDao,
+        batchReportDao: BatchReportDao,
+        networkMonitor: NetworkMonitor
     ): BatchReportRepository {
-        return BatchReportRepositoryImpl(apiService, userDao)
+        return BatchReportRepositoryImpl(apiService, userDao, batchReportDao, networkMonitor)
     }
 
 }

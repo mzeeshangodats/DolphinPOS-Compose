@@ -8,6 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
+import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
 import com.retail.dolphinpos.data.dao.OnlineOrderDao
@@ -31,6 +32,7 @@ import com.retail.dolphinpos.data.entities.products.ProductsEntity
 import com.retail.dolphinpos.data.entities.products.VariantImagesEntity
 import com.retail.dolphinpos.data.entities.products.VariantsEntity
 import com.retail.dolphinpos.data.entities.products.VendorEntity
+import com.retail.dolphinpos.data.entities.report.BatchReportEntity
 import com.retail.dolphinpos.data.entities.user.ActiveUserDetailsEntity
 import com.retail.dolphinpos.data.entities.user.BatchEntity
 import com.retail.dolphinpos.data.entities.user.LocationEntity
@@ -46,8 +48,8 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
-        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class],
-    version = 8,
+        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class],
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -62,6 +64,7 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun orderDao(): OrderDao
     abstract fun createOrderTransactionDao(): CreateOrderTransactionDao
     abstract fun transactionDao(): TransactionDao
+    abstract fun batchReportDao(): BatchReportDao
 
     companion object {
         @Volatile
@@ -77,7 +80,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -288,6 +291,55 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_order_no ON transactions(order_no)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_status ON transactions(status)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_invoice_no ON transactions(invoice_no)")
+            }
+        }
+
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create batch_report table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS batch_report (
+                        batchNo TEXT PRIMARY KEY NOT NULL,
+                        closed TEXT,
+                        closedBy INTEGER NOT NULL,
+                        closingCashAmount REAL NOT NULL,
+                        closingTime TEXT,
+                        createdAt TEXT,
+                        id INTEGER NOT NULL,
+                        locationId INTEGER NOT NULL,
+                        openTime TEXT,
+                        opened TEXT,
+                        openedBy INTEGER NOT NULL,
+                        payInCard TEXT,
+                        payInCash TEXT,
+                        payOutCard TEXT,
+                        payOutCash TEXT,
+                        startingCashAmount REAL NOT NULL,
+                        status TEXT,
+                        storeId INTEGER NOT NULL,
+                        storeRegisterId INTEGER NOT NULL,
+                        totalAbandonOrders INTEGER NOT NULL,
+                        totalAmount TEXT,
+                        totalCardAmount TEXT,
+                        totalCashAmount TEXT,
+                        totalCashDiscount TEXT,
+                        totalDiscount TEXT,
+                        totalOnlineSales TEXT,
+                        totalPayIn TEXT,
+                        totalPayOut TEXT,
+                        totalRewardDiscount TEXT,
+                        totalSales TEXT,
+                        totalTax TEXT,
+                        totalTip INTEGER NOT NULL,
+                        totalTipCard INTEGER NOT NULL,
+                        totalTipCash INTEGER NOT NULL,
+                        totalTransactions INTEGER NOT NULL,
+                        updatedAt TEXT
+                    )
+                """.trimIndent())
+                
+                // Create index on batchNo for faster lookups
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_report_batch_no ON batch_report(batchNo)")
             }
         }
 

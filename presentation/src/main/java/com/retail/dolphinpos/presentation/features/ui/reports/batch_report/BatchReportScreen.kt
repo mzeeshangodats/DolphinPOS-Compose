@@ -131,7 +131,7 @@ fun BatchReportContent(
                     .padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 batchReport?.let { report ->
-                    // Batch Information Card
+                    // Batch Report Card - Showing only requested fields
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -143,7 +143,7 @@ fun BatchReportContent(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             BaseText(
-                                text = "Batch Information",
+                                text = "Batch Report",
                                 fontSize = 18f,
                                 fontFamily = GeneralSans,
                                 fontWeight = FontWeight.Bold,
@@ -156,209 +156,22 @@ fun BatchReportContent(
                                 thickness = 1.dp
                             )
 
-                            InfoRow("Batch Number", report.batchNo)
+                            InfoRow("Batch No", report.batchNo)
                             InfoRow("Status", report.status ?: "N/A")
-//                            InfoRow("ID", report.id.toString())
-//                            InfoRow("Store ID", report.storeId.toString())
-//                            InfoRow("Location ID", report.locationId.toString())
-//                            InfoRow("Register ID", report.storeRegisterId.toString())
-                            InfoRow("Opened By", report.opened?.name ?: "N/A")
-//                            InfoRow("Opened By ID", report.openedBy.toString())
-                            InfoRow("Closed By", report.closed?.name ?: "N/A")
-//                            InfoRow("Closed By ID", report.closedBy.toString())
-                            InfoRow("Open Time", report.openTime ?: "N/A")
-                            InfoRow("Closing Time", report.closingTime ?: "N/A")
-                            InfoRow("Created At", report.createdAt ?: "N/A")
-                            InfoRow("Updated At", report.updatedAt ?: "N/A")
-                        }
-                    }
-
-                    // Cash Information Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Cash Information",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow(
-                                "Starting Cash Amount",
-                                formatCurrency(report.startingCashAmount.toDouble())
-                            )
-                            InfoRow(
-                                "Closing Cash Amount",
-                                formatCurrency(report.closingCashAmount.toDouble())
-                            )
-                            InfoRow(
-                                "Total Cash Amount",
-                                formatCurrencyString(report.totalCashAmount)
-                            )
-                            InfoRow(
-                                "Total Cash Discount",
-                                formatCurrencyString(report.totalCashDiscount)
-                            )
-                            InfoRow("Pay In Cash", formatCurrencyAny(report.payInCash))
-                            InfoRow("Pay Out Cash", formatCurrencyAny(report.payOutCash))
-                            InfoRow(
-                                "Total Tip Cash",
-                                formatCurrency(report.totalTipCash.toDouble())
-                            )
-                        }
-                    }
-
-                    // Card Information Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Card Information",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow(
-                                "Total Card Amount",
-                                formatCurrencyString(report.totalCardAmount)
-                            )
-                            InfoRow("Pay In Card", formatCurrencyAny(report.payInCard))
-                            InfoRow("Pay Out Card", formatCurrencyAny(report.payOutCard))
-                            InfoRow(
-                                "Total Tip Card",
-                                formatCurrency(report.totalTipCard.toDouble())
-                            )
-                        }
-                    }
-
-                    // Sales Summary Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Sales Summary",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow("Total Amount", formatCurrencyString(report.totalAmount))
+                            InfoRow("Start Amount", formatCurrency(report.startingCashAmount.toDouble()))
+                            InfoRow("End Amount", formatCurrency(report.closingCashAmount.toDouble()))
+                            InfoRow("Cash", formatCurrencyString(report.totalCashAmount))
+                            InfoRow("Card", formatCurrencyString(report.totalCardAmount))
+                            InfoRow("Online Sales", formatCurrencyString(report.totalOnlineSales))
+                            InfoRow("Discount", formatCurrencyString(report.totalDiscount))
+                            InfoRow("Tax", formatCurrencyString(report.totalTax))
+                            InfoRow("PayIn", formatCurrencyAny(report.totalPayIn))
+                            InfoRow("PayOut", formatCurrencyAny(report.totalPayOut))
+                            InfoRow("Refund", "$0.00") // Refund field - set to 0.00 if not available
+                            InfoRow("Service Charges", formatCurrency(report.totalTip.toDouble()))
                             InfoRow("Total Sales", formatCurrencyAny(report.totalSales))
-                            InfoRow(
-                                "Total Online Sales",
-                                formatCurrencyString(report.totalOnlineSales)
-                            )
-                            InfoRow("Total Discount", formatCurrencyString(report.totalDiscount))
-                            InfoRow(
-                                "Total Reward Discount",
-                                formatCurrencyString(report.totalRewardDiscount)
-                            )
-                            InfoRow("Total Tax", formatCurrencyString(report.totalTax))
-                            InfoRow("Total Tip", formatCurrency(report.totalTip.toDouble()))
-                        }
-                    }
-
-                    // Transactions & Orders Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Transactions & Orders",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow("Total Transactions", report.totalTransactions.toString())
-                            InfoRow("Total Abandon Orders", report.totalAbandonOrders.toString())
-                        }
-                    }
-
-                    // Pay In/Out Summary Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Pay In/Out Summary",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow("Total Pay In", formatCurrencyAny(report.totalPayIn))
-                            InfoRow("Total Pay Out", formatCurrencyAny(report.totalPayOut))
+                            InfoRow("Abandon Carts", report.totalAbandonOrders.toString())
+                            InfoRow("Transactions", report.totalTransactions.toString())
                         }
                     }
 

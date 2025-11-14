@@ -156,20 +156,17 @@ fun HomeAppBar(
                             lineHeight = 12.sp
                         )
                         
-                        // Clock-in status
-                        Text(
-                            text = if (isClockedIn && clockInTime > 0L) {
-                                val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
-                                "Clocked in: ${timeFormat.format(Date(clockInTime))}"
-                            } else {
-                                "No CheckIn"
-                            },
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontFamily = GeneralSans,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                            lineHeight = 10.sp
-                        )
+                        // Check-in time
+                        if (isClockedIn && clockInTime > 0L) {
+                            Text(
+                                text = "Clock In: ${SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(clockInTime))}",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontFamily = GeneralSans,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                                lineHeight = 10.sp
+                            )
+                        }
                     }
                 }
                 
