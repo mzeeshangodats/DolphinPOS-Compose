@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import java.util.Calendar
@@ -1549,7 +1550,7 @@ fun ProductsPanel(
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
             onShowAddCustomerDialog = onShowAddCustomerDialog,
-            viewModel = viewModel
+            viewModel = viewModel()
         )
     }
 }
@@ -1700,13 +1701,20 @@ fun ActionButtonRow(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEach { button ->
+            // Use primary color background for exempt button (like split button), light grey for others
+            val backgroundColor = if (button.label == "Exempt" || button.label == "Apply Tax") {
+                colorResource(id = R.color.primary)
+            } else {
+                colorResource(id = R.color.light_grey)
+            }
+            
             Card(
                 onClick = { onActionClick(button.label) },
                 modifier = Modifier
                     .weight(1f)
                     .height(60.dp),
                 shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
+                colors = CardDefaults.cardColors(containerColor = backgroundColor)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
@@ -1715,7 +1723,7 @@ fun ActionButtonRow(
                     if (button.label == "Exempt" || button.label == "Apply Tax") {
                         BaseText(
                             text = button.label,
-                            color = Color.Black,
+                            color = Color.White,
                             fontSize = 12f,
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold

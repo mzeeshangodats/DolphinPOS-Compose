@@ -37,6 +37,8 @@ import com.retail.dolphinpos.domain.usecases.tax.PricingCalculationUseCase
 import com.retail.dolphinpos.domain.usecases.tax.DiscountOrder
 import com.retail.dolphinpos.domain.usecases.tax.PricingConfiguration
 import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.cart.applyTax
+import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -343,7 +345,12 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleTaxExempt() {
-        _isTaxExempt.value = !_isTaxExempt.value
+        val newValue = !_isTaxExempt.value
+        android.util.Log.d("HomeViewModel", "=== TAX EXEMPT TOGGLE ===")
+        android.util.Log.d("HomeViewModel", "Previous state: ${_isTaxExempt.value}")
+        android.util.Log.d("HomeViewModel", "New state: $newValue")
+        _isTaxExempt.value = newValue
+        android.util.Log.d("HomeViewModel", "Recalculating totals with tax exempt: $newValue")
         // Recalculate totals after toggling tax exempt status
         calculateSubtotal(_cartItems.value)
     }
@@ -559,14 +566,25 @@ class HomeViewModel @Inject constructor(
             var updatedCartItems: List<CartItem>
             
             try {
+                android.util.Log.d("HomeViewModel", "=== TAX CALCULATION START ===")
+                android.util.Log.d("HomeViewModel", "Cart items: ${cartItems.size}")
+                android.util.Log.d("HomeViewModel", "Final subtotal (after discounts): $finalSubtotal")
+                android.util.Log.d("HomeViewModel", "Is cash selected: $isCashSelected")
+                android.util.Log.d("HomeViewModel", "Tax exempt: ${_isTaxExempt.value}")
+                
                 // Get location tax details
                 val locationId = preferenceManager.getOccupiedLocationID()
                 val location = verifyPinRepository.getLocationByLocationID(locationId)
                 val locationTaxDetails = location.taxDetails
+                android.util.Log.d("HomeViewModel", "Location tax details count: ${locationTaxDetails?.size ?: 0}")
+                locationTaxDetails?.forEach { tax ->
+                    android.util.Log.d("HomeViewModel", "  Store tax: ${tax.title} - ${tax.value}% (isDefault: ${tax.isDefault})")
+                }
                 
                 // Convert OrderDiscount to DiscountOrder for PricingCalculationUseCase
                 val discountOrder = if (_orderLevelDiscounts.value.isNotEmpty()) {
                     val firstDiscount = _orderLevelDiscounts.value.first()
+                    android.util.Log.d("HomeViewModel", "Order discount: ${firstDiscount.type} - ${firstDiscount.value}")
                     DiscountOrder(
                         discountType = when (firstDiscount.type) {
                             DiscountType.PERCENTAGE -> "percentage"
@@ -575,10 +593,22 @@ class HomeViewModel @Inject constructor(
                         percentage = if (firstDiscount.type == DiscountType.PERCENTAGE) firstDiscount.value else 0.0,
                         amount = if (firstDiscount.type == DiscountType.AMOUNT) firstDiscount.value else 0.0
                     )
-                } else null
+                } else {
+                    android.util.Log.d("HomeViewModel", "No order-level discount")
+                    null
+                }
                 
                 // Calculate tax rate from location (fallback to 10% if not available)
                 val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                android.util.Log.d("HomeViewModel", "Tax rate: $taxRate (${location.taxValue}%)")
+                
+                // Log each cart item's tax details
+                cartItems.forEach { item ->
+                    android.util.Log.d("HomeViewModel", "Item: ${item.name}, applyTax: ${item.applyTax}, productTaxDetails: ${item.productTaxDetails?.size ?: 0}")
+                    item.productTaxDetails?.forEach { tax ->
+                        android.util.Log.d("HomeViewModel", "  Product tax: ${tax.title} - ${tax.value}% (isDefault: ${tax.isDefault})")
+                    }
+                }
                 
                 // Use PricingCalculationUseCase to calculate tax
                 val pricingConfig = PricingConfiguration(
@@ -588,6 +618,7 @@ class HomeViewModel @Inject constructor(
                     taxDetails = locationTaxDetails,
                     taxExempt = _isTaxExempt.value  // Use tax exempt state
                 )
+                android.util.Log.d("HomeViewModel", "Pricing config - isTaxApplied: true, taxExempt: ${_isTaxExempt.value}, useCardPricing: ${!isCashSelected}")
                 
                 val pricingResult = pricingCalculationUseCase.calculatePricing(
                     cartItems = cartItems,
@@ -599,20 +630,117 @@ class HomeViewModel @Inject constructor(
                 taxValue = pricingResult.tax
                 updatedCartItems = pricingResult.cartItemsWithTax
                 
+                android.util.Log.d("HomeViewModel", "Tax calculation result:")
+                android.util.Log.d("HomeViewModel", "  Total tax: $taxValue")
+                android.util.Log.d("HomeViewModel", "  Items with tax: ${updatedCartItems.size}")
+                updatedCartItems.forEach { item ->
+                    android.util.Log.d("HomeViewModel", "    ${item.name}: tax=${item.productTaxAmount}, taxable=${item.productTaxableAmount}")
+                }
+                android.util.Log.d("HomeViewModel", "=== TAX CALCULATION END ===")
+                
                 // Update cart items with tax information
                 withContext(Dispatchers.Main) {
                     _cartItems.value = updatedCartItems
                 }
             } catch (e: Exception) {
+                android.util.Log.e("HomeViewModel", "Tax calculation failed, using fallback: ${e.message}")
+                e.printStackTrace()
+                
                 // Fallback to simple tax calculation if PricingCalculationUseCase fails
-                val taxableBase = cartItems.sumOf { cart ->
-                    if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
+                // Check if tax is exempt first
+                if (_isTaxExempt.value) {
+                    android.util.Log.d("HomeViewModel", "Fallback: Tax exempt, setting tax to 0")
+                    taxValue = 0.0
+                    updatedCartItems = cartItems.map { it.copy(
+                        productTaxAmount = 0.0,
+                        productTaxRate = 0.0,
+                        productTaxableAmount = 0.0
+                    )}
+                } else {
+                    // Get location tax rate for fallback calculation
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val location = try {
+                        verifyPinRepository.getLocationByLocationID(locationId)
+                    } catch (ex: Exception) {
+                        null
+                    }
+                    val taxRate = location?.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    android.util.Log.d("HomeViewModel", "Fallback: Using tax rate: $taxRate (${location?.taxValue ?: 10}%)")
+                    
+                    // Calculate taxable base (only items that should be taxed)
+                    val taxableBase = cartItems.sumOf { cart ->
+                        if (cart.applyTax == true) {
+                            val itemPrice = if (isCashSelected) {
+                                if (cart.isDiscounted && cart.cashDiscountedPrice > 0.0) {
+                                    cart.cashDiscountedPrice
+                                } else {
+                                    cart.cashPrice
+                                }
+                            } else {
+                                if (cart.isDiscounted && cart.discountPrice != null) {
+                                    cart.discountPrice!!
+                                } else {
+                                    cart.price ?: 0.0
+                                }
+                            }
+                            itemPrice * (cart.quantity ?: 1)
+                        } else {
+                            0.0
+                        }
+                    }
+                    
+                    // Apply proportion of discounts to taxable amount
+                    val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0 && taxableBase > 0) {
+                        taxableBase * (finalSubtotal / productDiscountedSubtotal)
+                    } else {
+                        finalSubtotal  // If no taxable items, use final subtotal
+                    }
+                    
+                    // Calculate tax using actual tax rate
+                    taxValue = taxableAfterOrderDiscounts * taxRate
+                    android.util.Log.d("HomeViewModel", "Fallback tax calculation:")
+                    android.util.Log.d("HomeViewModel", "  Taxable base: $taxableBase")
+                    android.util.Log.d("HomeViewModel", "  Taxable after discounts: $taxableAfterOrderDiscounts")
+                    android.util.Log.d("HomeViewModel", "  Tax rate: $taxRate")
+                    android.util.Log.d("HomeViewModel", "  Calculated tax: $taxValue")
+                    
+                    // Update cart items with fallback tax (distributed proportionally)
+                    updatedCartItems = cartItems.map { item ->
+                        if (item.applyTax && taxableAfterOrderDiscounts > 0) {
+                            val itemPrice = if (isCashSelected) {
+                                if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
+                                    item.cashDiscountedPrice
+                                } else {
+                                    item.cashPrice
+                                }
+                            } else {
+                                if (item.isDiscounted && item.discountPrice != null) {
+                                    item.discountPrice!!
+                                } else {
+                                    item.price ?: 0.0
+                                }
+                            }
+                            val itemSubtotal = itemPrice * (item.quantity ?: 1)
+                            val itemProportion = if (taxableBase > 0) itemSubtotal / taxableBase else 0.0
+                            val itemTaxableAmount = taxableAfterOrderDiscounts * itemProportion
+                            val itemTaxAmount = itemTaxableAmount * taxRate
+                            
+                            item.copy(
+                                productTaxAmount = itemTaxAmount,
+                                productTaxRate = taxRate,
+                                productTaxableAmount = itemTaxableAmount
+                            )
+                        } else {
+                            item.copy(
+                                productTaxAmount = 0.0,
+                                productTaxRate = 0.0,
+                                productTaxableAmount = 0.0
+                            )
+                        }
+                    }
                 }
-                val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0) {
-                    taxableBase * (finalSubtotal / productDiscountedSubtotal)
-                } else 0.0
-                taxValue = taxableAfterOrderDiscounts * 10 / 100.0
-                updatedCartItems = cartItems
+                
+                android.util.Log.d("HomeViewModel", "Fallback tax calculated: $taxValue")
             }
 
             // 7️⃣ Final total
