@@ -44,5 +44,9 @@ object Constants {
     const val CUSTOMER_FACING_DISPLAY_DETAIL = "customer_facing_display_details"
     const val USER_PREFERENCE_KEY = "user_preference"
     const val SHOW_IS_LOYALTY_DIALOG = "is_loyalty_member_dialog"
+    
+    // Customer Display preferences
+    const val CUSTOMER_DISPLAY_IP_ADDRESS = "customer_display_ip_address"
+    const val CUSTOMER_DISPLAY_ENABLED = "customer_display_enabled"
 
 }

@@ -25,6 +25,7 @@ import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
 
 @Composable
@@ -48,6 +49,10 @@ fun HardwareSetupScreen(
                 2 -> {
                     // Show Credit Card Processing Screen inline
                     CreditCardProcessingScreen(navController = navController)
+                }
+                3 -> {
+                    // Show Customer Display Setup Screen inline
+                    CustomerDisplaySetupScreen(navController = navController)
                 }
                 4 -> PrinterSetupScreen(navController = navController)
                 else -> {

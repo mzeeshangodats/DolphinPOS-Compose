@@ -33,6 +33,7 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessT
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
+import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,7 @@ class HomeViewModel @Inject constructor(
     private val getLatestOnlineOrderUseCase: GetLatestOnlineOrderUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
+    private val customerDisplayManager: CustomerDisplayManager,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -126,6 +128,8 @@ class HomeViewModel @Inject constructor(
         loadCategories()
         loadMenus()
         resetOrderDiscountValues()  // Reset order discount values on initialization
+        // Start customer display server if enabled
+        customerDisplayManager.restartServerIfNeeded()
     }
 
     private fun loadCategories() {
@@ -595,6 +599,25 @@ class HomeViewModel @Inject constructor(
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
+                
+                // Broadcast cart update to customer display
+                // Determine status based on cart state
+                val status = if (cartItems.isEmpty()) {
+                    "WELCOME"
+                } else {
+                    "CHECKOUT_SCREEN"
+                }
+                
+                customerDisplayManager.broadcastCartUpdate(
+                    status = status,
+                    cartItems = cartItems,
+                    subtotal = subtotal,
+                    tax = taxValue,
+                    total = totalAmount,
+                    cashDiscountTotal = _cashDiscountTotal.value,
+                    orderDiscountTotal = totalOrderDiscount,
+                    isCashSelected = isCashSelected
+                )
             }
         }
     }

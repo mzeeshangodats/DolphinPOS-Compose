@@ -226,12 +226,14 @@ fun HomeScreen(
         }
     }
 
-    // Update payment amount when total changes (only if payment is 0 or very small)
+    // Update payment amount automatically when total changes (when products are added/removed)
     LaunchedEffect(totalAmount) {
-        val currentPayment = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-        // Only auto-fill if payment is 0 or very small (less than 0.01)
-        if (currentPayment < 0.01 && totalAmount > 0) {
+        // Always update payment input to match total when cart has items
+        if (totalAmount > 0) {
             paymentAmount = viewModel.formatAmount(totalAmount)
+        } else {
+            // Clear payment input when cart is empty
+            paymentAmount = "0.00"
         }
     }
 
@@ -347,6 +349,7 @@ fun HomeScreen(
                             },
                             onDone = {
                                 viewModel.clearCart()
+                                paymentAmount = "0.00"  // Clear payment input
                                 showPaymentSuccessDialog = false
                             }
                         )

@@ -16,6 +16,9 @@ import com.retail.dolphinpos.data.repositories.report.BatchReportRepositoryImpl
 import com.retail.dolphinpos.data.repositories.setup.HardwareSetupRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService
+import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
+import com.google.gson.Gson
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
@@ -111,6 +114,15 @@ object RepositoryModule {
         networkMonitor: NetworkMonitor
     ): BatchReportRepository {
         return BatchReportRepositoryImpl(apiService, userDao, batchReportDao, networkMonitor)
+    }
+
+    @Provides
+    @Singleton
+    fun provideCustomerDisplayManager(
+        gson: Gson,
+        preferenceManager: PreferenceManager
+    ): CustomerDisplayManager {
+        return CustomerDisplayManager(gson, preferenceManager)
     }
 
 }
