@@ -9,6 +9,7 @@ interface HomeRepository {
     suspend fun getAllProducts(): List<Products>
     suspend fun getProductsByCategoryID(categoryID: Int): List<Products>
     suspend fun searchProducts(query: String): List<Products>
+    suspend fun searchProductByBarcode(barcode: String): Products?
 
     suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long
 

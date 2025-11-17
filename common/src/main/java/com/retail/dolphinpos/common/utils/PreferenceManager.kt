@@ -233,4 +233,21 @@ class PreferenceManager @Inject constructor(
         return getBatchStatus() == "open"
     }
 
+    // Customer Display methods
+    fun setCustomerDisplayIpAddress(ipAddress: String) {
+        prefs.edit { putString(Constants.CUSTOMER_DISPLAY_IP_ADDRESS, ipAddress) }
+    }
+
+    fun getCustomerDisplayIpAddress(defaultValue: String = ""): String {
+        return prefs.getString(Constants.CUSTOMER_DISPLAY_IP_ADDRESS, defaultValue) ?: defaultValue
+    }
+
+    fun setCustomerDisplayEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(Constants.CUSTOMER_DISPLAY_ENABLED, enabled) }
+    }
+
+    fun isCustomerDisplayEnabled(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.CUSTOMER_DISPLAY_ENABLED, defaultValue)
+    }
+
 }

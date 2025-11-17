@@ -83,6 +83,11 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.foundation.focusable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -104,6 +109,10 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 /**
  * Helper function to show "Coming Soon" dialog
@@ -145,6 +154,13 @@ fun HomeScreen(
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
     var searchQuery by remember { mutableStateOf("") }
+    
+    // Barcode scanner state
+    var barcodeInput by remember { mutableStateOf("") }
+    var lastBarcodeScanTime by remember { mutableStateOf(0L) }
+    val barcodeFocusRequester = remember { FocusRequester() }
+    val coroutineScope = rememberCoroutineScope()
+    var barcodeScanJob by remember { mutableStateOf<Job?>(null) }
 
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
@@ -211,9 +227,15 @@ fun HomeScreen(
         }
     }
 
-    // Update payment amount when total changes
+    // Update payment amount automatically when total changes (when products are added/removed)
     LaunchedEffect(totalAmount) {
-        paymentAmount = viewModel.formatAmount(totalAmount)
+        // Always update payment input to match total when cart has items
+        if (totalAmount > 0) {
+            paymentAmount = viewModel.formatAmount(totalAmount)
+        } else {
+            // Clear payment input when cart is empty
+            paymentAmount = "0.00"
+        }
     }
 
     // Load hold carts when screen loads
@@ -221,11 +243,56 @@ fun HomeScreen(
         viewModel.loadHoldCarts()
     }
 
+    // Barcode scanner detection - debounce input to detect complete barcode scans
+    LaunchedEffect(barcodeInput) {
+        // Cancel previous job if input changed
+        barcodeScanJob?.cancel()
+        
+        if (barcodeInput.isNotEmpty() && barcodeInput.length >= 3) {
+            // Wait for 300ms after last input to detect if scanning is complete
+            barcodeScanJob = coroutineScope.launch {
+                delay(300)
+                // Check if input hasn't changed (scanner finished)
+                if (barcodeInput.isNotEmpty() && barcodeInput.length >= 3) {
+                    // This looks like a complete barcode scan
+                    viewModel.handleBarcodeScan(barcodeInput.trim())
+                    barcodeInput = ""
+                }
+            }
+        }
+    }
+
+    // Auto-focus barcode input field on screen load
+    LaunchedEffect(Unit) {
+        delay(100)
+        barcodeFocusRequester.requestFocus()
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.light_grey))
     ) {
+        // Hidden barcode input field (for keyboard-based barcode scanners)
+        // This field captures barcode scanner input (scanners act as HID keyboards)
+        BasicTextField(
+            value = barcodeInput,
+            onValueChange = { newValue ->
+                barcodeInput = newValue
+                lastBarcodeScanTime = System.currentTimeMillis()
+            },
+            modifier = Modifier
+                .size(1.dp) // Hidden field (1x1 dp, invisible)
+                .offset(x = (-1000).dp, y = (-1000).dp) // Move off-screen
+                .focusRequester(barcodeFocusRequester)
+                .focusable(),
+            textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text,
+                imeAction = ImeAction.None
+            )
+        )
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
@@ -283,6 +350,7 @@ fun HomeScreen(
                             },
                             onDone = {
                                 viewModel.clearCart()
+                                paymentAmount = "0.00"  // Clear payment input
                                 showPaymentSuccessDialog = false
                             }
                         )
@@ -344,13 +412,9 @@ fun HomeScreen(
                             }, onExactAmount = {
                                 paymentAmount = viewModel.formatAmount(totalAmount)
                             }, onCashSelected = {
-                                // Calculate subtotal after order-level discounts
-                                val subtotalAfterOrderDiscounts = subtotal - orderDiscountTotal
-                                // Don't apply cash discount if subtotal is already 0 or less - just return silently
-                                if (subtotalAfterOrderDiscounts > 0) {
-                                    viewModel.isCashSelected = true
-                                    viewModel.updateCartPrices()
-                                }
+                                // Allow cash selection even when total is 0
+                                viewModel.isCashSelected = true
+                                viewModel.updateCartPrices()
                         }, onCardSelected = {
                             viewModel.isCashSelected = false
                             viewModel.updateCartPrices()
@@ -364,9 +428,30 @@ fun HomeScreen(
                                     iconRes = R.drawable.info_icon
                                 )
                             } else {
-                                when {
-                                    viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                    else -> viewModel.initCardPayment()
+                                // Validate payment amount
+                                val currentPayment = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                                
+                                if (totalAmount > 0 && currentPayment < 0.01) {
+                                    // Show error and auto-fill total amount
+                                    DialogHandler.showDialog(
+                                        message = "Payment amount cannot be zero. Total amount has been automatically entered.",
+                                        buttonText = "OK",
+                                        iconRes = R.drawable.info_icon
+                                    )
+                                    paymentAmount = viewModel.formatAmount(totalAmount)
+                                } else if (totalAmount > 0 && currentPayment < totalAmount) {
+                                    // Show error if payment is less than total
+                                    DialogHandler.showDialog(
+                                        message = "Payment amount ($${viewModel.formatAmount(currentPayment)}) is less than total amount ($${viewModel.formatAmount(totalAmount)}). Please enter the full amount or more.",
+                                        buttonText = "OK",
+                                        iconRes = R.drawable.info_icon
+                                    )
+                                } else {
+                                    // Proceed with payment
+                                    when {
+                                        viewModel.isCashSelected -> viewModel.createOrder("cash")
+                                        else -> viewModel.initCardPayment()
+                                    }
                                 }
                             }
                         })
@@ -439,7 +524,8 @@ fun HomeScreen(
                     preFilledDiscountValue = viewModel.getOrderDiscountValue(),
                     preFilledDiscountType = viewModel.getOrderDiscountType(),
                     preFilledDiscountReason = viewModel.getOrderDiscountReason(),
-                    existingOrderDiscounts = orderLevelDiscounts
+                    existingOrderDiscounts = orderLevelDiscounts,
+                    maxDiscountAmount = viewModel.getCurrentSubtotalAfterOrderDiscounts()
                 )
             }
 
@@ -2062,7 +2148,8 @@ fun OrderLevelDiscountDialog(
     preFilledDiscountValue: String = "",
     preFilledDiscountType: String = "PERCENTAGE",
     preFilledDiscountReason: String = "Select Reason",
-    existingOrderDiscounts: List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount> = emptyList()
+    existingOrderDiscounts: List<com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount> = emptyList(),
+    maxDiscountAmount: Double = 0.0
 ) {
     val context = LocalContext.current
     var discountValue by remember { mutableStateOf(preFilledDiscountValue) }
@@ -2077,6 +2164,24 @@ fun OrderLevelDiscountDialog(
     }
     var selectedReason by remember { mutableStateOf(preFilledDiscountReason) }
     var orderDiscounts by remember { mutableStateOf(existingOrderDiscounts) }
+    
+    // Calculate available discount amount considering discounts already added in dialog
+    val availableDiscountAmount = remember(orderDiscounts, maxDiscountAmount) {
+        var available = maxDiscountAmount
+        for (discount in orderDiscounts) {
+            available = when (discount.type) {
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                    available - (available * discount.value / 100.0)
+                }
+                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                    available - discount.value
+                }
+                else -> available
+            }
+            if (available < 0) available = 0.0
+        }
+        available.coerceAtLeast(0.0)
+    }
 
     val reasons = listOf(
         "Select Reason",
@@ -2331,24 +2436,51 @@ fun OrderLevelDiscountDialog(
                     onClick = {
                         val value = discountValue.toDoubleOrNull()
                         if (selectedReason != "Select Reason" && value != null && value > 0) {
-                            val newDiscount =
-                                com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
-                                    reason = selectedReason, type = discountType, value = value
+                            // Validate discount amount based on type
+                            val isValidDiscount = when (discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    // For amount type, check if discount doesn't exceed availableDiscountAmount
+                                    if (value > availableDiscountAmount) {
+                                        DialogHandler.showDialog(
+                                            "Discount amount cannot exceed $${String.format("%.2f", availableDiscountAmount)}"
+                                        )
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    // For percentage type, check if it doesn't exceed 100%
+                                    if (value > 100) {
+                                        DialogHandler.showDialog("Discount percentage cannot exceed 100%")
+                                        false
+                                    } else {
+                                        true
+                                    }
+                                }
+                                else -> true
+                            }
+                            
+                            if (isValidDiscount) {
+                                val newDiscount =
+                                    com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(
+                                        reason = selectedReason, type = discountType, value = value
+                                    )
+                                orderDiscounts = orderDiscounts + newDiscount
+
+                                // Save current values for persistence
+                                onSaveDiscountValues(
+                                    discountValue,
+                                    if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
+                                    selectedReason
                                 )
-                            orderDiscounts = orderDiscounts + newDiscount
 
-                            // Save current values for persistence
-                            onSaveDiscountValues(
-                                discountValue,
-                                if (discountType == com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE) "PERCENTAGE" else "AMOUNT",
-                                selectedReason
-                            )
-
-                            // Reset fields
-                            discountValue = ""
-                            selectedReason = "Select Reason"
-                            discountType =
-                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                                // Reset fields
+                                discountValue = ""
+                                selectedReason = "Select Reason"
+                                discountType =
+                                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE
+                            }
                         } else {
                             DialogHandler.showDialog("Please select reason and enter value")
                         }

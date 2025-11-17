@@ -1,8 +1,13 @@
-package com.retail.dolphinpos.domain.model.report
+package com.retail.dolphinpos.data.entities.report
 
-data class BatchReportData(
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "batch_report")
+data class BatchReportEntity(
+    @PrimaryKey
     val batchNo: String,
-    val closed: Closed?,
+    val closed: String?, // JSON string
     val closedBy: Int,
     val closingCashAmount: Double,
     val closingTime: String?,
@@ -10,12 +15,12 @@ data class BatchReportData(
     val id: Int,
     val locationId: Int,
     val openTime: String?,
-    val opened: Opened?,
+    val opened: String?, // JSON string
     val openedBy: Int,
-    val payInCard: Any,
-    val payInCash: Any,
-    val payOutCard: Any,
-    val payOutCash: Any,
+    val payInCard: String?, // JSON string for Any type
+    val payInCash: String?, // JSON string for Any type
+    val payOutCard: String?, // JSON string for Any type
+    val payOutCash: String?, // JSON string for Any type
     val startingCashAmount: Double,
     val status: String?,
     val storeId: Int,
@@ -27,10 +32,10 @@ data class BatchReportData(
     val totalCashDiscount: String?,
     val totalDiscount: String?,
     val totalOnlineSales: String?,
-    val totalPayIn: Any,
-    val totalPayOut: Any,
+    val totalPayIn: String?, // JSON string for Any type
+    val totalPayOut: String?, // JSON string for Any type
     val totalRewardDiscount: String?,
-    val totalSales: Any,
+    val totalSales: String?, // JSON string for Any type
     val totalTax: String?,
     val totalTip: Int,
     val totalTipCard: Int,
@@ -38,3 +43,4 @@ data class BatchReportData(
     val totalTransactions: Int,
     val updatedAt: String?
 )
+

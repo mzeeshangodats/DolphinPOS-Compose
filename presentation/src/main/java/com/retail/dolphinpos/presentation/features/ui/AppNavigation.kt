@@ -18,6 +18,7 @@ import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.Batc
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.transaction_activity.TransactionActivityScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
 
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
@@ -116,6 +117,11 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Credit Card Processing Screen
         composable("credit_card_processing") {
             CreditCardProcessingScreen(navController = navController)
+        }
+
+        // Customer Display Setup Screen
+        composable("customer_display_setup") {
+            CustomerDisplaySetupScreen(navController = navController)
         }
 
         // Batch Report Screen

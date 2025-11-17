@@ -1,5 +1,6 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.barcode.barcode
+package com.retail.dolphinpos.presentation.features.ui.setup.barcode
 
+import android.R
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -21,7 +22,7 @@ open class TransparentOverlayView @JvmOverloads constructor(
     }
 
     private val overlayPaint = Paint().apply {
-        color = ContextCompat.getColor(context, android.R.color.black)
+        color = ContextCompat.getColor(context, R.color.black)
         alpha = 150
     }
 

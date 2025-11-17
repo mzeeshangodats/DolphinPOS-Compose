@@ -35,6 +35,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.text.style.TextOverflow
 import com.retail.dolphinpos.common.R
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
@@ -100,6 +101,8 @@ fun HomeAppBar(
                         fontSize = 12.sp,
                         color = Color.Black
                     ),
+                    singleLine = true,
+                    maxLines = 1,
                     decorationBox = { innerTextField ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -153,20 +156,17 @@ fun HomeAppBar(
                             lineHeight = 12.sp
                         )
                         
-                        // Clock-in status
-                        Text(
-                            text = if (isClockedIn && clockInTime > 0L) {
-                                val timeFormat = SimpleDateFormat("hh:mm a", Locale.getDefault())
-                                "Clocked in: ${timeFormat.format(Date(clockInTime))}"
-                            } else {
-                                "No CheckIn"
-                            },
-                            color = Color.White,
-                            fontSize = 10.sp,
-                            fontFamily = GeneralSans,
-                            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                            lineHeight = 10.sp
-                        )
+                        // Check-in time
+                        if (isClockedIn && clockInTime > 0L) {
+                            Text(
+                                text = "Clock In: ${SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(clockInTime))}",
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontFamily = GeneralSans,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                                lineHeight = 10.sp
+                            )
+                        }
                     }
                 }
                 
@@ -228,7 +228,9 @@ fun HomeAppBar(
                                     .padding(vertical = 8.dp, horizontal = 12.dp),
                                 color = Color.Black,
                                 fontSize = 12.sp,
-                                fontFamily = GeneralSans
+                                fontFamily = GeneralSans,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
