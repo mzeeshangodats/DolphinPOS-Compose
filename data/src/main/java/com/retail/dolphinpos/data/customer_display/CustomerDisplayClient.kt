@@ -28,68 +28,130 @@ class CustomerDisplayClient(
     val cartData: StateFlow<CartDisplayData?> = _cartData.asStateFlow()
 
     fun connect() {
+        val url = "ws://$serverIp:$serverPort/customer-display"
+        Log.d(TAG, "Attempting to connect to WebSocket server: $url")
+        
         if (_connectionState.value == ConnectionState.Connected) {
+            Log.d(TAG, "Already connected to $url, skipping connection attempt")
             return
         }
 
         val request = Request.Builder()
-            .url("ws://$serverIp:$serverPort/customer-display")
+            .url(url)
             .build()
 
+        Log.d(TAG, "Creating WebSocket request: $url")
         _connectionState.value = ConnectionState.Connecting
+        Log.d(TAG, "Connection state changed to: Connecting")
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Log.d(TAG, "WebSocket connected to $serverIp:$serverPort")
+                Log.d(TAG, "✓ WebSocket connected successfully to $serverIp:$serverPort")
+                Log.d(TAG, "Response code: ${response.code}, message: ${response.message}")
+                Log.d(TAG, "Response headers: ${response.headers}")
                 _connectionState.value = ConnectionState.Connected
+                Log.d(TAG, "Connection state changed to: Connected")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
+                    Log.d(TAG, "Received message from server (length: ${text.length} chars)")
                     val data = gson.fromJson(text, CartDisplayData::class.java)
                     _cartData.value = data
-                    Log.d(TAG, "Received cart update: ${data.cartItems.size} items")
+                    Log.d(TAG, "✓ Parsed cart update: status=${data.status}, items=${data.cartItems.size}, total=${data.total}")
                 } catch (e: JsonSyntaxException) {
-                    Log.e(TAG, "Error parsing cart data", e)
+                    Log.e(TAG, "✗ Error parsing cart data JSON", e)
+                    Log.e(TAG, "JSON content: ${text.take(500)}")
+                } catch (e: Exception) {
+                    Log.e(TAG, "✗ Unexpected error processing message", e)
                 }
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+                Log.d(TAG, "Received binary message (${bytes.size} bytes), converting to text")
                 onMessage(webSocket, bytes.utf8())
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket closing: $reason")
+                Log.d(TAG, "WebSocket closing: code=$code, reason=$reason")
                 _connectionState.value = ConnectionState.Disconnected
+                Log.d(TAG, "Connection state changed to: Disconnected")
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Log.d(TAG, "WebSocket closed: $reason")
+                Log.d(TAG, "WebSocket closed: code=$code, reason=$reason")
                 _connectionState.value = ConnectionState.Disconnected
+                Log.d(TAG, "Connection state changed to: Disconnected")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.e(TAG, "WebSocket connection failed", t)
-                _connectionState.value = ConnectionState.Disconnected
+                Log.e(TAG, "✗ WebSocket connection failed to $serverIp:$serverPort", t)
+                Log.e(TAG, "Failure details: ${t.javaClass.simpleName} - ${t.message}")
                 
-                // Attempt to reconnect after 3 seconds
+                // Provide detailed error information
+                when {
+                    t is java.net.ConnectException -> {
+                        Log.e(TAG, "Connection refused - CFD device may not have WebSocket server running")
+                        Log.e(TAG, "Make sure CFD device is running a WebSocket server on port $serverPort")
+                    }
+                    t is java.net.UnknownHostException -> {
+                        Log.e(TAG, "Unknown host - Cannot resolve IP address $serverIp")
+                        Log.e(TAG, "Check if both devices are on the same Wi-Fi network")
+                    }
+                    t is java.net.SocketTimeoutException -> {
+                        Log.e(TAG, "Connection timeout - CFD device not responding")
+                        Log.e(TAG, "Check if CFD device is powered on and connected to network")
+                    }
+                    else -> {
+                        Log.e(TAG, "Network error: ${t.message}")
+                    }
+                }
+                
+                if (response != null) {
+                    Log.e(TAG, "HTTP Response: code=${response.code}, message=${response.message}")
+                    Log.e(TAG, "Response headers: ${response.headers}")
+                } else {
+                    Log.e(TAG, "No HTTP response available (likely network error or server not running)")
+                }
+                
+                _connectionState.value = ConnectionState.Disconnected
+                Log.d(TAG, "Connection state changed to: Disconnected")
+                
+                // Attempt to reconnect after 5 seconds (increased from 3)
+                Log.d(TAG, "Scheduling reconnection attempt in 5 seconds...")
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                     if (_connectionState.value == ConnectionState.Disconnected) {
+                        Log.d(TAG, "Attempting to reconnect to $serverIp:$serverPort...")
                         connect()
+                    } else {
+                        Log.d(TAG, "Skipping reconnection - already connected or connecting")
                     }
-                }, 3000)
+                }, 5000)
             }
         })
+        
+        Log.d(TAG, "WebSocket connection request initiated")
     }
 
     fun disconnect() {
+        Log.d(TAG, "Disconnecting from $serverIp:$serverPort")
         webSocket?.close(1000, "Client disconnecting")
         webSocket = null
         _connectionState.value = ConnectionState.Disconnected
+        Log.d(TAG, "Disconnected from server")
     }
 
     fun isConnected(): Boolean {
         return _connectionState.value == ConnectionState.Connected
+    }
+
+    fun send(message: String) {
+        if (_connectionState.value == ConnectionState.Connected) {
+            webSocket?.send(message)
+            Log.d(TAG, "Message sent to server (${message.length} chars)")
+        } else {
+            Log.w(TAG, "Cannot send message - not connected. State: ${_connectionState.value}")
+        }
     }
 
     sealed class ConnectionState {

@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
@@ -24,7 +25,8 @@ import javax.inject.Inject
 class CustomerDisplaySetupViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val preferenceManager: PreferenceManager,
-    private val gson: Gson
+    private val gson: Gson,
+    private val customerDisplayManager: CustomerDisplayManager
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(CustomerDisplaySetupViewState())
@@ -72,6 +74,18 @@ class CustomerDisplaySetupViewModel @Inject constructor(
         }
     }
 
+    private fun isValidIpAddress(ipAddress: String): Boolean {
+        return ipAddress.isNotEmpty() && isValidIpAddressFormat(ipAddress)
+    }
+
+    /**
+     * Validates IP address format (xxx.xxx.xxx.xxx)
+     */
+    private fun isValidIpAddressFormat(ipAddress: String): Boolean {
+        val ipPattern = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
+        return ipPattern.matches(ipAddress.trim())
+    }
+
     fun saveConfiguration() {
         viewModelScope.launch {
             // Validate IP address if enabled
@@ -108,6 +122,13 @@ class CustomerDisplaySetupViewModel @Inject constructor(
                 // Update original values
                 originalIpAddress = _viewState.value.ipAddress
                 originalIsEnabled = _viewState.value.isEnabled
+
+                // Connect to CFD device based on enabled status
+                android.util.Log.d("CustomerDisplaySetup", "Connecting to CFD device after configuration save...")
+                customerDisplayManager.restartConnectionIfNeeded()
+                
+                val cfdIp = customerDisplayManager.getCfdIpAddress()
+                android.util.Log.d("CustomerDisplaySetup", "CFD IP address: $cfdIp")
 
                 updateState {
                     it.copy(
@@ -147,55 +168,60 @@ class CustomerDisplaySetupViewModel @Inject constructor(
         updateState { it.copy(shouldNavigateBack = false) }
     }
 
-    private fun isValidIpAddress(ipAddress: String): Boolean {
-        return ipAddress.isNotEmpty() && isValidIpAddressFormat(ipAddress)
-    }
-
-    /**
-     * Validates IP address format (xxx.xxx.xxx.xxx)
-     */
-    private fun isValidIpAddressFormat(ipAddress: String): Boolean {
-        val ipPattern = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$")
-        return ipPattern.matches(ipAddress.trim())
-    }
-
     fun testConnection() {
         viewModelScope.launch {
-            // Validate IP address
-            if (_viewState.value.ipAddress.isBlank()) {
-                updateState {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "IP Address is required",
-                        successMessage = null
-                    )
-                }
-                return@launch
-            }
-
-            // Validate IP address format
-            if (!isValidIpAddressFormat(_viewState.value.ipAddress)) {
-                updateState {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = "IP Address must be in format xxx.xxx.xxx.xxx",
-                        successMessage = null
-                    )
-                }
-                return@launch
-            }
-
+            android.util.Log.d("CustomerDisplaySetup", "=== Testing POS Server Status ===")
             updateState { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
 
             try {
+                // First, ensure server is running
+                if (!_viewState.value.isEnabled) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Please enable Customer Display first, then save configuration"
+                        )
+                    }
+                    return@launch
+                }
+
+                // Get CFD IP address
+                val cfdIp = _viewState.value.ipAddress
+                if (cfdIp.isBlank()) {
+                    updateState {
+                        it.copy(
+                            isLoading = false,
+                            errorMessage = "Please enter the CFD device IP address first"
+                        )
+                    }
+                    return@launch
+                }
+
+                android.util.Log.d("CustomerDisplaySetup", "Testing connection to CFD device: $cfdIp")
+                
+                // Connect to CFD device
+                customerDisplayManager.restartConnectionIfNeeded()
+                
+                // Wait a bit for connection
+                delay(1000)
+                
+                val isConnected = customerDisplayManager.isConnected()
+                android.util.Log.d("CustomerDisplaySetup", "Connected to CFD: $isConnected")
+
+                // Test connection by trying to connect to CFD device
+                val port = 8080
+                val url = "ws://$cfdIp:$port/customer-display"
+                
+                android.util.Log.d("CustomerDisplaySetup", "Testing CFD device connectivity: $url")
+                
                 val testClient = OkHttpClient.Builder()
-                    .connectTimeout(5, TimeUnit.SECONDS)
-                    .readTimeout(5, TimeUnit.SECONDS)
-                    .writeTimeout(5, TimeUnit.SECONDS)
+                    .connectTimeout(3, TimeUnit.SECONDS)
+                    .readTimeout(3, TimeUnit.SECONDS)
+                    .writeTimeout(3, TimeUnit.SECONDS)
                     .build()
 
                 val request = Request.Builder()
-                    .url("ws://${_viewState.value.ipAddress}:8080/customer-display")
+                    .url(url)
                     .build()
 
                 var connectionSuccess = false
@@ -203,50 +229,51 @@ class CustomerDisplaySetupViewModel @Inject constructor(
 
                 val webSocket = testClient.newWebSocket(request, object : WebSocketListener() {
                     override fun onOpen(webSocket: WebSocket, response: Response) {
+                        android.util.Log.d("CustomerDisplaySetup", "✓ Server is accessible!")
                         connectionSuccess = true
-                        // Close immediately after successful connection
-                        webSocket.close(1000, "Test connection successful")
+                        webSocket.close(1000, "Test successful")
                     }
 
                     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                        android.util.Log.e("CustomerDisplaySetup", "✗ Server test failed", t)
                         connectionError = t.message ?: "Connection failed"
                     }
 
                     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                        // Connection closed
+                        android.util.Log.d("CustomerDisplaySetup", "Test connection closed")
                     }
                 })
 
-                // Wait for connection result (max 5 seconds)
+                // Wait for result (max 3 seconds)
                 var attempts = 0
-                while (attempts < 50 && !connectionSuccess && connectionError == null) {
+                while (attempts < 30 && !connectionSuccess && connectionError == null) {
                     delay(100)
                     attempts++
                 }
 
-                // Close the test connection
                 webSocket.close(1000, "Test complete")
 
                 if (connectionSuccess) {
                     updateState {
                         it.copy(
                             isLoading = false,
-                            successMessage = "Connection successful! WebSocket server is reachable at ${_viewState.value.ipAddress}:8080"
+                            successMessage = "✓ Connection successful!\n\nConnected to CFD device at $cfdIp:8080\n\nThe POS will now send cart updates to this device."
                         )
                     }
                 } else {
                     updateState {
                         it.copy(
                             isLoading = false,
-                            errorMessage = connectionError ?: "Connection failed: Unable to reach WebSocket server at ${_viewState.value.ipAddress}:8080. Make sure Customer Display is enabled on the POS device."
+                            errorMessage = "Connection failed: ${connectionError ?: "Unable to connect to CFD device"}\n\nCFD Device IP: $cfdIp:8080\n\nMake sure:\n1. CFD device is running and listening on port 8080\n2. Both devices are on the same Wi-Fi network\n3. Firewall is not blocking the connection"
                         )
                     }
                 }
             } catch (e: Exception) {
+                android.util.Log.e("CustomerDisplaySetup", "✗ Exception during server test", e)
                 updateState {
                     it.copy(
                         isLoading = false,
-                        errorMessage = "Connection test failed: ${e.message ?: "Unknown error"}"
+                        errorMessage = "Test failed: ${e.message ?: "Unknown error"}"
                     )
                 }
             }

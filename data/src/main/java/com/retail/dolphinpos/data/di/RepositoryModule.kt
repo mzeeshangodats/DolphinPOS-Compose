@@ -119,10 +119,11 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideCustomerDisplayManager(
+        @ApplicationContext context: Context,
         gson: Gson,
         preferenceManager: PreferenceManager
     ): CustomerDisplayManager {
-        return CustomerDisplayManager(gson, preferenceManager)
+        return CustomerDisplayManager(context, gson, preferenceManager)
     }
 
 }
