@@ -31,6 +31,7 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CancelTr
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessTransactionUseCase
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
+import com.retail.dolphinpos.domain.usecases.order.GetLastPendingOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
 import com.retail.dolphinpos.domain.usecases.tax.PricingCalculationUseCase
@@ -72,6 +73,7 @@ class HomeViewModel @Inject constructor(
     private val processTransactionUseCase: ProcessTransactionUseCase,
     private val cancelTransactionUseCase: CancelTransactionUseCase,
     private val getLatestOnlineOrderUseCase: GetLatestOnlineOrderUseCase,
+    private val getLastPendingOrderUseCase: GetLastPendingOrderUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
     private val pricingCalculationUseCase: PricingCalculationUseCase,
@@ -387,12 +389,19 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
             try {
-                val latestOrder = getLatestOnlineOrderUseCase()
-                if (latestOrder == null) {
-                    _homeUiEvent.emit(HomeUiEvent.ShowError("No completed orders found to print."))
+                // First try to get from online_orders (completed/synced orders)
+                var orderToPrint = getLatestOnlineOrderUseCase()
+                
+                // If not found in online_orders, try to get from pending_orders (last created order)
+                if (orderToPrint == null) {
+                    orderToPrint = getLastPendingOrderUseCase()
+                }
+                
+                if (orderToPrint == null) {
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No orders found to print."))
                 } else {
                     val statusMessages = mutableListOf<String>()
-                    val result = printOrderReceiptUseCase(latestOrder) { statusMessages.add(it) }
+                    val result = printOrderReceiptUseCase(orderToPrint) { statusMessages.add(it) }
                     if (result.isSuccess) {
                         val successMessage = statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
                             ?: "Print command sent successfully."

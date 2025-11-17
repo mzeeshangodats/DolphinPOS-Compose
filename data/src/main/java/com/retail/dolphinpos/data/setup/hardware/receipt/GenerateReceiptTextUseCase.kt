@@ -887,8 +887,14 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     append(formatLine("Discount", formatNegativeCurrency(order.discountAmount)))
                 }
 
-                // Tax breakdown
-                if (order.taxValue > 0.0) {
+                // Tax breakdown or Tax Exempt
+                val isTaxExempt = !order.applyTax || order.taxValue == 0.0
+                
+                if (isTaxExempt) {
+                    // Tax Exempt case
+                    Log.d(TAG, "generatePendingOrderReceipt: Tax Exempt")
+                    append(formatLine("Tax", "EXEMPT"))
+                } else if (order.taxValue > 0.0) {
                     Log.d(TAG, "generatePendingOrderReceipt: Tax: ${order.taxValue}")
 
                     // Aggregate all taxes from orderItems.appliedTaxes (which includes both store and product taxes)
@@ -982,6 +988,10 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         // Fallback to simple tax display
                         append(formatLine("Tax", formatCurrency(order.taxValue)))
                     }
+                } else {
+                    // Tax is 0 but applyTax is true (shouldn't happen normally, but handle it)
+                    Log.d(TAG, "generatePendingOrderReceipt: Tax is 0")
+                    append(formatLine("Tax", "$0.00"))
                 }
 
                 append(createStraightLine())

@@ -83,6 +83,10 @@ class PendingOrderRepositoryImpl(
     suspend fun getLastPendingOrder(): PendingOrderEntity? {
         return pendingOrderDao.getLastPendingOrder()
     }
+    
+    suspend fun getLastPendingOrderRegardlessOfSync(): PendingOrderEntity? {
+        return pendingOrderDao.getLastPendingOrderRegardlessOfSync()
+    }
 
     suspend fun deleteOrder(orderId: Long) {
         val order = pendingOrderDao.getOrderById(orderId)

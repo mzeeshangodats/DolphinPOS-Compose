@@ -1701,9 +1701,9 @@ fun ActionButtonRow(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEach { button ->
-            // Use primary color background for exempt button (like split button), light grey for others
+            // Use custom red color background for exempt button, light grey for others
             val backgroundColor = if (button.label == "Exempt" || button.label == "Apply Tax") {
-                colorResource(id = R.color.primary)
+                Color(0xFFDC3E42)
             } else {
                 colorResource(id = R.color.light_grey)
             }

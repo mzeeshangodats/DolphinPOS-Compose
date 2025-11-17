@@ -10,7 +10,8 @@ class GetLastPendingOrderUseCaseImpl @Inject constructor(
 ) : GetLastPendingOrderUseCase {
 
     override suspend operator fun invoke(): PendingOrder? {
-        return pendingOrderRepository.getLastPendingOrder()?.let { entity ->
+        // Get the last pending order regardless of sync status for printing purposes
+        return pendingOrderRepository.getLastPendingOrderRegardlessOfSync()?.let { entity ->
             pendingOrderRepository.convertToPendingOrder(entity)
         }
     }
