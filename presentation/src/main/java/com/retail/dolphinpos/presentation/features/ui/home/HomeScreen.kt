@@ -720,7 +720,7 @@ fun CartActionButtons(
 
         // Price Check
         Card(
-            onClick = onPrint,
+            onClick = { /* TODO */ },
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),
@@ -741,7 +741,7 @@ fun CartActionButtons(
 
         // Print Last Receipt
         Card(
-            onClick = { /* TODO */ },
+            onClick = onPrint,
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),
@@ -1810,7 +1810,7 @@ fun ActionButtonRow(
                         BaseText(
                             text = button.label,
                             color = Color.White,
-                            fontSize = 12f,
+                            fontSize = 16f,
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )

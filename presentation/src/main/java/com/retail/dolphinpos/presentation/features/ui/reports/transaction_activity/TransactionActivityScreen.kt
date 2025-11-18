@@ -222,10 +222,8 @@ fun TransactionActivityItem(transaction: TransactionActivityItemData) {
             InfoRow("Payment Method:", transaction.paymentMethod.value.uppercase())
             
             // Tax breakdown, single tax value, or tax exempt
-            val isTaxExempt = (transaction.tax == null || transaction.tax == 0.0) && 
-                              (transaction.taxDetails == null || transaction.taxDetails.isEmpty())
-            
-            if (isTaxExempt) {
+            // Don't show tax breakdown if taxExempt is true
+            if (transaction.taxExempt) {
                 // Tax Exempt case
                 Row(
                     modifier = Modifier.fillMaxWidth(),

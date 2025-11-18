@@ -113,6 +113,13 @@ fun PrinterSetupScreen(
                         iconRes = R.drawable.cross_red
                     ) {}
                 }
+                is PrinterViewEffect.ShowErrorDialog -> {
+                    DialogHandler.showDialog(
+                        message = effect.message,
+                        buttonText = "OK",
+                        iconRes = R.drawable.cross_red
+                    ) {}
+                }
                 is PrinterViewEffect.ShowSuccessSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,

@@ -26,7 +26,8 @@ data class TransactionActivityItemData(
     val amount: Double,
     val tax: Double?,
     val createdAt: Long,
-    val taxDetails: List<com.retail.dolphinpos.domain.model.TaxDetail>? = null  // Tax breakdown
+    val taxDetails: List<com.retail.dolphinpos.domain.model.TaxDetail>? = null,  // Tax breakdown
+    val taxExempt: Boolean = false  // Tax exempt status
 )
 
 sealed class TransactionActivityUiEvent {
@@ -85,7 +86,7 @@ class TransactionActivityViewModel @Inject constructor(
                             page = currentPage,
                             limit = pageLimit
                         )
-                        
+
                         // Check if there are more pages
                         val response = transactionRepository.getTransactionsFromApi(
                             storeId = storeId,
@@ -100,7 +101,7 @@ class TransactionActivityViewModel @Inject constructor(
                             _transactions.value.size + apiTransactions.size
                         }
                         _hasMorePages.value = currentRecords < totalRecords
-                        
+
                         apiTransactions
                     } catch (e: Exception) {
                         // If API call fails, fallback to local DB
@@ -126,6 +127,11 @@ class TransactionActivityViewModel @Inject constructor(
                 }
 
                 val transactionItemList = transactionList.map { transaction ->
+                    // Calculate taxExempt: true if tax is null/0 and taxDetails is empty/null
+                    val isTaxExempt = (transaction.tax == null || transaction.tax == 0.0) &&
+                            (transaction.taxDetails == null
+                                    || (transaction.taxDetails?.isEmpty() ?: false))
+
                     TransactionActivityItemData(
                         id = transaction.id,
                         orderNo = transaction.orderNo,
@@ -135,7 +141,8 @@ class TransactionActivityViewModel @Inject constructor(
                         amount = transaction.amount,
                         tax = transaction.tax,
                         createdAt = transaction.createdAt,
-                        taxDetails = transaction.taxDetails
+                        taxDetails = transaction.taxDetails,
+                        taxExempt = isTaxExempt
                     )
                 }
 
@@ -152,7 +159,11 @@ class TransactionActivityViewModel @Inject constructor(
                 _isLoading.value = false
                 _isLoadingMore.value = false
                 _uiEvent.emit(TransactionActivityUiEvent.HideLoading)
-                _uiEvent.emit(TransactionActivityUiEvent.ShowError(e.message ?: "Failed to load transactions"))
+                _uiEvent.emit(
+                    TransactionActivityUiEvent.ShowError(
+                        e.message ?: "Failed to load transactions"
+                    )
+                )
             }
         }
     }

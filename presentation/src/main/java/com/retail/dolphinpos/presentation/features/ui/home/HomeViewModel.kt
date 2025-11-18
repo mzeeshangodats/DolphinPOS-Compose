@@ -430,21 +430,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
             try {
-                // First try to get latest synced order
-                var latestOrder = getLatestOnlineOrderUseCase()
-                
-                // If no synced order found, get the latest order regardless of sync status
-                // This is important for cash payments which might not be synced yet
-                if (latestOrder == null) {
-                    Log.d("HomeViewModel", "No synced order found, trying latest order regardless of sync status")
-                    val latestOrderEntity = orderRepository.getLatestOrder()
-                    latestOrder = latestOrderEntity?.let { orderRepository.convertToPendingOrder(it) }
-                }
+                // Get latest synced online order only (not pending orders)
+                val latestOrder = getLatestOnlineOrderUseCase()
                 
                 if (latestOrder == null) {
-                    _homeUiEvent.emit(HomeUiEvent.ShowError("No orders found to print."))
+                    Log.d("HomeViewModel", "No online orders found to print")
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No online orders found to print."))
                 } else {
-                    Log.d("HomeViewModel", "Printing order: ${latestOrder.orderNumber}, Subtotal: ${latestOrder.subTotal}, Tax: ${latestOrder.taxValue}, Total: ${latestOrder.total}")
+                    Log.d("HomeViewModel", "Printing latest online order: ${latestOrder.orderNumber}, Subtotal: ${latestOrder.subTotal}, Tax: ${latestOrder.taxValue}, Total: ${latestOrder.total}")
                     val statusMessages = mutableListOf<String>()
                     val result = printOrderReceiptUseCase(latestOrder) { statusMessages.add(it) }
                     if (result.isSuccess) {
@@ -1237,11 +1230,25 @@ class HomeViewModel @Inject constructor(
                 }
 
                 // Create order request using captured values
+                // If tax is exempt, set applyTax = false and taxDetails = emptyList()
+                val isTaxExempt = _isTaxExempt.value
+                val orderApplyTax = !isTaxExempt
+                val orderTaxDetails = if (isTaxExempt) {
+                    emptyList()
+                } else {
+                    storeTaxDetails
+                }
+                
                 Log.d("HomeViewModel", "Creating order - Payment: $paymentMethod," +
                         " Subtotal: $finalSubtotal, Tax: $finalTax, Total: $finalTotal")
-                Log.d("HomeViewModel", "Tax details count: ${storeTaxDetails.size}")
-                storeTaxDetails.forEach { tax ->
-                    Log.d("HomeViewModel", "  Tax: ${tax.title} - ${tax.value}% - Amount: ${tax.amount}")
+                Log.d("HomeViewModel", "Tax exempt: $isTaxExempt, ApplyTax: $orderApplyTax")
+                if (!isTaxExempt) {
+                    Log.d("HomeViewModel", "Tax details count: ${orderTaxDetails.size}")
+                    orderTaxDetails.forEach { tax ->
+                        Log.d("HomeViewModel", "  Tax: ${tax.title} - ${tax.value}% - Amount: ${tax.amount}")
+                    }
+                } else {
+                    Log.d("HomeViewModel", "Tax is exempt - taxDetails will be empty")
                 }
                 
                 val orderRequest = CreateOrderRequest(
@@ -1258,15 +1265,15 @@ class HomeViewModel @Inject constructor(
                     items = orderItems,
                     subTotal = finalSubtotal,
                     total = finalTotal,
-                    applyTax = true,
+                    applyTax = orderApplyTax,  // Set to false if tax is exempt
                     taxValue = finalTax,
                     discountAmount = finalOrderDiscount,
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
                     userId = userId,
                     cardDetails = cardDetails,
-                    taxDetails = storeTaxDetails,  // Store-level default taxes breakdown
-                    taxExempt = _isTaxExempt.value  // Use tax exempt state
+                    taxDetails = orderTaxDetails,  // Empty list if tax is exempt, otherwise store-level default taxes breakdown
+                    taxExempt = isTaxExempt  // Use tax exempt state
                 )
 
                 // Always save to local database first (with isSynced = false, status = "pending")

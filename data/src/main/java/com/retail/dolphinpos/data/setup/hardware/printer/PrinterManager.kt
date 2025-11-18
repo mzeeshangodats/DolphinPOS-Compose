@@ -81,17 +81,66 @@ class PrinterManager @Inject constructor(
         getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
         statusCallback: (String) -> Unit
     ): Boolean {
-        if (reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
-            return try {
-                printer?.printAsync(data)?.await()
-                statusCallback("Print command sent successfully.")
-                true
+        try {
+            // First reconnect to printer
+            statusCallback("Connecting to printer...")
+            if (!reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
+                statusCallback("Failed to connect to printer. Please check printer connection.")
+                return false
+            }
+
+            // Check if printer is initialized
+            if (printer == null) {
+                statusCallback("Printer is not initialized. Please set up the printer again.")
+                return false
+            }
+
+            // Check if printer is online
+            statusCallback("Checking printer status...")
+            val isOnline = try {
+                // Verify printer connection is still valid
+                // Since reconnectToPrinter succeeded, printer should be online
+                // But verify by ensuring printer object exists and connection is established
+                printer != null && isMonitoring
             } catch (e: Exception) {
-                statusCallback("Error printing: ${e.localizedMessage}")
+                Log.e(TAG, "sendPrintCommand: Error checking printer status: ${e.message}", e)
                 false
             }
-        } else {
-            statusCallback("Printer connection failed. Cannot send print command.")
+
+            if (!isOnline) {
+                statusCallback("Printer is offline. Please check printer connection and try again.")
+                return false
+            }
+
+            // Printer is online, proceed with printing
+            statusCallback("Printer is online. Sending print command...")
+            printer?.printAsync(data)?.await()
+            statusCallback("Print command sent successfully.")
+            return true
+        } catch (e: StarIO10Exception) {
+            Log.e(TAG, "sendPrintCommand: StarIO10 error - ${e.message}", e)
+            when {
+                e.message?.contains("offline", ignoreCase = true) == true ||
+                e.message?.contains("not connected", ignoreCase = true) == true ||
+                e.message?.contains("connection", ignoreCase = true) == true ||
+                e.message?.contains("communication", ignoreCase = true) == true -> {
+                    statusCallback("Printer is offline or not connected. Please check printer connection and try again.")
+                }
+                else -> {
+                    statusCallback("Error printing: ${e.localizedMessage ?: e.message}")
+                }
+            }
+            return false
+        } catch (e: Exception) {
+            Log.e(TAG, "sendPrintCommand: ${e.message}", e)
+            // Check if error indicates printer is offline
+            if (e.message?.contains("offline", ignoreCase = true) == true ||
+                e.message?.contains("not connected", ignoreCase = true) == true ||
+                e.message?.contains("connection", ignoreCase = true) == true) {
+                statusCallback("Printer is offline. Please check printer connection and try again.")
+            } else {
+                statusCallback("Error printing: ${e.localizedMessage ?: e.message}")
+            }
             return false
         }
     }
@@ -102,12 +151,68 @@ class PrinterManager @Inject constructor(
         statusCallback: (String) -> Unit
     ) {
         try {
-            reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)
+            // First reconnect to printer
+            statusCallback("Connecting to printer...")
+            if (!reconnectToPrinter(getPrinterDetailsUseCase, statusCallback)) {
+                statusCallback("Failed to connect to printer. Please check printer connection.")
+                return
+            }
+
+            // Check if printer is initialized
+            if (printer == null) {
+                statusCallback("Printer is not initialized. Please set up the printer again.")
+                return
+            }
+
+            // Check if printer is online
+            // In StarIO10, if openAsync() completed successfully, printer should be online
+            // Verify the connection by checking if printer object is valid
+            statusCallback("Checking printer status...")
+            
+            // If reconnectToPrinter returned true, printer connection was established
+            // However, verify the printer is still accessible and online
+            val isOnline = try {
+                // Check if printer connection is still valid
+                // Since reconnectToPrinter succeeded, printer should be online
+                // But verify by ensuring printer object exists and connection is established
+                printer != null && isMonitoring
+            } catch (e: Exception) {
+                Log.e(TAG, "sendTestPrintCommand: Error checking printer status: ${e.message}", e)
+                false
+            }
+
+            if (!isOnline) {
+                statusCallback("Printer is offline. Please check printer connection and try again.")
+                return
+            }
+
+            // Printer is online, proceed with test print
+            statusCallback("Printer is online. Sending test print command...")
             printer?.printAsync(template)?.await()
             statusCallback("Test print command sent successfully.")
+        } catch (e: StarIO10Exception) {
+            Log.e(TAG, "sendTestPrintCommand: StarIO10 error - ${e.message}", e)
+            when {
+                e.message?.contains("offline", ignoreCase = true) == true ||
+                e.message?.contains("not connected", ignoreCase = true) == true ||
+                e.message?.contains("connection", ignoreCase = true) == true ||
+                e.message?.contains("communication", ignoreCase = true) == true -> {
+                    statusCallback("Printer is offline or not connected. Please check printer connection and try again.")
+                }
+                else -> {
+                    statusCallback("Error during test print: ${e.localizedMessage ?: e.message}")
+                }
+            }
         } catch (e: Exception) {
             Log.e(TAG, "sendTestPrintCommand: ${e.message}", e)
-            statusCallback("Error during test print: ${e.localizedMessage}")
+            // Check if error indicates printer is offline
+            if (e.message?.contains("offline", ignoreCase = true) == true ||
+                e.message?.contains("not connected", ignoreCase = true) == true ||
+                e.message?.contains("connection", ignoreCase = true) == true) {
+                statusCallback("Printer is offline. Please check printer connection and try again.")
+            } else {
+                statusCallback("Error during test print: ${e.localizedMessage ?: e.message}")
+            }
         }
     }
 
