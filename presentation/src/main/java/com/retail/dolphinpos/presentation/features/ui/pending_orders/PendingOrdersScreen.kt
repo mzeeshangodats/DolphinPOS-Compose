@@ -44,8 +44,9 @@ import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
-import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
+import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
@@ -58,7 +59,7 @@ fun PendingOrdersScreen(
     val orders by viewModel.pendingOrders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-    var selectedOrder by remember { mutableStateOf<PendingOrderEntity?>(null) }
+    var selectedOrder by remember { mutableStateOf<OrderEntity?>(null) }
 
     // Filter orders based on search query
     val filteredOrders = if (searchQuery.isEmpty()) {
@@ -304,7 +305,7 @@ fun PendingOrdersScreen(
 
 @Composable
 fun PendingOrderDetailsDialog(
-    order: PendingOrderEntity,
+    order: OrderEntity,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -429,8 +430,22 @@ fun PendingOrderDetailsDialog(
                     }
                 }
 
-                // Tax
-                if (order.taxValue > 0) {
+                // Tax Breakdown or Tax Exempt
+                val taxDetails = remember(order.taxDetails) {
+                    try {
+                        if (!order.taxDetails.isNullOrBlank()) {
+                            val taxDetailsType = object : TypeToken<List<TaxDetail>>() {}.type
+                            Gson().fromJson<List<TaxDetail>>(order.taxDetails, taxDetailsType) ?: emptyList()
+                        } else {
+                            emptyList()
+                        }
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
+                
+                if (!order.applyTax) {
+                    // Tax Exempt case
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -442,12 +457,100 @@ fun PendingOrderDetailsDialog(
                             fontFamily = GeneralSans
                         )
                         BaseText(
-                            text = "$${String.format("%.2f", order.taxValue)}",
+                            text = "Exempt",
                             fontSize = 14f,
                             fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
+                            color = Color(0xFF4CAF50),
                             fontFamily = GeneralSans
                         )
+                    }
+                } else if (order.taxValue > 0 || taxDetails.isNotEmpty()) {
+                    // Show tax breakdown if available
+                    if (taxDetails.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            BaseText(
+                                text = "Tax Breakdown:",
+                                fontSize = 14f,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black,
+                                fontFamily = GeneralSans
+                            )
+                            taxDetails.forEach { taxDetail ->
+                                val taxAmount = taxDetail.amount ?: when (taxDetail.type?.lowercase()) {
+                                    "percentage" -> {
+                                        val rate = taxDetail.value / 100.0
+                                        order.subTotal * rate
+                                    }
+                                    "fixed amount" -> taxDetail.value
+                                    else -> {
+                                        val rate = taxDetail.value / 100.0
+                                        order.subTotal * rate
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "${taxDetail.title}:",
+                                        fontSize = 13f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans,
+                                        modifier = Modifier.padding(start = 16.dp)
+                                    )
+                                    BaseText(
+                                        text = "$${String.format("%.2f", taxAmount)}",
+                                        fontSize = 13f,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                            }
+                            // Total tax
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                BaseText(
+                                    text = "Total Tax:",
+                                    fontSize = 14f,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black,
+                                    fontFamily = GeneralSans
+                                )
+                                BaseText(
+                                    text = "$${String.format("%.2f", order.taxValue)}",
+                                    fontSize = 14f,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.Black,
+                                    fontFamily = GeneralSans
+                                )
+                            }
+                        }
+                    } else {
+                        // Fallback to simple tax display
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            BaseText(
+                                text = "Tax:",
+                                fontSize = 14f,
+                                color = Color.Gray,
+                                fontFamily = GeneralSans
+                            )
+                            BaseText(
+                                text = "$${String.format("%.2f", order.taxValue)}",
+                                fontSize = 14f,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.Black,
+                                fontFamily = GeneralSans
+                            )
+                        }
                     }
                 }
 

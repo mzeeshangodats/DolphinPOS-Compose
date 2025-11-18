@@ -49,6 +49,7 @@ data class OrderEntity(
     @ColumnInfo(name = "discount_ids") val discountIds: String? = null, // JSON string of List<Int>
     @ColumnInfo(name = "split_transactions") val transactions: String? = null, // JSON string of List<CheckoutSplitPaymentTransactions>
     @ColumnInfo(name = "card_details") val cardDetails: String? = null, // JSON string of CardDetails
+    @ColumnInfo(name = "tax_details") val taxDetails: String? = null, // JSON string of List<TaxDetail>
     @ColumnInfo(name = "user_id") val userId: Int = 0,
     @ColumnInfo(name = "void_reason") val voidReason: String? = null,
     @ColumnInfo(name = "is_void") val isVoid: Boolean = false,

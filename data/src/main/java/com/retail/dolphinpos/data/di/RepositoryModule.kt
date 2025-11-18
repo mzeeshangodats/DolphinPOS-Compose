@@ -18,7 +18,6 @@ import com.retail.dolphinpos.data.repositories.setup.HardwareSetupRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
-import com.google.gson.Gson
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository

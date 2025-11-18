@@ -108,7 +108,8 @@ fun OrdersScreen(
                 is OrdersUiEvent.ShowSuccess -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = "OK"
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon,
                     ) {}
                 }
             }
@@ -539,80 +540,84 @@ fun OrderDetailsDialog(
                             fontFamily = GeneralSans
                         )
                     }
-                } else if (order.taxValue > 0) {
-                    // Show tax breakdown if available from transactions
+                } else {
+                    // Show tax breakdown if available from transactions, or show tax value
                     val hasTaxBreakdown = order.transactions.isNotEmpty() && order.transactions.any { it.tax > 0 }
+                    val totalTaxFromTransactions = order.transactions.sumOf { it.tax }
+                    val displayTaxValue = if (totalTaxFromTransactions > 0) totalTaxFromTransactions else order.taxValue
                     
-                    if (hasTaxBreakdown && order.transactions.size == 1) {
-                        // Single transaction - show total tax
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            BaseText(
-                                text = "Tax:",
-                                fontSize = 14f,
-                                color = Color.Gray,
-                                fontFamily = GeneralSans
-                            )
-                            BaseText(
-                                text = "$${String.format("%.2f", order.taxValue)}",
-                                fontSize = 14f,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black,
-                                fontFamily = GeneralSans
-                            )
-                        }
-                    } else if (hasTaxBreakdown) {
-                        // Multiple transactions - show breakdown
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            BaseText(
-                                text = "Tax Breakdown:",
-                                fontSize = 14f,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.Black,
-                                fontFamily = GeneralSans
-                            )
-                            order.transactions.forEach { transaction ->
-                                if (transaction.tax > 0) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        BaseText(
-                                            text = "${transaction.paymentMethod.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} Tax:",
-                                            fontSize = 13f,
-                                            color = Color.Gray,
-                                            fontFamily = GeneralSans,
-                                            modifier = Modifier.padding(start = 16.dp)
-                                        )
-                                        BaseText(
-                                            text = "$${String.format("%.2f", transaction.tax)}",
-                                            fontSize = 13f,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color.Black,
-                                            fontFamily = GeneralSans
-                                        )
-                                    }
-                                }
-                            }
-                            // Total tax
-                            Row(
+                    if (order.taxValue > 0 || totalTaxFromTransactions > 0) {
+                        if (hasTaxBreakdown && order.transactions.size > 1) {
+                            // Multiple transactions - show breakdown
+                            Column(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 BaseText(
-                                    text = "Total Tax:",
+                                    text = "Tax Breakdown:",
                                     fontSize = 14f,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.Black,
                                     fontFamily = GeneralSans
                                 )
+                                order.transactions.forEach { transaction ->
+                                    if (transaction.tax > 0) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            BaseText(
+                                                text = "${transaction.paymentMethod.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }} Tax:",
+                                                fontSize = 13f,
+                                                color = Color.Gray,
+                                                fontFamily = GeneralSans,
+                                                modifier = Modifier.padding(start = 16.dp)
+                                            )
+                                            BaseText(
+                                                text = "$${String.format("%.2f", transaction.tax)}",
+                                                fontSize = 13f,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color.Black,
+                                                fontFamily = GeneralSans
+                                            )
+                                        }
+                                    }
+                                }
+                                // Total tax
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Total Tax:",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "$${String.format("%.2f", displayTaxValue)}",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                            }
+                        } else {
+                            // Single transaction or no breakdown - show total tax
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
                                 BaseText(
-                                    text = "$${String.format("%.2f", order.taxValue)}",
+                                    text = "Tax:",
+                                    fontSize = 14f,
+                                    color = Color.Gray,
+                                    fontFamily = GeneralSans
+                                )
+                                BaseText(
+                                    text = "$${String.format("%.2f", displayTaxValue)}",
                                     fontSize = 14f,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color.Black,
@@ -621,7 +626,7 @@ fun OrderDetailsDialog(
                             }
                         }
                     } else {
-                        // Fallback to simple tax display
+                        // Tax is 0 but applyTax is true (shouldn't happen normally)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -633,33 +638,13 @@ fun OrderDetailsDialog(
                                 fontFamily = GeneralSans
                             )
                             BaseText(
-                                text = "$${String.format("%.2f", order.taxValue)}",
+                                text = "$0.00",
                                 fontSize = 14f,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color.Black,
                                 fontFamily = GeneralSans
                             )
                         }
-                    }
-                } else {
-                    // Tax is 0 but applyTax is true (shouldn't happen normally)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        BaseText(
-                            text = "Tax:",
-                            fontSize = 14f,
-                            color = Color.Gray,
-                            fontFamily = GeneralSans
-                        )
-                        BaseText(
-                            text = "$0.00",
-                            fontSize = 14f,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color.Black,
-                            fontFamily = GeneralSans
-                        )
                     }
                 }
 

@@ -2,8 +2,8 @@ package com.retail.dolphinpos.presentation.features.ui.pending_orders
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
-import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.data.entities.order.OrderEntity
+import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,11 +16,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class PendingOrdersViewModel @Inject constructor(
-    private val pendingOrderRepository: PendingOrderRepositoryImpl
+    private val orderRepository: OrderRepositoryImpl
 ) : ViewModel() {
 
-    private val _pendingOrders = MutableStateFlow<List<PendingOrderEntity>>(emptyList())
-    val pendingOrders: StateFlow<List<PendingOrderEntity>> = _pendingOrders.asStateFlow()
+    private val _pendingOrders = MutableStateFlow<List<OrderEntity>>(emptyList())
+    val pendingOrders: StateFlow<List<OrderEntity>> = _pendingOrders.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -32,7 +32,8 @@ class PendingOrdersViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val orders = pendingOrderRepository.getUnsyncedOrders()
+                // Get unsynced local orders (orderSource = 'local' AND isSynced = false)
+                val orders = orderRepository.getUnsyncedLocalOrders()
                 _pendingOrders.value = orders
             } catch (e: Exception) {
                 _uiEvent.emit(PendingOrdersUiEvent.ShowError("Failed to load pending orders: ${e.message}"))
@@ -46,9 +47,9 @@ class PendingOrdersViewModel @Inject constructor(
         viewModelScope.launch {
             _uiEvent.emit(PendingOrdersUiEvent.ShowLoading)
             try {
-                val order = pendingOrderRepository.getOrderById(orderId)
+                val order = orderRepository.getOrderById(orderId)
                 if (order != null) {
-                    pendingOrderRepository.syncOrderToServer(order).onSuccess {
+                    orderRepository.syncOrderToServer(order).onSuccess {
                         _uiEvent.emit(PendingOrdersUiEvent.ShowSuccess("Order synced successfully"))
                         loadPendingOrders() // Reload the list
                     }.onFailure { e ->

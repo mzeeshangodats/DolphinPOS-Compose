@@ -9,7 +9,9 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
+import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
+import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailTransaction
 import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
 import com.retail.dolphinpos.domain.model.home.order_details.Product
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
@@ -164,6 +166,18 @@ class OrdersViewModel @Inject constructor(
             emptyList()
         }
 
+        // Parse transactions from JSON
+        val transactionsType = object : TypeToken<List<CheckoutSplitPaymentTransactions>>() {}.type
+        val splitTransactions: List<CheckoutSplitPaymentTransactions> = try {
+            if (!entity.transactions.isNullOrBlank()) {
+                gson.fromJson(entity.transactions, transactionsType) ?: emptyList()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+
         // Convert CheckOutOrderItem to OrderItem
         val convertedOrderItems = orderItems.map { item ->
             OrderItem(
@@ -179,6 +193,33 @@ class OrdersViewModel @Inject constructor(
                 quantity = item.quantity ?: 0,
                 refundPrice = 0.0,
                 refundQuantity = 0
+            )
+        }
+
+        // Convert CheckoutSplitPaymentTransactions to OrderDetailTransaction
+        val convertedTransactions = splitTransactions.mapIndexed { index, splitTransaction ->
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            dateFormat.timeZone = java.util.TimeZone.getTimeZone("UTC")
+            val nowString = dateFormat.format(Date())
+            
+            OrderDetailTransaction(
+                amount = splitTransaction.amount.toString(),
+                batch = Unit,
+                batchId = entity.batchNo ?: Unit,
+                cardDetails = splitTransaction.cardDetails ?: com.retail.dolphinpos.domain.model.home.create_order.CardDetails(),
+                createdAt = nowString,
+                id = index + 1,
+                invoiceNo = splitTransaction.invoiceNo ?: entity.invoiceNo ?: "",
+                locationId = entity.locationId,
+                orderId = entity.serverId ?: entity.id.toInt(),
+                orderSource = entity.orderSource,
+                paymentMethod = splitTransaction.paymentMethod,
+                status = if (entity.isSynced) "completed" else "pending",
+                storeId = entity.storeId,
+                tax = splitTransaction.taxAmount ?: 0.0, // Use taxAmount from split transaction
+                tip = Unit,
+                updatedAt = nowString,
+                userId = entity.userId
             )
         }
 
@@ -236,7 +277,7 @@ class OrdersViewModel @Inject constructor(
             taxValue = entity.taxValue,
             timeline = Unit,
             total = entity.total.toString(),
-            transactions = emptyList(), // Transactions not stored in OrderEntity
+            transactions = convertedTransactions, // Parse transactions from entity
             updatedAt = updatedAtString,
             voidReason = entity.voidReason ?: "",
             wpId = 0
@@ -251,9 +292,21 @@ class OrdersViewModel @Inject constructor(
         viewModelScope.launch {
             _uiEvent.emit(OrdersUiEvent.ShowLoading)
             try {
-                val printableOrder = getPrintableOrderFromOrderDetailUseCase(order)
+                // Try to get the order from database first to preserve tax details
+                val orderEntity = orderRepository.getOrderByOrderNumber(order.orderNumber)
+                val pendingOrder = if (orderEntity != null) {
+                    // Use convertToPendingOrder which includes tax details
+                    android.util.Log.d("OrdersViewModel", "Printing order from database: ${order.orderNumber}, Tax details: ${orderEntity.taxDetails}")
+                    orderRepository.convertToPendingOrder(orderEntity)
+                } else {
+                    // Fallback to conversion from OrderDetailList if order not found in database
+                    android.util.Log.d("OrdersViewModel", "Order not found in database, using OrderDetailList conversion")
+                    getPrintableOrderFromOrderDetailUseCase(order)
+                }
+                
+                android.util.Log.d("OrdersViewModel", "Printing order: ${pendingOrder.orderNumber}, Subtotal: ${pendingOrder.subTotal}, Tax: ${pendingOrder.taxValue}, Tax details count: ${pendingOrder.taxDetails?.size ?: 0}")
                 val statusMessages = mutableListOf<String>()
-                val result = printOrderReceiptUseCase(printableOrder) { statusMessages.add(it) }
+                val result = printOrderReceiptUseCase(pendingOrder) { statusMessages.add(it) }
                 if (result.isSuccess) {
                     val successMessage =
                         statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
@@ -269,6 +322,7 @@ class OrdersViewModel @Inject constructor(
                     _uiEvent.emit(OrdersUiEvent.ShowError(errorMessage))
                 }
             } catch (e: Exception) {
+                android.util.Log.e("OrdersViewModel", "Error printing order: ${e.message}", e)
                 _uiEvent.emit(OrdersUiEvent.ShowError(e.message ?: "Failed to print receipt."))
             } finally {
                 _uiEvent.emit(OrdersUiEvent.HideLoading)

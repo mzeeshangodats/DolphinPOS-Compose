@@ -372,6 +372,12 @@ class GenerateReceiptTextUseCase @Inject constructor(
             val tax = order.taxValue ?: 0.0
             val discount = order.discountAmount ?: 0.0
             val total = order.total ?: 0.0
+            
+            Log.d(TAG, "generatePendingOrderReceipt: Order totals - Subtotal: $subtotal, Tax: $tax, Total: $total")
+            Log.d(TAG, "generatePendingOrderReceipt: Tax details count: ${order.taxDetails?.size ?: 0}")
+            order.taxDetails?.forEach { taxDetail ->
+                Log.d(TAG, "  Tax: ${taxDetail.title} - ${taxDetail.value}% - Amount: ${taxDetail.amount}")
+            }
 
             val totalAmountLabel =
                 if (isReceiptForRefund) "TOTAL REFUND AMOUNT:" else "TOTAL AMOUNT:"
@@ -478,15 +484,19 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     }
                     append("${"  $taxDescription:".padEnd(25)} $taxValue\n")
                 }
-            } else {
-                // No tax case
+            } else if (!order.applyTax) {
+                // Tax Exempt case
                 append("\n")
-                val taxValue = if (isReceiptForRefund) {
-                    String.format(Locale.US, "-$%.2f", tax)
-                } else {
-                    String.format(Locale.US, "$%.2f", tax)
+                append("${"TAX:".padEnd(25)} EXEMPT\n")
+            } else {
+                // Tax is 0 or not available - show tax value if applyTax is true
+                if (order.applyTax && tax == 0.0) {
+                    append("\n")
+                    append("${"TAX:".padEnd(25)} $0.00\n")
+                } else if (!order.applyTax) {
+                    append("\n")
+                    append("${"TAX:".padEnd(25)} EXEMPT\n")
                 }
-                append("${"TAX:".padEnd(25)} $taxValue\n")
             }
 
             // Combine reward discount and order-level discount into a single DISCOUNT line
@@ -888,9 +898,8 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 }
 
                 // Tax breakdown or Tax Exempt
-                val isTaxExempt = !order.applyTax || order.taxValue == 0.0
-                
-                if (isTaxExempt) {
+                // Always show tax line, but determine if exempt or has value
+                if (!order.applyTax) {
                     // Tax Exempt case
                     Log.d(TAG, "generatePendingOrderReceipt: Tax Exempt")
                     append(formatLine("Tax", "EXEMPT"))
@@ -903,23 +912,32 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
                     order.items.forEach { orderItem ->
                         orderItem.appliedTaxes?.forEach { taxDetail ->
-                            // Use the amount from taxDetail if available (pre-calculated per item)
+                            // Use the amount from taxDetail if available (pre-calculated per item based on item price)
                             // Otherwise calculate based on item price and quantity
-                            val taxAmount = taxDetail.amount ?: when (taxDetail.type?.lowercase()) {
-                                "percentage" -> {
-                                    val rate = taxDetail.value / 100.0
-                                    val itemPrice =
-                                        orderItem.discountedPrice ?: orderItem.price ?: 0.0
-                                    itemPrice * (orderItem.quantity ?: 1) * rate
-                                }
+                            val taxAmount = if (taxDetail.amount != null && taxDetail.amount!! > 0.0) {
+                                // Use pre-calculated amount based on item's price
+                                Log.d(TAG, "Using pre-calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: ${taxDetail.amount}")
+                                taxDetail.amount!!
+                            } else {
+                                // Fallback: calculate based on item price (shouldn't happen if item-level taxes are saved correctly)
+                                val calculatedAmount = when (taxDetail.type?.lowercase()) {
+                                    "percentage" -> {
+                                        val rate = taxDetail.value / 100.0
+                                        val itemPrice =
+                                            orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                        itemPrice * (orderItem.quantity ?: 1) * rate
+                                    }
 
-                                "fixed amount" -> taxDetail.value * (orderItem.quantity ?: 1)
-                                else -> {
-                                    val rate = taxDetail.value / 100.0
-                                    val itemPrice =
-                                        orderItem.discountedPrice ?: orderItem.price ?: 0.0
-                                    itemPrice * (orderItem.quantity ?: 1) * rate
+                                    "fixed amount" -> taxDetail.value * (orderItem.quantity ?: 1)
+                                    else -> {
+                                        val rate = taxDetail.value / 100.0
+                                        val itemPrice =
+                                            orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                        itemPrice * (orderItem.quantity ?: 1) * rate
+                                    }
                                 }
+                                Log.d(TAG, "Calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: $calculatedAmount (fallback)")
+                                calculatedAmount
                             }
 
                             val taxValue = taxDetail.value
@@ -985,12 +1003,16 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             append(formatLine(descriptionFormatted, formattedAmount))
                         }
                     } else {
-                        // Fallback to simple tax display
+                        // Fallback to simple tax display - always show tax if applyTax is true
                         append(formatLine("Tax", formatCurrency(order.taxValue)))
                     }
+                } else if (!order.applyTax) {
+                    // Tax Exempt case
+                    Log.d(TAG, "generatePendingOrderReceipt: Tax Exempt")
+                    append(formatLine("Tax", "EXEMPT"))
                 } else {
-                    // Tax is 0 but applyTax is true (shouldn't happen normally, but handle it)
-                    Log.d(TAG, "generatePendingOrderReceipt: Tax is 0")
+                    // Tax is 0 but applyTax is true - show $0.00
+                    Log.d(TAG, "generatePendingOrderReceipt: Tax is 0 but tax is applied")
                     append(formatLine("Tax", "$0.00"))
                 }
 
