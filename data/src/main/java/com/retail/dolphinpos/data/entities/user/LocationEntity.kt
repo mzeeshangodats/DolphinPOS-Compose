@@ -18,5 +18,6 @@ data class LocationEntity(
     @ColumnInfo(name = "tax_details") val taxDetails: String? = null, // JSON string of List<TaxDetail>
     val startTime: String?,
     val endTime: String?,
-    val multiCashier: Boolean?
+    val multiCashier: Boolean?,
+    val dualPricePercentage: String?
 )

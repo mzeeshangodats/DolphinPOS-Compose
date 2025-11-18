@@ -157,6 +157,7 @@ class VerifyPinViewModel @Inject constructor(
             startTime = location.startTime,
             endTime = location.endTime,
             locationMultiCashier = location.multiCashier,
+            dualPricePercentage = location.dualPricePercentage?.toString(),
             registerId = register.id,
             registerName = register.name,
             registerStatus = register.status

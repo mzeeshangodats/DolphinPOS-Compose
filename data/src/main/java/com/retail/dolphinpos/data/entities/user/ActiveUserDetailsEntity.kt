@@ -36,6 +36,7 @@ data class ActiveUserDetailsEntity(
     val startTime: String?,
     val endTime: String?,
     val locationMultiCashier: Boolean?,
+    val dualPricePercentage: String?,
     val registerId: Int,
     val registerName: String?,
     val registerStatus: String?,

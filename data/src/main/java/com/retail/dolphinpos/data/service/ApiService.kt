@@ -69,6 +69,8 @@ interface ApiService {
         @Query("page") page: Int = 1,
         @Query("limit") limit: Int = 10,
         @Query("orderBy") orderBy: String = "createdAt",
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String,
         @Query("order") order: String = "desc"
     ): TransactionResponse
 

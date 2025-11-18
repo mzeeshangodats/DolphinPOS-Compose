@@ -85,7 +85,8 @@ object UserMapper {
             taxDetails = taxDetailsJson,
             startTime = location.startTime,
             endTime = location.endTime,
-            multiCashier = location.multiCashier
+            multiCashier = location.multiCashier,
+            dualPricePercentage = location.dualPricePercentage?.toString()
         )
     }
 
@@ -151,6 +152,7 @@ object UserMapper {
             startTime = activeUserDetails.startTime,
             endTime = activeUserDetails.endTime,
             locationMultiCashier = activeUserDetails.locationMultiCashier,
+            dualPricePercentage = activeUserDetails.dualPricePercentage,
             registerId = activeUserDetails.registerId,
             registerName = activeUserDetails.registerName,
             registerStatus = activeUserDetails.registerStatus
@@ -225,6 +227,7 @@ object UserMapper {
                 startTime = location.startTime,
                 endTime = location.endTime,
                 multiCashier = location.multiCashier,
+                dualPricePercentage = location.dualPricePercentage?.toDoubleOrNull(),
                 registers = registerEntities
                     .filter { it.locationId == location.id }
                     .map { toRegister(it) }
@@ -256,6 +259,7 @@ object UserMapper {
                 startTime = entity.startTime,
                 endTime = entity.endTime,
                 multiCashier = entity.multiCashier,
+                dualPricePercentage = entity.dualPricePercentage?.toDoubleOrNull(),
                 registers = emptyList()
             )
         }
@@ -304,6 +308,7 @@ object UserMapper {
             startTime = locationEntity.startTime,
             endTime = locationEntity.endTime,
             multiCashier = locationEntity.multiCashier,
+            dualPricePercentage = locationEntity.dualPricePercentage?.toDoubleOrNull(),
             registers = null
         )
     }
@@ -359,6 +364,7 @@ object UserMapper {
             startTime = entity.startTime,
             endTime = entity.endTime,
             locationMultiCashier = entity.locationMultiCashier,
+            dualPricePercentage = entity.dualPricePercentage,
             registerId = entity.registerId,
             registerName = entity.registerName,
             registerStatus = entity.registerStatus

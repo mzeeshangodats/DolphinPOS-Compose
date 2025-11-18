@@ -8,7 +8,9 @@ interface TransactionRepository {
         storeId: Int,
         locationId: Int? = null,
         page: Int = 1,
-        limit: Int = 10
+        limit: Int = 10,
+        startDate: String,
+        endDate: String
     ): TransactionResponse
 
     suspend fun getTransactionsFromLocal(storeId: Int): List<Transaction>
@@ -19,7 +21,9 @@ interface TransactionRepository {
         storeId: Int,
         locationId: Int? = null,
         page: Int = 1,
-        limit: Int = 10
+        limit: Int = 10,
+        startDate: String,
+        endDate: String
     ): List<Transaction>
     
     suspend fun saveTransactionToLocal(transaction: Transaction): Long

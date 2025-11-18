@@ -431,6 +431,9 @@ fun HomeScreen(
                                 // Validate payment amount
                                 val currentPayment = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
                                 
+                                // Use small epsilon for floating point comparison
+                                val epsilon = 0.01
+                                
                                 if (totalAmount > 0 && currentPayment < 0.01) {
                                     // Show error and auto-fill total amount
                                     DialogHandler.showDialog(
@@ -439,15 +442,15 @@ fun HomeScreen(
                                         iconRes = R.drawable.info_icon
                                     )
                                     paymentAmount = viewModel.formatAmount(totalAmount)
-                                } else if (totalAmount > 0 && currentPayment < totalAmount) {
+                                } else if (totalAmount > 0 && currentPayment < totalAmount - epsilon) {
                                     // Show error if payment is less than total
                                     DialogHandler.showDialog(
-                                        message = "Payment amount ($${viewModel.formatAmount(currentPayment)}) is less than total amount ($${viewModel.formatAmount(totalAmount)}). Please enter the full amount or more.",
+                                        message = "Payment amount ($${viewModel.formatAmount(currentPayment)}) is less than total amount ($${viewModel.formatAmount(totalAmount)}). Please enter the full amount.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Proceed with payment
+                                    // Payment equals or exceeds total amount - proceed
                                     when {
                                         viewModel.isCashSelected -> viewModel.createOrder("cash")
                                         else -> viewModel.initCardPayment()

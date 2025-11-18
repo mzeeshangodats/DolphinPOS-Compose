@@ -60,6 +60,39 @@ class TransactionActivityViewModel @Inject constructor(
 
     private var currentPage = 1
     private val pageLimit = 10
+    
+    private val _startDate = MutableStateFlow<String?>(null)
+    val startDate: StateFlow<String?> = _startDate.asStateFlow()
+    
+    private val _endDate = MutableStateFlow<String?>(null)
+    val endDate: StateFlow<String?> = _endDate.asStateFlow()
+
+    init {
+        // Initialize default dates: end date = today, start date = yesterday
+        initializeDefaultDates()
+    }
+
+    private fun initializeDefaultDates() {
+        val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+        val calendar = java.util.Calendar.getInstance()
+        
+        // End date = current date
+        val endDateStr = dateFormat.format(calendar.time)
+        _endDate.value = endDateStr
+        
+        // Start date = one day before current date
+        calendar.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        val startDateStr = dateFormat.format(calendar.time)
+        _startDate.value = startDateStr
+    }
+
+    fun setStartDate(date: String) {
+        _startDate.value = date
+    }
+
+    fun setEndDate(date: String) {
+        _endDate.value = date
+    }
 
     fun loadTransactions(reset: Boolean = true) {
         viewModelScope.launch {
@@ -76,6 +109,21 @@ class TransactionActivityViewModel @Inject constructor(
                 val storeId = preferenceManager.getStoreID()
                 val locationId = preferenceManager.getOccupiedLocationID()
 
+                // Get date range (use default dates if not set - should be set in init)
+                val dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                val calendar = java.util.Calendar.getInstance()
+                
+                val endDateStr = _endDate.value ?: run {
+                    // Default to today if end date not set
+                    dateFormat.format(calendar.time)
+                }
+                
+                val startDateStr = _startDate.value ?: run {
+                    // Default to yesterday if start date not set
+                    calendar.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                    dateFormat.format(calendar.time)
+                }
+
                 val transactionList: List<Transaction> = if (networkMonitor.isNetworkAvailable()) {
                     // If internet is available, fetch from API and sync
                     try {
@@ -84,7 +132,9 @@ class TransactionActivityViewModel @Inject constructor(
                             storeId = storeId,
                             locationId = if (locationId > 0) locationId else null,
                             page = currentPage,
-                            limit = pageLimit
+                            limit = pageLimit,
+                            startDate = startDateStr,
+                            endDate = endDateStr
                         )
 
                         // Check if there are more pages
@@ -92,15 +142,21 @@ class TransactionActivityViewModel @Inject constructor(
                             storeId = storeId,
                             locationId = if (locationId > 0) locationId else null,
                             page = currentPage,
-                            limit = pageLimit
+                            limit = pageLimit,
+                            startDate = startDateStr,
+                            endDate = endDateStr
                         )
                         val totalRecords = response.data?.totalRecords ?: 0
+                        // Calculate current records after adding new items
                         val currentRecords = if (reset) {
                             apiTransactions.size
                         } else {
+                            // After this call, _transactions will be updated with new items
+                            // So we calculate: existing items + new items from API
                             _transactions.value.size + apiTransactions.size
                         }
-                        _hasMorePages.value = currentRecords < totalRecords
+                        // Check if there are more pages based on total records
+                        _hasMorePages.value = currentRecords < totalRecords && totalRecords > 0
 
                         apiTransactions
                     } catch (e: Exception) {
@@ -169,7 +225,8 @@ class TransactionActivityViewModel @Inject constructor(
     }
 
     fun loadMoreTransactions() {
-        if (!_isLoadingMore.value && _hasMorePages.value && networkMonitor.isNetworkAvailable()) {
+        // Only load more if not already loading, has more pages, and internet is available
+        if (!_isLoadingMore.value && !_isLoading.value && _hasMorePages.value && networkMonitor.isNetworkAvailable()) {
             currentPage++
             loadTransactions(reset = false)
         }

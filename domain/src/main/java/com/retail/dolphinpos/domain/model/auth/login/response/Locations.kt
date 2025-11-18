@@ -14,5 +14,6 @@ data class Locations(
     val startTime: String?,
     val endTime: String?,
     val multiCashier: Boolean?,
+    val dualPricePercentage: Double?,
     val registers: List<Registers>?,
 )

@@ -28,7 +28,9 @@ class TransactionRepositoryImpl(
         storeId: Int,
         locationId: Int?,
         page: Int,
-        limit: Int
+        limit: Int,
+        startDate: String,
+        endDate: String
     ): TransactionResponse {
         return safeApiCall(
             apiCall = {
@@ -36,7 +38,9 @@ class TransactionRepositoryImpl(
                     storeId = storeId,
                     locationId = locationId,
                     page = page,
-                    limit = limit
+                    limit = limit,
+                    startDate = startDate,
+                    endDate = endDate
                 )
             },
             defaultResponse = {
@@ -56,9 +60,11 @@ class TransactionRepositoryImpl(
         storeId: Int,
         locationId: Int?,
         page: Int,
-        limit: Int
+        limit: Int,
+        startDate: String,
+        endDate: String
     ): List<Transaction> {
-        val response = getTransactionsFromApi(storeId, locationId, page, limit)
+        val response = getTransactionsFromApi(storeId, locationId, page, limit, startDate, endDate)
         val transactionData = response.data
         return if (transactionData != null && transactionData.list.isNotEmpty()) {
             val entities = transactionData.list.map { apiTransaction ->
