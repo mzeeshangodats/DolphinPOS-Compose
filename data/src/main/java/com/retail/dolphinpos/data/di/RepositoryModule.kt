@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.data.di
 
 import android.content.Context
+import com.google.gson.Gson
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
@@ -17,7 +18,6 @@ import com.retail.dolphinpos.data.repositories.setup.HardwareSetupRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.service.ImageDownloadService
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
-import com.google.gson.Gson
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
@@ -40,8 +40,8 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideLoginRepository(api: ApiService, userDao: UserDao): LoginRepository {
-        return LoginRepositoryImpl(api, userDao)
+    fun provideLoginRepository(api: ApiService, userDao: UserDao, gson: Gson): LoginRepository {
+        return LoginRepositoryImpl(api, userDao, gson)
     }
 
     @Provides
@@ -55,18 +55,19 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideStoreRegisterRepository(
-        api: ApiService, userDao: UserDao, productsDao: ProductsDao, imageDownloadService: ImageDownloadService
+        api: ApiService, userDao: UserDao, productsDao: ProductsDao, imageDownloadService: ImageDownloadService, gson: Gson
     ): StoreRegistersRepository {
-        return StoreRegisterRepositoryImpl(api, userDao, productsDao, imageDownloadService)
+        return StoreRegisterRepositoryImpl(api, userDao, productsDao, imageDownloadService, gson)
     }
 
     @Provides
     @Singleton
     fun provideVerifyPinRepository(
         userDao: UserDao,
-        api: ApiService
+        api: ApiService,
+        gson: Gson
     ): VerifyPinRepository {
-        return VerifyPinRepositoryImpl(userDao, api)
+        return VerifyPinRepositoryImpl(userDao, api, gson)
     }
 
     @Provides

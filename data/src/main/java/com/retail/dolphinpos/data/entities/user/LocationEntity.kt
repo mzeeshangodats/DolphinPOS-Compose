@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.entities.user
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -14,6 +15,7 @@ data class LocationEntity(
     val zipCode: String?,
     val taxValue: String?,
     val taxTitle: String?,
+    @ColumnInfo(name = "tax_details") val taxDetails: String? = null, // JSON string of List<TaxDetail>
     val startTime: String?,
     val endTime: String?,
     val multiCashier: Boolean?

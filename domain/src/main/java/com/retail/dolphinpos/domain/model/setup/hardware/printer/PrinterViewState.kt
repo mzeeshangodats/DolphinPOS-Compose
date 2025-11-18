@@ -14,5 +14,6 @@ sealed class PrinterViewEffect {
     data class ShowSuccessSnackBar(val message: String) : PrinterViewEffect()
     data class ShowInformationSnackBar(val message: String) : PrinterViewEffect()
     data class ShowLoading(val isLoading: Boolean) : PrinterViewEffect()
+    data class ShowErrorDialog(val message: String) : PrinterViewEffect()
 }
 

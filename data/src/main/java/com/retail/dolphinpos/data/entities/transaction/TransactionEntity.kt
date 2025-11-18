@@ -52,6 +52,9 @@ data class TransactionEntity(
     @ColumnInfo(name = "card_details")
     val cardDetails: String? = null, // JSON stored as String
     
+    @ColumnInfo(name = "tax_details")
+    val taxDetails: String? = null, // JSON string of List<TaxDetail>
+    
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
     

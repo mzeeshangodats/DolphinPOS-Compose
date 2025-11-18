@@ -7,10 +7,12 @@ import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
 import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCall
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.transaction.Transaction
 import com.retail.dolphinpos.domain.model.transaction.TransactionItem
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
 import com.retail.dolphinpos.domain.repositories.transaction.TransactionRepository
+import com.google.gson.reflect.TypeToken
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -147,6 +149,46 @@ class TransactionRepositoryImpl(
             }
         }
 
+        // Extract taxDetails from order object
+        // Aggregate store-level taxes (order.taxDetails) and product-level taxes (order.orderItems[].appliedTaxes)
+        val aggregatedTaxDetails = mutableListOf<TaxDetail>()
+        
+        // Add store-level taxes from order.taxDetails
+        apiTransaction.order?.taxDetails?.let { storeTaxDetails ->
+            aggregatedTaxDetails.addAll(storeTaxDetails)
+        }
+        
+        // Aggregate product-level taxes from orderItems
+        apiTransaction.order?.orderItems?.forEach { orderItem ->
+            orderItem.appliedTaxes?.forEach { productTax ->
+                // Check if this tax already exists in aggregated list (by title and value)
+                val existingTax = aggregatedTaxDetails.find { 
+                    it.title == productTax.title && it.value == productTax.value 
+                }
+                if (existingTax != null) {
+                    // Sum the amounts if tax already exists
+                    val index = aggregatedTaxDetails.indexOf(existingTax)
+                    aggregatedTaxDetails[index] = existingTax.copy(
+                        amount = (existingTax.amount ?: 0.0) + (productTax.amount ?: 0.0)
+                    )
+                } else {
+                    // Add new tax
+                    aggregatedTaxDetails.add(productTax)
+                }
+            }
+        }
+        
+        // Convert aggregated taxDetails to JSON string
+        val taxDetailsJson: String? = if (aggregatedTaxDetails.isNotEmpty()) {
+            try {
+                gson.toJson(aggregatedTaxDetails)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+        
         return TransactionEntity(
             id = 0, // Will be auto-generated
             orderNo = orderNo,
@@ -165,7 +207,8 @@ class TransactionRepositoryImpl(
             tip = apiTransaction.tip,
             cardDetails = cardDetailsJson,
             createdAt = createdAt,
-            updatedAt = updatedAt
+            updatedAt = updatedAt,
+            taxDetails = taxDetailsJson
         )
     }
 
@@ -173,6 +216,16 @@ class TransactionRepositoryImpl(
      * Convert TransactionEntity (data layer) to Transaction (domain layer)
      */
     private fun convertEntityToDomain(entity: TransactionEntity): Transaction {
+        // Parse taxDetails from JSON string
+        val taxDetails: List<TaxDetail>? = entity.taxDetails?.let {
+            try {
+                val type = object : TypeToken<List<TaxDetail>>() {}.type
+                gson.fromJson<List<TaxDetail>>(it, type)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
         return Transaction(
             id = entity.id,
             orderNo = entity.orderNo,
@@ -191,7 +244,8 @@ class TransactionRepositoryImpl(
             tip = entity.tip,
             cardDetails = entity.cardDetails,
             createdAt = entity.createdAt,
-            updatedAt = entity.updatedAt
+            updatedAt = entity.updatedAt,
+            taxDetails = taxDetails
         )
     }
 
@@ -199,6 +253,15 @@ class TransactionRepositoryImpl(
      * Convert Transaction (domain layer) to TransactionEntity (data layer)
      */
     private fun convertDomainToEntity(transaction: Transaction): TransactionEntity {
+        // Convert taxDetails to JSON string
+        val taxDetailsJson: String? = transaction.taxDetails?.let {
+            try {
+                gson.toJson(it)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        
         return TransactionEntity(
             id = transaction.id,
             orderNo = transaction.orderNo,
@@ -217,7 +280,8 @@ class TransactionRepositoryImpl(
             tip = transaction.tip,
             cardDetails = transaction.cardDetails,
             createdAt = transaction.createdAt,
-            updatedAt = transaction.updatedAt
+            updatedAt = transaction.updatedAt,
+            taxDetails = taxDetailsJson
         )
     }
 }

@@ -220,9 +220,112 @@ fun TransactionActivityItem(transaction: TransactionActivityItemData) {
 
             InfoRow("Amount:", "$${String.format("%.2f", transaction.amount)}")
             InfoRow("Payment Method:", transaction.paymentMethod.value.uppercase())
-            transaction.tax?.let {
-                InfoRow("Tax:", "$${String.format("%.2f", it)}")
+            
+            // Tax breakdown, single tax value, or tax exempt
+            // Don't show tax breakdown if taxExempt is true
+            if (transaction.taxExempt) {
+                // Tax Exempt case
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Tax:",
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        color = Color.Gray
+                    )
+                    BaseText(
+                        text = "Exempt",
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF4CAF50)
+                    )
+                }
+            } else if (transaction.taxDetails != null && transaction.taxDetails.isNotEmpty()) {
+                // Show tax breakdown
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    BaseText(
+                        text = "Tax Breakdown:",
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.Black
+                    )
+                    transaction.taxDetails.forEach { taxDetail ->
+                        val taxDescription = when (taxDetail.type?.lowercase()) {
+                            "percentage" -> "${taxDetail.title} (${taxDetail.value}%)"
+                            "fixed amount" -> "${taxDetail.title} ($${taxDetail.value})"
+                            else -> "${taxDetail.title} (${taxDetail.value}%)"
+                        }
+                        // Use taxDetail.amount if available, otherwise show 0.00
+                        val taxAmount = taxDetail.amount ?: 0.0
+                        InfoRow(
+                            label = taxDescription,
+                            value = "$${String.format("%.2f", taxAmount)}"
+                        )
+                    }
+                    // Show total tax if multiple taxes
+                    if (transaction.taxDetails.size > 1) {
+                        val totalTax = transaction.taxDetails.sumOf { it.amount ?: 0.0 }
+                        InfoRow(
+                            label = "Total Tax:",
+                            value = "$${String.format("%.2f", totalTax)}"
+                        )
+                    }
+                }
+            } else {
+                // Fallback to single tax value
+                transaction.tax?.let {
+                    if (it > 0) {
+                        InfoRow("Tax:", "$${String.format("%.2f", it)}")
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            BaseText(
+                                text = "Tax:",
+                                fontSize = 14f,
+                                fontFamily = GeneralSans,
+                                color = Color.Gray
+                            )
+                            BaseText(
+                                text = "Exempt",
+                                fontSize = 14f,
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
+                } ?: run {
+                    // No tax data available
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BaseText(
+                            text = "Tax:",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            color = Color.Gray
+                        )
+                        BaseText(
+                            text = "Exempt",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF4CAF50)
+                        )
+                    }
+                }
             }
+            
             InfoRow("Date:", formatTimestamp(transaction.createdAt))
         }
     }

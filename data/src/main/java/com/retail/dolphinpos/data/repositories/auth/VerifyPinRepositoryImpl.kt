@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.repositories.auth
 
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.mapper.UserMapper
@@ -19,7 +20,8 @@ import java.io.IOException
 
 class VerifyPinRepositoryImpl(
     private val userDao: UserDao,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val gson: Gson
 ) : VerifyPinRepository {
 
     override suspend fun getUser(pin: String, locationId: Int): AllStoreUsers? {
@@ -38,7 +40,7 @@ class VerifyPinRepositoryImpl(
 
     override suspend fun getLocationByLocationID(locationID: Int): Locations {
         val locationEntities = userDao.getLocationByLocationId(locationID)
-        return UserMapper.toLocationAgainstLocationID(locationEntities)
+        return UserMapper.toLocationAgainstLocationID(locationEntities, gson)
     }
 
     override suspend fun getRegisterByRegisterID(locationID: Int): Registers {

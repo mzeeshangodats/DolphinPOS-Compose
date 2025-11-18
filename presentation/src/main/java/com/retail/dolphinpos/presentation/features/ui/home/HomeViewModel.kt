@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
@@ -33,6 +34,12 @@ import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.ProcessT
 import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
+import com.retail.dolphinpos.domain.usecases.tax.PricingCalculationUseCase
+import com.retail.dolphinpos.domain.usecases.tax.DiscountOrder
+import com.retail.dolphinpos.domain.usecases.tax.PricingConfiguration
+import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.cart.applyTax
+import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -70,6 +77,7 @@ class HomeViewModel @Inject constructor(
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
     private val customerDisplayManager: CustomerDisplayManager,
+    private val pricingCalculationUseCase: PricingCalculationUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -103,6 +111,9 @@ class HomeViewModel @Inject constructor(
 
     private val _totalAmount = MutableStateFlow(0.0)
     val totalAmount: StateFlow<Double> = _totalAmount.asStateFlow()
+
+    private val _isTaxExempt = MutableStateFlow(false)
+    val isTaxExempt: StateFlow<Boolean> = _isTaxExempt.asStateFlow()
 
     private val _categories =
         MutableStateFlow<List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData>>(
@@ -218,7 +229,7 @@ class HomeViewModel @Inject constructor(
                 if (product != null) {
                     // Check if the barcode matches a variant SKU
                     val matchingVariant = product.variants?.find { it.sku == barcode }
-                    
+
                     if (matchingVariant != null) {
                         // Add variant to cart
                         val success = addVariantToCart(product, matchingVariant)
@@ -270,7 +281,8 @@ class HomeViewModel @Inject constructor(
                     cardPrice = product.cardPrice.toDouble(),
                     cashPrice = product.cashPrice.toDouble(),
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
-                    selectedPrice = product.cardPrice.toDouble()  // Always add new products at card price
+                    selectedPrice = product.cardPrice.toDouble(),  // Always add new products at card price
+                    productTaxDetails = product.taxDetails  // Include product tax details
                 )
             )
         }
@@ -311,7 +323,8 @@ class HomeViewModel @Inject constructor(
                     cardPrice = variantCardPrice,
                     cashPrice = variantCashPrice,
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
-                    selectedPrice = variantCardPrice  // Always add new products at card price
+                    selectedPrice = variantCardPrice,  // Always add new products at card price
+                    productTaxDetails = variant.taxDetails ?: product.taxDetails  // Prefer variant tax details, fallback to product
                 )
             )
         }
@@ -374,9 +387,21 @@ class HomeViewModel @Inject constructor(
         calculateSubtotal(currentList)
     }
 
+    fun toggleTaxExempt() {
+        val newValue = !_isTaxExempt.value
+        Log.d("HomeViewModel", "=== TAX EXEMPT TOGGLE ===")
+        Log.d("HomeViewModel", "Previous state: ${_isTaxExempt.value}")
+        Log.d("HomeViewModel", "New state: $newValue")
+        _isTaxExempt.value = newValue
+        Log.d("HomeViewModel", "Recalculating totals with tax exempt: $newValue")
+        // Recalculate totals after toggling tax exempt status
+        calculateSubtotal(_cartItems.value)
+    }
+
     fun clearCart() {
         _cartItems.value = emptyList()
         isCashSelected = false  // Set default to card when cart is cleared
+        _isTaxExempt.value = false  // Reset tax exempt status when cart is cleared
         resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
     }
@@ -405,10 +430,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
             try {
+                // Get latest synced online order only (not pending orders)
                 val latestOrder = getLatestOnlineOrderUseCase()
+
                 if (latestOrder == null) {
-                    _homeUiEvent.emit(HomeUiEvent.ShowError("No completed orders found to print."))
+                    Log.d("HomeViewModel", "No online orders found to print")
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("No online orders found to print."))
                 } else {
+                    Log.d("HomeViewModel", "Printing latest online order: ${latestOrder.orderNumber}, Subtotal: ${latestOrder.subTotal}, Tax: ${latestOrder.taxValue}, Total: ${latestOrder.total}")
                     val statusMessages = mutableListOf<String>()
                     val result = printOrderReceiptUseCase(latestOrder) { statusMessages.add(it) }
                     if (result.isSuccess) {
@@ -426,6 +455,7 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
+                Log.e("HomeViewModel", "Error printing order: ${e.message}", e)
                 _homeUiEvent.emit(HomeUiEvent.ShowError(e.message ?: "Failed to print receipt."))
             } finally {
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
@@ -522,7 +552,7 @@ class HomeViewModel @Inject constructor(
     private fun calculateSubtotal(cartItems: List<CartItem>) {
         viewModelScope.launch(Dispatchers.Default) {
             // 1️⃣ Base subtotal (card prices minus product-level discounts only)
-            val baseSubtotal = cartItems.sumOf { it.cardPrice * it.quantity }
+            cartItems.sumOf { it.cardPrice * it.quantity }
 
             // Calculate product-level discounts using card prices (subtotal always shows card prices)
             val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
@@ -579,15 +609,187 @@ class HomeViewModel @Inject constructor(
             // 5️⃣ Apply cash discount (after order-level discounts)
             val finalSubtotal = discountedSubtotal - currentCashDiscount
 
-            // 6️⃣ Tax (only for taxable products, proportional to discount)
-            val taxableBase = cartItems.sumOf { cart ->
-                if (cart.chargeTaxOnThisProduct!!) cart.getProductDiscountedPrice() * cart.quantity else 0.0
+            // 6️⃣ Tax calculation using PricingCalculationUseCase (supports fixed and percentage tax)
+            var taxValue: Double
+            var updatedCartItems: List<CartItem>
+
+            try {
+                Log.d("HomeViewModel", "=== TAX CALCULATION START ===")
+                Log.d("HomeViewModel", "Cart items: ${cartItems.size}")
+                Log.d("HomeViewModel", "Final subtotal (after discounts): $finalSubtotal")
+                Log.d("HomeViewModel", "Is cash selected: $isCashSelected")
+                Log.d("HomeViewModel", "Tax exempt: ${_isTaxExempt.value}")
+
+                // Get location tax details
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val location = verifyPinRepository.getLocationByLocationID(locationId)
+                val locationTaxDetails = location.taxDetails
+                Log.d("HomeViewModel", "Location tax details count: ${locationTaxDetails?.size ?: 0}")
+                locationTaxDetails?.forEach { tax ->
+                    Log.d("HomeViewModel", "  Store tax: ${tax.title} - ${tax.value}% (isDefault: ${tax.isDefault})")
+                }
+
+                // Convert OrderDiscount to DiscountOrder for PricingCalculationUseCase
+                val discountOrder = if (_orderLevelDiscounts.value.isNotEmpty()) {
+                    val firstDiscount = _orderLevelDiscounts.value.first()
+                    Log.d("HomeViewModel", "Order discount: ${firstDiscount.type} - ${firstDiscount.value}")
+                    DiscountOrder(
+                        discountType = when (firstDiscount.type) {
+                            DiscountType.PERCENTAGE -> "percentage"
+                            DiscountType.AMOUNT -> "amount"
+                        },
+                        percentage = if (firstDiscount.type == DiscountType.PERCENTAGE) firstDiscount.value else 0.0,
+                        amount = if (firstDiscount.type == DiscountType.AMOUNT) firstDiscount.value else 0.0
+                    )
+                } else {
+                    Log.d("HomeViewModel", "No order-level discount")
+                    null
+                }
+
+                // Calculate tax rate from location (fallback to 10% if not available)
+                val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                Log.d("HomeViewModel", "Tax rate: $taxRate (${location.taxValue}%)")
+
+                // Log each cart item's tax details
+                cartItems.forEach { item ->
+                    Log.d("HomeViewModel", "Item: ${item.name}, applyTax: ${item.applyTax}, productTaxDetails: ${item.productTaxDetails?.size ?: 0}")
+                    item.productTaxDetails?.forEach { tax ->
+                        Log.d("HomeViewModel", "  Product tax: ${tax.title} - ${tax.value}% (isDefault: ${tax.isDefault})")
+                    }
+                }
+
+                // Use PricingCalculationUseCase to calculate tax
+                val pricingConfig = PricingConfiguration(
+                    isTaxApplied = true,
+                    taxRate = taxRate,
+                    useCardPricing = !isCashSelected,
+                    taxDetails = locationTaxDetails,
+                    taxExempt = _isTaxExempt.value  // Use tax exempt state
+                )
+                Log.d("HomeViewModel", "Pricing config - isTaxApplied: true, taxExempt: ${_isTaxExempt.value}, useCardPricing: ${!isCashSelected}")
+
+                val pricingResult = pricingCalculationUseCase.calculatePricing(
+                    cartItems = cartItems,
+                    discountOrder = discountOrder,
+                    rewardAmount = 0.0, // TODO: Add reward discount if needed
+                    config = pricingConfig
+                )
+
+                taxValue = pricingResult.tax
+                updatedCartItems = pricingResult.cartItemsWithTax
+
+                Log.d("HomeViewModel", "Tax calculation result:")
+                Log.d("HomeViewModel", "  Total tax: $taxValue")
+                Log.d("HomeViewModel", "  Items with tax: ${updatedCartItems.size}")
+                updatedCartItems.forEach { item ->
+                    Log.d("HomeViewModel", "    ${item.name}: tax=${item.productTaxAmount}, taxable=${item.productTaxableAmount}")
+                }
+                Log.d("HomeViewModel", "=== TAX CALCULATION END ===")
+
+                // Update cart items with tax information
+                withContext(Dispatchers.Main) {
+                    _cartItems.value = updatedCartItems
+                }
+            } catch (e: Exception) {
+                Log.e("HomeViewModel", "Tax calculation failed, using fallback: ${e.message}")
+                e.printStackTrace()
+
+                // Fallback to simple tax calculation if PricingCalculationUseCase fails
+                // Check if tax is exempt first
+                if (_isTaxExempt.value) {
+                    Log.d("HomeViewModel", "Fallback: Tax exempt, setting tax to 0")
+                    taxValue = 0.0
+                    updatedCartItems = cartItems.map { it.copy(
+                        productTaxAmount = 0.0,
+                        productTaxRate = 0.0,
+                        productTaxableAmount = 0.0
+                    )}
+                } else {
+                    // Get location tax rate for fallback calculation
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val location = try {
+                        verifyPinRepository.getLocationByLocationID(locationId)
+                    } catch (ex: Exception) {
+                        null
+                    }
+                    val taxRate = location?.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    Log.d("HomeViewModel", "Fallback: Using tax rate: $taxRate (${location?.taxValue ?: 10}%)")
+
+                    // Calculate taxable base (only items that should be taxed)
+                    val taxableBase = cartItems.sumOf { cart ->
+                        if (cart.applyTax == true) {
+                            val itemPrice = if (isCashSelected) {
+                                if (cart.isDiscounted && cart.cashDiscountedPrice > 0.0) {
+                                    cart.cashDiscountedPrice
+                                } else {
+                                    cart.cashPrice
+                                }
+                            } else {
+                                if (cart.isDiscounted && cart.discountPrice != null) {
+                                    cart.discountPrice!!
+                                } else {
+                                    cart.price ?: 0.0
+                                }
+                            }
+                            itemPrice * (cart.quantity ?: 1)
+                        } else {
+                            0.0
+                        }
+                    }
+
+                    // Apply proportion of discounts to taxable amount
+                    val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0 && taxableBase > 0) {
+                        taxableBase * (finalSubtotal / productDiscountedSubtotal)
+                    } else {
+                        finalSubtotal  // If no taxable items, use final subtotal
+                    }
+
+                    // Calculate tax using actual tax rate
+                    taxValue = taxableAfterOrderDiscounts * taxRate
+                    Log.d("HomeViewModel", "Fallback tax calculation:")
+                    Log.d("HomeViewModel", "  Taxable base: $taxableBase")
+                    Log.d("HomeViewModel", "  Taxable after discounts: $taxableAfterOrderDiscounts")
+                    Log.d("HomeViewModel", "  Tax rate: $taxRate")
+                    Log.d("HomeViewModel", "  Calculated tax: $taxValue")
+
+                    // Update cart items with fallback tax (distributed proportionally)
+                    updatedCartItems = cartItems.map { item ->
+                        if (item.applyTax && taxableAfterOrderDiscounts > 0) {
+                            val itemPrice = if (isCashSelected) {
+                                if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
+                                    item.cashDiscountedPrice
+                                } else {
+                                    item.cashPrice
+                                }
+                            } else {
+                                if (item.isDiscounted && item.discountPrice != null) {
+                                    item.discountPrice!!
+                                } else {
+                                    item.price ?: 0.0
+                                }
+                            }
+                            val itemSubtotal = itemPrice * (item.quantity ?: 1)
+                            val itemProportion = if (taxableBase > 0) itemSubtotal / taxableBase else 0.0
+                            val itemTaxableAmount = taxableAfterOrderDiscounts * itemProportion
+                            val itemTaxAmount = itemTaxableAmount * taxRate
+
+                            item.copy(
+                                productTaxAmount = itemTaxAmount,
+                                productTaxRate = taxRate,
+                                productTaxableAmount = itemTaxableAmount
+                            )
+                        } else {
+                            item.copy(
+                                productTaxAmount = 0.0,
+                                productTaxRate = 0.0,
+                                productTaxableAmount = 0.0
+                            )
+                        }
+                    }
+                }
+
+                Log.d("HomeViewModel", "Fallback tax calculated: $taxValue")
             }
-
-            val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0) {
-                taxableBase * (finalSubtotal / productDiscountedSubtotal)
-            } else 0.0
-
             // Get tax percentage from location (default to 10 if not available)
             val taxPercentage = getTaxPercentage()
             val taxValue = taxableAfterOrderDiscounts * taxPercentage / 100.0
@@ -601,7 +803,7 @@ class HomeViewModel @Inject constructor(
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
-                
+
                 // Broadcast cart update to customer display
                 // Determine status based on cart state
                 val status = if (cartItems.isEmpty()) {
@@ -609,7 +811,7 @@ class HomeViewModel @Inject constructor(
                 } else {
                     "CHECKOUT_SCREEN"
                 }
-                
+
                 customerDisplayManager.broadcastCartUpdate(
                     status = status,
                     cartItems = cartItems,
@@ -664,7 +866,7 @@ class HomeViewModel @Inject constructor(
      */
     fun getCurrentSubtotalAfterOrderDiscounts(): Double {
         val cartItems = _cartItems.value
-        
+
         // Calculate product-level discounted subtotal
         val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
             val cardPrice = cartItem.cardPrice
@@ -679,7 +881,7 @@ class HomeViewModel @Inject constructor(
             }
             discountedPrice * cartItem.quantity
         }
-        
+
         // Apply all existing order-level discounts sequentially
         var discountedSubtotal = productDiscountedSubtotal
         for (discount in _orderLevelDiscounts.value) {
@@ -697,7 +899,7 @@ class HomeViewModel @Inject constructor(
                 break
             }
         }
-        
+
         return discountedSubtotal.coerceAtLeast(0.0)
     }
 
@@ -750,7 +952,7 @@ class HomeViewModel @Inject constructor(
                 val storeId = preferenceManager.getStoreID()
                 val registerId = preferenceManager.getOccupiedRegisterID()
 
-                val holdCartId = holdCartRepository.saveHoldCart(
+                holdCartRepository.saveHoldCart(
                     cartName = cartName,
                     cartItems = _cartItems.value,
                     subtotal = _subtotal.value,
@@ -869,6 +1071,43 @@ class HomeViewModel @Inject constructor(
                     val discountAmount =
                         if (hasProductDiscount) cartItem.getProductDiscountAmount() else 0.0
 
+                    // Calculate tax amounts per item based on item's price (after discounts) and quantity
+                    // This ensures tax breakdown is based on product-level prices, not subtotal
+                    val itemTaxDetails = cartItem.productTaxDetails?.map { taxDetail ->
+                        // Calculate tax amount based on this item's price and quantity
+                        // Use discounted price if available, otherwise use selectedPrice
+                        val itemPrice = discountedPrice
+                        val itemQuantity = cartItem.quantity ?: 1
+                        val itemSubtotal = itemPrice * itemQuantity
+
+                        // Calculate tax amount for this item based on the tax rate
+                        val taxAmount = when (taxDetail.type?.lowercase()) {
+                            "percentage" -> {
+                                val rate = taxDetail.value / 100.0
+                                itemSubtotal * rate
+                            }
+                            "fixed amount" -> {
+                                taxDetail.value * itemQuantity
+                            }
+                            else -> {
+                                val rate = taxDetail.value / 100.0
+                                itemSubtotal * rate
+                            }
+                        }
+
+                        Log.d("HomeViewModel", "Tax calculation for item: ${cartItem.name}, Price: $itemPrice, Qty: $itemQuantity, Subtotal: $itemSubtotal, Tax: ${taxDetail.title} (${taxDetail.value}%), Amount: $taxAmount")
+
+                        // Return tax detail with calculated amount based on item price
+                        TaxDetail(
+                            type = taxDetail.type,
+                            title = taxDetail.title,
+                            value = taxDetail.value,
+                            amount = taxAmount,  // Tax amount calculated from this item's price
+                            isDefault = taxDetail.isDefault,
+                            refundedTax = taxDetail.refundedTax
+                        )
+                    }?.takeIf { it.isNotEmpty() }
+
                     CheckOutOrderItem(
                         productId = cartItem.productId,
                         quantity = cartItem.quantity,
@@ -895,7 +1134,11 @@ class HomeViewModel @Inject constructor(
                             DiscountType.PERCENTAGE -> "percentage"
                             else -> ""
                         },
-                        cardPrice = cartItem.cardPrice
+                        cardPrice = cartItem.cardPrice,
+                        // Include product-level tax (totalTax = productTaxAmount per item)
+                        totalTax = cartItem.productTaxAmount.takeIf { it > 0.0 },
+                        // Include tax breakdown with calculated amounts based on item prices
+                        appliedTaxes = itemTaxDetails
                     )
                 }
 
@@ -914,7 +1157,103 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
+                // Calculate store-level tax details (default taxes only) for order-level breakdown
+                // For cash payments, use cash-based subtotal; for card, use card-based subtotal
+                val taxBaseSubtotal = if (paymentMethod == "cash") {
+                    // Calculate subtotal based on cash prices (same logic as when creating order items)
+                    val cashBaseSubtotal = _cartItems.value.sumOf { cartItem ->
+                        val hasProductDiscount =
+                            cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                        val discountedCashPrice = if (hasProductDiscount) {
+                            // Calculate discounted cash price using the same method as when creating order items
+                            when (cartItem.discountType) {
+                                DiscountType.PERCENTAGE -> {
+                                    cartItem.cashPrice - ((cartItem.cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                                }
+                                DiscountType.AMOUNT -> {
+                                    cartItem.cashPrice - (cartItem.discountValue ?: 0.0)
+                                }
+                                else -> cartItem.cashPrice
+                            }
+                        } else {
+                            cartItem.cashPrice
+                        }
+                        discountedCashPrice * (cartItem.quantity ?: 1)
+                    }
+
+                    // Apply order-level discounts (same as card calculation)
+                    var discountedCashSubtotal = cashBaseSubtotal
+                    for (discount in _orderLevelDiscounts.value) {
+                        discountedCashSubtotal = when (discount.type) {
+                            DiscountType.PERCENTAGE -> {
+                                discountedCashSubtotal - (discountedCashSubtotal * discount.value / 100.0)
+                            }
+                            DiscountType.AMOUNT -> {
+                                discountedCashSubtotal - discount.value
+                            }
+                        }
+                    }
+
+                    // Apply cash discount (cash discount is already applied, so just use the result)
+                    discountedCashSubtotal - finalCashDiscount
+                } else {
+                    // For card payments, use the card-based finalSubtotal
+                    finalSubtotal
+                }
+
+                Log.d("HomeViewModel", "Tax calculation base - Payment: $paymentMethod, Card subtotal: $finalSubtotal, Tax base subtotal: $taxBaseSubtotal")
+
+                val storeTaxDetails = try {
+                    val location = verifyPinRepository.getLocationByLocationID(locationId)
+                    location.taxDetails?.filter { it.isDefault == true }?.map { taxDetail ->
+                        // Calculate tax amount based on payment-method-specific subtotal
+                        val taxAmount = when (taxDetail.type?.lowercase()) {
+                            "percentage" -> {
+                                val rate = taxDetail.value / 100.0
+                                taxBaseSubtotal * rate
+                            }
+                            "fixed amount" -> taxDetail.value
+                            else -> {
+                                val rate = taxDetail.value / 100.0
+                                taxBaseSubtotal * rate
+                            }
+                        }
+                        // Return taxDetail with calculated amount
+                        TaxDetail(
+                            type = taxDetail.type,
+                            title = taxDetail.title,
+                            value = taxDetail.value,
+                            amount = taxAmount,
+                            isDefault = taxDetail.isDefault,
+                            refundedTax = taxDetail.refundedTax
+                        )
+                    } ?: emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+
                 // Create order request using captured values
+                // If tax is exempt, set applyTax = false and taxDetails = emptyList()
+                val isTaxExempt = _isTaxExempt.value
+                val orderApplyTax = !isTaxExempt
+                val orderTaxDetails = if (isTaxExempt) {
+                    emptyList()
+                } else {
+                    storeTaxDetails
+                }
+
+                Log.d("HomeViewModel", "Creating order - Payment: $paymentMethod," +
+                        " Subtotal: $finalSubtotal, Tax: $finalTax, Total: $finalTotal")
+                Log.d("HomeViewModel", "Tax exempt: $isTaxExempt, ApplyTax: $orderApplyTax")
+                if (!isTaxExempt) {
+                    Log.d("HomeViewModel", "Tax details count: ${orderTaxDetails.size}")
+                    orderTaxDetails.forEach { tax ->
+                        Log.d("HomeViewModel", "  Tax: ${tax.title} - ${tax.value}% - Amount: ${tax.amount}")
+                    }
+                } else {
+                    Log.d("HomeViewModel", "Tax is exempt - taxDetails will be empty")
+                }
+
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
                     invoiceNo = invoiceNo,
@@ -929,18 +1268,20 @@ class HomeViewModel @Inject constructor(
                     items = orderItems,
                     subTotal = finalSubtotal,
                     total = finalTotal,
-                    applyTax = true,
+                    applyTax = orderApplyTax,  // Set to false if tax is exempt
                     taxValue = finalTax,
                     discountAmount = finalOrderDiscount,
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,
                     userId = userId,
-                    cardDetails = cardDetails
+                    cardDetails = cardDetails,
+                    taxDetails = orderTaxDetails,  // Empty list if tax is exempt, otherwise store-level default taxes breakdown
+                    taxExempt = isTaxExempt  // Use tax exempt state
                 )
 
                 // Always save to local database first (with isSynced = false, status = "pending")
                 val orderId = orderRepository.saveOrderToLocal(orderRequest)
-                android.util.Log.d("Order", "Order saved locally with ID: $orderId")
+                Log.d("Order", "Order saved locally with ID: $orderId")
                 
                 // Save transaction to transactions table
                 try {
@@ -968,9 +1309,9 @@ class HomeViewModel @Inject constructor(
                         cardDetails = cardDetails?.let { gson.toJson(it) }
                     )
                     createOrderTransactionDao.insertTransaction(transactionEntity)
-                    android.util.Log.d("Transaction", "Transaction saved successfully with invoice: $invoiceNo, status: $transactionStatus")
+                    Log.d("Transaction", "Transaction saved successfully with invoice: $invoiceNo, status: $transactionStatus")
                 } catch (e: Exception) {
-                    android.util.Log.e("Transaction", "Failed to save transaction: ${e.message}")
+                    Log.e("Transaction", "Failed to save transaction: ${e.message}")
                 }
 
                 // Try to sync with server if internet is available
@@ -981,12 +1322,12 @@ class HomeViewModel @Inject constructor(
                         if (savedOrder != null) {
                             // Sync order to server
                             orderRepository.syncOrderToServer(savedOrder).onSuccess { response ->
-                                android.util.Log.d("Order", "Order synced to server successfully. Response: ${response.message}")
+                                Log.d("Order", "Order synced to server successfully. Response: ${response.message}")
                                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                                 _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
                             }.onFailure { e ->
                                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                                android.util.Log.e(
+                                Log.e(
                                     "Order",
                                     "Failed to sync order: ${e.message}\n Your order has been saved locally and will sync when internet is available"
                                 )
@@ -997,7 +1338,7 @@ class HomeViewModel @Inject constructor(
                             _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved but could not be retrieved for syncing"))
                         }
                     } catch (e: Exception) {
-                        android.util.Log.e("Order", "Failed to sync order: ${e.message}")
+                        Log.e("Order", "Failed to sync order: ${e.message}")
                         _homeUiEvent.emit(HomeUiEvent.HideLoading)
                         _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
                     }
@@ -1010,7 +1351,7 @@ class HomeViewModel @Inject constructor(
                 clearCart()
 
             } catch (e: Exception) {
-                android.util.Log.e("Order", "Failed to create order: ${e.message}")
+                Log.e("Order", "Failed to create order: ${e.message}")
                 _homeUiEvent.emit(HomeUiEvent.HideLoading)
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to create order: ${e.message}"))
                 // Reset order level discounts when order fails
@@ -1094,6 +1435,11 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Generates a unique order number based on store, location, register, user IDs and timestamp
+     * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
+     * @return Unique order number string
+     */
     fun generateOrderNumber(): String {
         val storeId = preferenceManager.getStoreID()
         val locationId = preferenceManager.getOccupiedLocationID()
@@ -1104,6 +1450,12 @@ class HomeViewModel @Inject constructor(
         return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 
+    /**
+     * Generates a unique invoice number based on store, location, register, user IDs and timestamp
+     * Format: INV_S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
+     * Follows the same pattern as batch number generation but with "INV" prefix
+     * @return Unique invoice number string
+     */
     fun generateInvoiceNo(): String {
         val storeId = preferenceManager.getStoreID()
         val locationId = preferenceManager.getOccupiedLocationID()

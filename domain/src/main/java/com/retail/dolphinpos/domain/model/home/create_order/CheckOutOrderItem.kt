@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.domain.model.home.create_order
 
+import com.retail.dolphinpos.domain.model.TaxDetail
+
 data class CheckOutOrderItem(
     val productId: Int?,
     val quantity: Int?,
@@ -16,5 +18,8 @@ data class CheckOutOrderItem(
     val discountReason: String?,
     val fixedPercentageDiscount: Double?,
     val discountType: String?,
-    val cardPrice: Double?
+    val cardPrice: Double?,
+    // Tax-related fields for product-level tax
+    val totalTax: Double? = null,  // Product-level tax amount for this item
+    val appliedTaxes: List<TaxDetail>? = null  // Tax breakdown for this item (store + product taxes)
 )

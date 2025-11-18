@@ -114,22 +114,80 @@ class PrinterSetupViewModel @Inject constructor(
         viewModelScope.launch {
             val savedPrinter = _viewState.value.savedPrinterDetails
             if (savedPrinter == null) {
-                emitViewEffect(PrinterViewEffect.ShowErrorSnackBar("Please connect a printer first before testing print."))
+                emitViewEffect(PrinterViewEffect.ShowErrorDialog("Failed to send print command"))
                 return@launch
             }
 
+            emitViewEffect(PrinterViewEffect.ShowLoading(true))
             emitViewEffect(PrinterViewEffect.ShowInformationSnackBar("Sending test print command..."))
 
             try {
                 val isGraphicPrinter = savedPrinter.isGraphic
-                testPrintUseCase(isGraphicPrinter)
-                emitViewEffect(PrinterViewEffect.ShowSuccessSnackBar("Test print sent successfully."))
+                val statusMessages = mutableListOf<String>()
+                
+                // Check if printer is connected before proceeding
+                if (getPrinterDetailsUseCase() == null) {
+                    emitViewEffect(PrinterViewEffect.ShowLoading(false))
+                    emitViewEffect(PrinterViewEffect.ShowErrorDialog("Failed to send print command"))
+                    return@launch
+                }
+                
+                // Call test print - printer online check is done inside sendTestPrintCommand
+                // The testPrintUseCase internally uses sendTestPrintCommand which now checks printer online status
+                // Status messages are now properly passed through the callback
+                try {
+                    testPrintUseCase(
+                        isGraphicPrinter = isGraphicPrinter,
+                        statusCallback = { message ->
+                            statusMessages.add(message)
+                            emitViewEffect(PrinterViewEffect.ShowInformationSnackBar(message))
+                        }
+                    )
+                    // Check if any error messages indicate printer is offline
+                    val hasOfflineError = statusMessages.any { 
+                        it.contains("offline", ignoreCase = true) || 
+                        it.contains("not connected", ignoreCase = true) ||
+                        it.contains("connection failed", ignoreCase = true) ||
+                        it.contains("Failed to connect", ignoreCase = true)
+                    }
+                    
+                    if (hasOfflineError) {
+                        val errorMessage = statusMessages.lastOrNull { 
+                            it.contains("offline", ignoreCase = true) || 
+                            it.contains("not connected", ignoreCase = true) ||
+                            it.contains("Failed to connect", ignoreCase = true)
+                        } ?: "Printer is offline. Please check printer connection and try again."
+                        emitViewEffect(PrinterViewEffect.ShowErrorSnackBar(errorMessage))
+                    } else {
+                        val successMessage = statusMessages.lastOrNull { 
+                            it.contains("success", ignoreCase = true) 
+                        } ?: "Test print command sent successfully."
+                        emitViewEffect(PrinterViewEffect.ShowSuccessSnackBar(successMessage))
+                    }
+                } catch (e: Exception) {
+                    // Check if error indicates printer is offline
+                    val errorMessage = e.message ?: e.localizedMessage ?: "Unknown error"
+                    if (errorMessage.contains("offline", ignoreCase = true) ||
+                        errorMessage.contains("not connected", ignoreCase = true) ||
+                        errorMessage.contains("connection failed", ignoreCase = true) ||
+                        errorMessage.contains("connection", ignoreCase = true)) {
+                        emitViewEffect(PrinterViewEffect.ShowErrorSnackBar("Printer is offline. Please check printer connection and try again."))
+                    } else {
+                        emitViewEffect(
+                            PrinterViewEffect.ShowErrorSnackBar(
+                                "Error during test print: $errorMessage"
+                            )
+                        )
+                    }
+                }
             } catch (e: Exception) {
                 emitViewEffect(
                     PrinterViewEffect.ShowErrorSnackBar(
                         "Error during test print: ${e.localizedMessage ?: e.message ?: "Unknown error"}"
                     )
                 )
+            } finally {
+                emitViewEffect(PrinterViewEffect.ShowLoading(false))
             }
         }
     }

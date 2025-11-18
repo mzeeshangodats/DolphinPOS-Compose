@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.domain.model.transaction
 
+import com.retail.dolphinpos.domain.model.TaxDetail
+
 data class Transaction(
     val id: Long = 0,
     val orderNo: String? = null,
@@ -18,6 +20,8 @@ data class Transaction(
     val tip: Double? = null,
     val cardDetails: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    // Tax-related fields
+    val taxDetails: List<TaxDetail>? = null  // Tax breakdown for this transaction
 )
 

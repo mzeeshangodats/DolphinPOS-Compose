@@ -1,5 +1,7 @@
 package com.retail.dolphinpos.domain.model.home.catrgories_products
 
+import com.retail.dolphinpos.domain.model.TaxDetail
+
 data class Products(
     val barCode: String?,
     val cardPrice: String,
@@ -28,5 +30,7 @@ data class Products(
     val trackQuantity: Boolean = false,
     val updatedAt: String? = "",
     val variants: List<Variant>?,
-    val vendor: Vendor?
+    val vendor: Vendor?,
+    val taxAmount: Double? = null,
+    val taxDetails: List<TaxDetail>? = null
 )

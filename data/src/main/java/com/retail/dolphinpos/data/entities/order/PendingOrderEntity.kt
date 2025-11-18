@@ -35,6 +35,8 @@ data class PendingOrderEntity(
     @ColumnInfo(name = "void_reason") val voidReason: String? = null,
     @ColumnInfo(name = "is_void") val isVoid: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
-    @ColumnInfo(name = "is_synced") val isSynced: Boolean = false
+    @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,
+    @ColumnInfo(name = "tax_details") val taxDetails: String? = null, // JSON string of List<TaxDetail>
+    @ColumnInfo(name = "tax_exempt") val taxExempt: Boolean = false
 )
 

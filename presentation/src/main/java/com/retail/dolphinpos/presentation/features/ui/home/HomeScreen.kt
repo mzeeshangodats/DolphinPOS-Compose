@@ -90,6 +90,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import java.util.Calendar
@@ -719,7 +720,7 @@ fun CartActionButtons(
 
         // Price Check
         Card(
-            onClick = onPrint,
+            onClick = { /* TODO */ },
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),
@@ -740,7 +741,7 @@ fun CartActionButtons(
 
         // Print Last Receipt
         Card(
-            onClick = { /* TODO */ },
+            onClick = onPrint,
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),
@@ -1634,7 +1635,8 @@ fun ProductsPanel(
             navController = navController,
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
-            onShowAddCustomerDialog = onShowAddCustomerDialog
+            onShowAddCustomerDialog = onShowAddCustomerDialog,
+            viewModel = viewModel()
         )
     }
 }
@@ -1691,8 +1693,10 @@ fun ActionButtonsPanel(
     navController: NavController,
     cartItems: List<CartItem>,
     onShowOrderDiscountDialog: () -> Unit,
-    onShowAddCustomerDialog: () -> Unit
+    onShowAddCustomerDialog: () -> Unit,
+    viewModel: HomeViewModel
 ) {
+    val isTaxExempt by viewModel.isTaxExempt.collectAsStateWithLifecycle()
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -1723,9 +1727,16 @@ fun ActionButtonsPanel(
                 ActionButton("EBT", R.drawable.ebt_btn),
                 ActionButton("Rewards", R.drawable.rewards_btn),
                 ActionButton("Online Order", R.drawable.online_order_btn),
-                ActionButton("Tax Exempt", R.drawable.tax_exempt_btn)
+                ActionButton(if (isTaxExempt) "Apply Tax" else "Exempt", R.drawable.tax_exempt_btn)
             ), onActionClick = { action ->
-                showComingSoonDialog()
+                when (action) {
+                    "Exempt", "Apply Tax" -> {
+                        viewModel.toggleTaxExempt()
+                    }
+                    else -> {
+                        showComingSoonDialog()
+                    }
+                }
             })
 
         // Row 3
@@ -1776,22 +1787,40 @@ fun ActionButtonRow(
         modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         buttons.forEach { button ->
+            // Use custom red color background for exempt button, light grey for others
+            val backgroundColor = if (button.label == "Exempt" || button.label == "Apply Tax") {
+                Color(0xFFDC3E42)
+            } else {
+                colorResource(id = R.color.light_grey)
+            }
+            
             Card(
                 onClick = { onActionClick(button.label) },
                 modifier = Modifier
                     .weight(1f)
                     .height(60.dp),
                 shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey))
+                colors = CardDefaults.cardColors(containerColor = backgroundColor)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = button.iconRes),
-                        contentDescription = button.label,
-                        contentScale = ContentScale.Fit
-                    )
+                    // Show text for tax exempt button, image for others
+                    if (button.label == "Exempt" || button.label == "Apply Tax") {
+                        BaseText(
+                            text = button.label,
+                            color = Color.White,
+                            fontSize = 16f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = button.iconRes),
+                            contentDescription = button.label,
+                            contentScale = ContentScale.Fit
+                        )
+                    }
                 }
             }
         }

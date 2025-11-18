@@ -14,6 +14,7 @@ import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.domain.model.order.PendingOrder
+import com.retail.dolphinpos.domain.model.TaxDetail
 import java.lang.reflect.Type
 
 class OrderRepositoryImpl(
@@ -51,6 +52,7 @@ class OrderRepositoryImpl(
             transactionId = orderRequest.transactionId,
             transactions = orderRequest.transactions?.let { gson.toJson(it) },
             cardDetails = orderRequest.cardDetails?.let { gson.toJson(it) },
+            taxDetails = orderRequest.taxDetails?.let { gson.toJson(it) },
             userId = orderRequest.userId,
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
@@ -289,6 +291,13 @@ class OrderRepositoryImpl(
     }
 
     /**
+     * Get order by order number
+     */
+    suspend fun getOrderByOrderNumber(orderNumber: String): OrderEntity? {
+        return orderDao.getOrderByOrderNumber(orderNumber)
+    }
+
+    /**
      * Get latest order
      */
     suspend fun getLatestOrder(): OrderEntity? {
@@ -325,11 +334,13 @@ class OrderRepositoryImpl(
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<CardDetails>() {}.type
+        val taxDetailsType = object : TypeToken<List<TaxDetail>>() {}.type
 
         val items: List<CheckOutOrderItem> = decodeJson(entity.items, itemsType) ?: emptyList()
         val discountIds: List<Int>? = entity.discountIds?.let { decodeJson(it, discountIdsType) }
         val transactions: List<CheckoutSplitPaymentTransactions>? = entity.transactions?.let { decodeJson(it, transactionsType) }
         val cardDetails: CardDetails? = entity.cardDetails?.let { decodeJson(it, cardDetailsType) }
+        val taxDetails: List<TaxDetail>? = entity.taxDetails?.let { decodeJson(it, taxDetailsType) }
 
         return CreateOrderRequest(
             orderNumber = entity.orderNumber,
@@ -357,7 +368,9 @@ class OrderRepositoryImpl(
             voidReason = entity.voidReason,
             isVoid = entity.isVoid,
             transactions = transactions,
-            cardDetails = cardDetails
+            cardDetails = cardDetails,
+            taxDetails = taxDetails,
+            taxExempt = !entity.applyTax || entity.taxValue == 0.0
         )
     }
 
@@ -369,11 +382,13 @@ class OrderRepositoryImpl(
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<CardDetails>() {}.type
+        val taxDetailsType = object : TypeToken<List<TaxDetail>>() {}.type
 
         val items: List<CheckOutOrderItem> = decodeJson(entity.items, itemsType) ?: emptyList()
         val discountIds: List<Int>? = entity.discountIds?.let { decodeJson(it, discountIdsType) }
         val transactions: List<CheckoutSplitPaymentTransactions>? = entity.transactions?.let { decodeJson(it, transactionsType) }
         val cardDetails: CardDetails? = entity.cardDetails?.let { decodeJson(it, cardDetailsType) }
+        val taxDetails: List<TaxDetail>? = entity.taxDetails?.let { decodeJson(it, taxDetailsType) }
 
         return PendingOrder(
             id = entity.id,
@@ -404,7 +419,9 @@ class OrderRepositoryImpl(
             transactions = transactions,
             cardDetails = cardDetails,
             createdAt = entity.createdAt,
-            isSynced = entity.isSynced
+            isSynced = entity.isSynced,
+            taxDetails = taxDetails ?: emptyList(),
+            taxExempt = !entity.applyTax || entity.taxValue == 0.0
         )
     }
 
