@@ -106,6 +106,20 @@ fun PinCodeScreen(
                     activeUserDetails = event.activeUserDetails
                 }
 
+                is VerifyPinUiEvent.ShowBatchClosedDialog -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK",
+                    ) {
+                        pinValue = ""
+                        activeUserDetails?.let { details ->
+                            navController.navigate(
+                                "cashDenomination/${details.id}/${details.storeId}/${details.registerId}"
+                            )
+                        }
+                    }
+                }
+
                 is VerifyPinUiEvent.NavigateToCashDenomination -> {
                     pinValue = ""
                     activeUserDetails?.let { details ->

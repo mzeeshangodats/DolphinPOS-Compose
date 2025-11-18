@@ -142,6 +142,18 @@ class CashDenominationViewModel @Inject constructor(
                 // Show progress dialog
                 Loader.show("Starting batch...")
                 
+                // Batch/open API requires internet connection - check before proceeding
+                if (!networkMonitor.isNetworkAvailable()) {
+                    Log.e("Batch", "No internet connection. Cannot open batch without internet.")
+                    // Hide progress dialog
+                    Loader.hide()
+                    // Show error and don't navigate to home
+                    _cashDenominationUiEvent.emit(
+                        CashDenominationUiEvent.ShowError("No Internet\nPlease Connect with an Active Internet")
+                    )
+                    return@launch
+                }
+                
                 // Save batch number to SharedPreferences
                 preferenceManager.setBatchNo(batchNo)
                 // Set batch status to "open"
@@ -156,72 +168,64 @@ class CashDenominationViewModel @Inject constructor(
                     startingCashAmount = totalAmount.value
                 )
 
-                // Always save to local database first
+                // Save to local database after internet check
                 repository.insertBatchIntoLocalDB(batch)
 
                 Log.e("Batch", "Started")
+                
+                // Internet is available, proceed with API call
+                try {
+                    val batchOpenRequest = BatchOpenRequest(
+                        batchNo = batchNo,
+                        storeId = preferenceManager.getStoreID(),
+                        userId = preferenceManager.getUserID(),
+                        locationId = preferenceManager.getOccupiedLocationID(),
+                        storeRegisterId = preferenceManager.getOccupiedRegisterID(),
+                        startingCashAmount = totalAmount.value
+                    )
 
-                // If internet is available, call the API
-                if (networkMonitor.isNetworkAvailable()) {
-                    try {
-                        val batchOpenRequest = BatchOpenRequest(
-                            batchNo = batchNo,
-                            storeId = preferenceManager.getStoreID(),
-                            userId = preferenceManager.getUserID(),
-                            locationId = preferenceManager.getOccupiedLocationID(),
-                            storeRegisterId = preferenceManager.getOccupiedRegisterID(),
-                            startingCashAmount = totalAmount.value
-                        )
-
-                        repository.batchOpen(batchOpenRequest).onSuccess { response ->
-                            // Check if response message indicates batch is already active
-                            val responseMessage = response.message ?: ""
-                            if (responseMessage.contains("Batch already active.", ignoreCase = true)) {
-                                Log.e("Batch", "Batch already active, navigating to home")
-                                // Hide progress dialog
-                                Loader.hide()
-                                // Navigate to home since batch is already active
-                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                            } else {
-                                Log.e("Batch", "Batch successfully synced with server")
-                                // Mark batch as synced in database
-                                repository.markBatchAsSynced(batchNo)
-                                // Hide progress dialog
-                                Loader.hide()
-                                // Emit success event to navigate to home
-                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                            }
-                        }.onFailure { e ->
-                            Log.e("Batch", "Failed to sync batch with server: ${e.message}")
+                    repository.batchOpen(batchOpenRequest).onSuccess { response ->
+                        // Check if response message indicates batch is already active
+                        val responseMessage = response.message ?: ""
+                        if (responseMessage.contains("Batch already active.", ignoreCase = true)) {
+                            Log.e("Batch", "Batch already active, navigating to home")
                             // Hide progress dialog
                             Loader.hide()
-                            // Check if error message indicates batch is already active
-                            val errorMessage = e.message ?: "Failed to sync batch"
-                            if (errorMessage.contains("Batch already active.", ignoreCase = true)) {
-                                // Batch is already active, navigate to home
-                                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                            } else {
-                                // Show error message from server in dialog
-                                _cashDenominationUiEvent.emit(
-                                    CashDenominationUiEvent.ShowError(errorMessage)
-                                )
-                            }
+                            // Navigate to home since batch is already active
+                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                        } else {
+                            Log.e("Batch", "Batch successfully synced with server")
+                            // Mark batch as synced in database
+                            repository.markBatchAsSynced(batchNo)
+                            // Hide progress dialog
+                            Loader.hide()
+                            // Emit success event to navigate to home
+                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
                         }
-                    } catch (e: Exception) {
+                    }.onFailure { e ->
                         Log.e("Batch", "Failed to sync batch with server: ${e.message}")
                         // Hide progress dialog
                         Loader.hide()
-                        // Emit error event with server error message
-                        _cashDenominationUiEvent.emit(
-                            CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
-                        )
+                        // Check if error message indicates batch is already active
+                        val errorMessage = e.message ?: "Failed to sync batch"
+                        if (errorMessage.contains("Batch already active.", ignoreCase = true)) {
+                            // Batch is already active, navigate to home
+                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                        } else {
+                            // Show error message from server in dialog
+                            _cashDenominationUiEvent.emit(
+                                CashDenominationUiEvent.ShowError(errorMessage)
+                            )
+                        }
                     }
-                } else {
-                    Log.e("Batch", "No internet connection. Batch will be synced later via WorkManager")
+                } catch (e: Exception) {
+                    Log.e("Batch", "Failed to sync batch with server: ${e.message}")
                     // Hide progress dialog
                     Loader.hide()
-                    // No internet - proceed to home
-                    _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+                    // Emit error event with server error message
+                    _cashDenominationUiEvent.emit(
+                        CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
+                    )
                 }
             } catch (e: Exception) {
                 // Hide progress dialog on any unexpected error

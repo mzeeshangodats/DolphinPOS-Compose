@@ -223,7 +223,7 @@ class HomeViewModel @Inject constructor(
                         // Add variant to cart
                         val success = addVariantToCart(product, matchingVariant)
                         if (success) {
-                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name} - ${matchingVariant.title}"))
+//                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name} - ${matchingVariant.title}"))
                         } else {
                             _homeUiEvent.emit(HomeUiEvent.ShowError("Cannot add product to cart. Cash discount may be applied."))
                         }
@@ -231,7 +231,7 @@ class HomeViewModel @Inject constructor(
                         // Add product to cart
                         val success = addToCart(product)
                         if (success) {
-                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name}"))
+//                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Product added to cart: ${product.name}"))
                         } else {
                             _homeUiEvent.emit(HomeUiEvent.ShowError("Cannot add product to cart. Cash discount may be applied."))
                         }
@@ -588,7 +588,9 @@ class HomeViewModel @Inject constructor(
                 taxableBase * (finalSubtotal / productDiscountedSubtotal)
             } else 0.0
 
-            val taxValue = taxableAfterOrderDiscounts * 10 / 100.0
+            // Get tax percentage from location (default to 10 if not available)
+            val taxPercentage = getTaxPercentage()
+            val taxValue = taxableAfterOrderDiscounts * taxPercentage / 100.0
 
             // 7️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
@@ -1092,11 +1094,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Generates a unique order number based on store, location, register, user IDs and timestamp
-     * Format: S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
-     * @return Unique order number string
-     */
     fun generateOrderNumber(): String {
         val storeId = preferenceManager.getStoreID()
         val locationId = preferenceManager.getOccupiedLocationID()
@@ -1107,12 +1104,6 @@ class HomeViewModel @Inject constructor(
         return "S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
     }
 
-    /**
-     * Generates a unique invoice number based on store, location, register, user IDs and timestamp
-     * Format: INV_S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
-     * Follows the same pattern as batch number generation but with "INV" prefix
-     * @return Unique invoice number string
-     */
     fun generateInvoiceNo(): String {
         val storeId = preferenceManager.getStoreID()
         val locationId = preferenceManager.getOccupiedLocationID()
@@ -1121,5 +1112,16 @@ class HomeViewModel @Inject constructor(
         val epochMillis = System.currentTimeMillis()
 
         return "INV_S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
+    }
+
+    private suspend fun getTaxPercentage(): Double {
+        return try {
+            val activeUserDetails = verifyPinRepository.getActiveUserDetails()
+            val taxValueString = activeUserDetails?.taxValue
+            taxValueString?.toDoubleOrNull() ?: 10.0
+        } catch (e: Exception) {
+            // If any error occurs, default to 0.0
+            0.0
+        }
     }
 }

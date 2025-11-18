@@ -1,21 +1,24 @@
 package com.retail.dolphinpos.presentation.features.ui.auth.pin_code
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
+import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
-import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
+import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.GetCurrentTimeUseCase
+import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.common.network.NoConnectivityException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.update
-import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -25,7 +28,9 @@ import javax.inject.Inject
 class VerifyPinViewModel @Inject constructor(
     private val repository: VerifyPinRepository,
     private val preferenceManager: PreferenceManager,
-    private val getCurrentTimeUseCase: GetCurrentTimeUseCase
+    private val getCurrentTimeUseCase: GetCurrentTimeUseCase,
+    private val batchReportRepository: BatchReportRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private val _currentTime = MutableStateFlow("")
     val currentTime: StateFlow<String> = _currentTime
@@ -68,15 +73,40 @@ class VerifyPinViewModel @Inject constructor(
                             repository.getActiveUserDetailsByPin(pin)
                         )
                     )
-                    _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                     
-                    // Check batch status from SharedPreferences
-                    // If batch is closed, redirect to CashDenominationScreen
-                    // Otherwise (batch is open), redirect to CartScreen (HomeScreen)
-                    if (preferenceManager.isBatchOpen()) {
-                        _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
-                    } else {
-                        _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
+                    // Check internet before batch status API call
+                    if (!networkMonitor.isNetworkAvailable()) {
+                        _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                        _verifyPinUiEvent.emit(
+                            VerifyPinUiEvent.ShowDialog("No Internet\nPlease Connect with an Active Internet")
+                        )
+                        return@launch
+                    }
+                    
+                    val remoteBatchStatus = checkRemoteBatchStatus()
+                    remoteBatchStatus?.let { preferenceManager.setBatchStatus(it) }
+
+                    _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+
+                    // Determine navigation based on remote batch status
+                    when {
+                        // If batch is already active (open), proceed to home
+                        remoteBatchStatus?.equals("active", ignoreCase = true) == true -> {
+                            _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
+                        }
+                        // If batch status is closed, redirect to Cash Denomination to start a new batch
+                        remoteBatchStatus?.equals("closed", ignoreCase = true) == true -> {
+                            _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
+                        }
+                        // If remote status is null, check local preference
+                        else -> {
+                            val isBatchOpen = preferenceManager.isBatchOpen()
+                            if (isBatchOpen) {
+                                _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
+                            } else {
+                                _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
+                            }
+                        }
                     }
                 }
 
@@ -222,5 +252,27 @@ class VerifyPinViewModel @Inject constructor(
                 _history.value = emptyList()
             }
         }
+    }
+
+    private suspend fun checkRemoteBatchStatus(): String? {
+        val batchNo = preferenceManager.getBatchNo()
+        if (batchNo.isBlank()) {
+            return null
+        }
+        // Internet check is already done before calling this function
+        return try {
+            val batchReport = batchReportRepository.getBatchReport(batchNo)
+            batchReport.data.status
+        } catch (e: NoConnectivityException) {
+            Log.e(TAG, "No internet connection: ${e.message}")
+            throw e // Re-throw to be caught by caller
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to fetch batch status for $batchNo: ${e.message}")
+            null
+        }
+    }
+
+    companion object {
+        private const val TAG = "VerifyPinViewModel"
     }
 }
