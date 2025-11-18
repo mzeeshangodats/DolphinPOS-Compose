@@ -790,9 +790,6 @@ class HomeViewModel @Inject constructor(
 
                 Log.d("HomeViewModel", "Fallback tax calculated: $taxValue")
             }
-            // Get tax percentage from location (default to 10 if not available)
-            val taxPercentage = getTaxPercentage()
-            val taxValue = taxableAfterOrderDiscounts * taxPercentage / 100.0
 
             // 7️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
