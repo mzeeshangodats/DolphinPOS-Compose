@@ -740,7 +740,7 @@ fun CartActionButtons(
 
         // Price Check
         Card(
-            onClick = { /* TODO */ },
+            onClick = { showComingSoonDialog() },
             modifier = Modifier
                 .weight(1f)
                 .height(48.dp),

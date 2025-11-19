@@ -24,6 +24,7 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.features.ui.setup.business_info.BusinessInformationScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
@@ -46,6 +47,10 @@ fun HardwareSetupScreen(
             modifier = Modifier.weight(1f)
         ) {
             when (selectedIndex) {
+                1 -> {
+                    // Show Business Information Screen inline
+                    BusinessInformationScreen(navController = navController)
+                }
                 2 -> {
                     // Show Credit Card Processing Screen inline
                     CreditCardProcessingScreen(navController = navController)
