@@ -176,7 +176,7 @@ fun BatchReportContent(
                             InfoRow("PayIn", formatCurrencyAny(report.totalPayIn))
                             InfoRow("PayOut", formatCurrencyAny(report.totalPayOut))
                             InfoRow("Refund", "$0.00") // Refund field - set to 0.00 if not available
-                            InfoRow("Service Charges", formatCurrency(report.totalTip.toDouble()))
+//                            InfoRow("Service Charges", formatCurrency(report.totalTip.toDouble()))
                             InfoRow("Total Sales", formatCurrencyAny(report.totalSales))
                             InfoRow("Abandon Carts", report.totalAbandonOrders.toString())
                             InfoRow("Transactions", report.totalTransactions.toString())
