@@ -182,6 +182,7 @@ fun ProductsScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            singleLine = true,
                             modifier = Modifier.focusRequester(searchFocusRequester),
                             decorationBox = { innerTextField ->
                                 Box {
