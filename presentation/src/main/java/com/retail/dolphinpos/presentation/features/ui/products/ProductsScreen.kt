@@ -103,24 +103,16 @@ fun ProductsScreen(
                 // Double-check we're still on products screen before processing events
                 if (navController.currentBackStackEntry?.destination?.route == "products") {
                     when (event) {
-                        is ProductsUiEvent.ShowLoading -> Loader.show("Loading...")
+                        is ProductsUiEvent.ShowLoading -> {
+                            // Show loading message - this is typically called during sync
+                            Loader.show("Products syncing please wait")
+                        }
                         is ProductsUiEvent.HideLoading -> Loader.hide()
                         is ProductsUiEvent.NavigateToPinCode -> {
                             navController.navigate("pinCode") {
                                 popUpTo(0) { inclusive = false }
                             }
                         }
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { event ->
-            when (event) {
-                is ProductsUiEvent.ShowLoading -> Loader.show("Products syncing please wait")
-                is ProductsUiEvent.HideLoading -> Loader.hide()
-                is ProductsUiEvent.NavigateToPinCode -> {
-                    navController.navigate("pinCode") {
-                        popUpTo(0) { inclusive = false }
-                    }
-                }
-
                         is ProductsUiEvent.ShowError -> {
                             DialogHandler.showDialog(
                                 message = event.message,
