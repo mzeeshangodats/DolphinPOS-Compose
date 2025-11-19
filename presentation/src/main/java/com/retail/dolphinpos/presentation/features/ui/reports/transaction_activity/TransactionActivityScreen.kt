@@ -49,10 +49,17 @@ import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
+import com.retail.dolphinpos.domain.model.TaxDetail
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
+
+// Helper data class for aggregating taxes
+private data class TaxDetailWithAmount(
+    val taxDetail: TaxDetail,
+    val amount: Double
+)
 
 @Composable
 fun TransactionActivityScreen(
@@ -480,25 +487,47 @@ fun TransactionActivityItem(transaction: TransactionActivityItemData) {
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black
                     )
+                    
+                    // Aggregate taxes by type to avoid duplicates
+                    val uniqueTaxMap = mutableMapOf<String, TaxDetailWithAmount>()
                     transaction.taxDetails.forEach { taxDetail ->
+                        val taxKey = "${taxDetail.title}_${taxDetail.value}_${taxDetail.type ?: "percentage"}"
+                        val taxAmount = taxDetail.amount ?: 0.0
+                        
+                        val existing = uniqueTaxMap[taxKey]
+                        if (existing != null) {
+                            // Sum amounts if duplicate tax type found
+                            uniqueTaxMap[taxKey] = existing.copy(amount = existing.amount + taxAmount)
+                        } else {
+                            uniqueTaxMap[taxKey] = TaxDetailWithAmount(taxDetail, taxAmount)
+                        }
+                    }
+                    
+                    // Display unique taxes only
+                    uniqueTaxMap.values.forEach { taxWithAmount ->
+                        val taxDetail = taxWithAmount.taxDetail
                         val taxDescription = when (taxDetail.type?.lowercase()) {
                             "percentage" -> "${taxDetail.title} (${taxDetail.value}%)"
                             "fixed amount" -> "${taxDetail.title} ($${taxDetail.value})"
                             else -> "${taxDetail.title} (${taxDetail.value}%)"
                         }
-                        // Use taxDetail.amount if available, otherwise show 0.00
-                        val taxAmount = taxDetail.amount ?: 0.0
                         InfoRow(
                             label = taxDescription,
-                            value = "$${String.format("%.2f", taxAmount)}"
+                            value = "$${String.format("%.2f", taxWithAmount.amount)}"
                         )
                     }
-                    // Show total tax if multiple taxes
-                    if (transaction.taxDetails.size > 1) {
-                        val totalTax = transaction.taxDetails.sumOf { it.amount ?: 0.0 }
+                    
+                    // Calculate total tax from unique taxes
+                    val totalTaxFromDetails = uniqueTaxMap.values.sumOf { it.amount }
+                    // Use transaction.tax if available and matches (for verification), otherwise use calculated total
+                    val displayTotalTax = transaction.tax?.takeIf { it > 0.0 && kotlin.math.abs(it - totalTaxFromDetails) < 0.01 }
+                        ?: totalTaxFromDetails
+                    
+                    // Show total tax if multiple taxes, or if calculated total differs from transaction.tax
+                    if (uniqueTaxMap.size > 1 || (transaction.tax != null && kotlin.math.abs(transaction.tax!! - totalTaxFromDetails) >= 0.01)) {
                         InfoRow(
                             label = "Total Tax:",
-                            value = "$${String.format("%.2f", totalTax)}"
+                            value = "$${String.format("%.2f", displayTotalTax)}"
                         )
                     }
                 }

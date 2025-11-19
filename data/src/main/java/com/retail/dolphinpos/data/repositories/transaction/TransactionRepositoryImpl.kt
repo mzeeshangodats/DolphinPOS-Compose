@@ -156,38 +156,57 @@ class TransactionRepositoryImpl(
         }
 
         // Extract taxDetails from order object
-        // Aggregate store-level taxes (order.taxDetails) and product-level taxes (order.orderItems[].appliedTaxes)
-        val aggregatedTaxDetails = mutableListOf<TaxDetail>()
+        // Aggregate taxes from orderItems.appliedTaxes ONLY (which already includes both store and product taxes)
+        // This avoids double-counting since item-level taxes already include store taxes when items use default taxes
+        val aggregatedTaxDetails = mutableMapOf<String, TaxDetail>() // Use map with key = title+value to avoid duplicates
         
-        // Add store-level taxes from order.taxDetails
-        apiTransaction.order?.taxDetails?.let { storeTaxDetails ->
-            aggregatedTaxDetails.addAll(storeTaxDetails)
-        }
-        
-        // Aggregate product-level taxes from orderItems
+        // First, aggregate all taxes from item-level appliedTaxes (most accurate as it's based on actual item prices)
         apiTransaction.order?.orderItems?.forEach { orderItem ->
             orderItem.appliedTaxes?.forEach { productTax ->
-                // Check if this tax already exists in aggregated list (by title and value)
-                val existingTax = aggregatedTaxDetails.find { 
-                    it.title == productTax.title && it.value == productTax.value 
-                }
+                // Create a unique key for each tax type (title + value + type)
+                val taxKey = "${productTax.title}_${productTax.value}_${productTax.type ?: "percentage"}"
+                
+                val existingTax = aggregatedTaxDetails[taxKey]
                 if (existingTax != null) {
                     // Sum the amounts if tax already exists
-                    val index = aggregatedTaxDetails.indexOf(existingTax)
-                    aggregatedTaxDetails[index] = existingTax.copy(
+                    aggregatedTaxDetails[taxKey] = existingTax.copy(
                         amount = (existingTax.amount ?: 0.0) + (productTax.amount ?: 0.0)
                     )
                 } else {
                     // Add new tax
-                    aggregatedTaxDetails.add(productTax)
+                    aggregatedTaxDetails[taxKey] = productTax
                 }
             }
         }
         
+        // If no item-level taxes found, fallback to order-level taxDetails (store taxes only)
+        // But only add default taxes that weren't already included from items
+        if (aggregatedTaxDetails.isEmpty()) {
+            apiTransaction.order?.taxDetails?.let { storeTaxDetails ->
+                storeTaxDetails.forEach { storeTax ->
+                    val taxKey = "${storeTax.title}_${storeTax.value}_${storeTax.type ?: "percentage"}"
+                    aggregatedTaxDetails[taxKey] = storeTax
+                }
+            }
+        } else {
+            // If we have item-level taxes, only add order-level default taxes that don't overlap
+            // This handles edge cases where order-level taxes might exist but weren't applied to items
+            apiTransaction.order?.taxDetails?.filter { it.isDefault == true }?.forEach { storeTax ->
+                val taxKey = "${storeTax.title}_${storeTax.value}_${storeTax.type ?: "percentage"}"
+                // Only add if not already present from item-level taxes
+                if (!aggregatedTaxDetails.containsKey(taxKey)) {
+                    aggregatedTaxDetails[taxKey] = storeTax
+                }
+            }
+        }
+        
+        // Convert aggregated taxDetails map to list for JSON serialization
+        val taxDetailsList = aggregatedTaxDetails.values.toList()
+        
         // Convert aggregated taxDetails to JSON string
-        val taxDetailsJson: String? = if (aggregatedTaxDetails.isNotEmpty()) {
+        val taxDetailsJson: String? = if (taxDetailsList.isNotEmpty()) {
             try {
-                gson.toJson(aggregatedTaxDetails)
+                gson.toJson(taxDetailsList)
             } catch (e: Exception) {
                 null
             }
