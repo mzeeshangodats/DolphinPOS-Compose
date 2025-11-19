@@ -89,14 +89,14 @@ fun ProductsScreen(
     // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    
+
     DisposableEffect(currentRoute) {
         onDispose {
             // Hide loader when leaving this screen
             Loader.hide()
         }
     }
-    
+
     LaunchedEffect(currentRoute) {
         if (currentRoute == "products") {
             viewModel.uiEvent.collect { event ->
@@ -110,6 +110,16 @@ fun ProductsScreen(
                                 popUpTo(0) { inclusive = false }
                             }
                         }
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is ProductsUiEvent.ShowLoading -> Loader.show("Products syncing please wait")
+                is ProductsUiEvent.HideLoading -> Loader.hide()
+                is ProductsUiEvent.NavigateToPinCode -> {
+                    navController.navigate("pinCode") {
+                        popUpTo(0) { inclusive = false }
+                    }
+                }
 
                         is ProductsUiEvent.ShowError -> {
                             DialogHandler.showDialog(
@@ -196,6 +206,23 @@ fun ProductsScreen(
                             }
                         )
                     }
+                }
+
+                // Sync Products Button
+                Button(
+                    onClick = { viewModel.syncProducts() },
+                    modifier = Modifier.height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    )
+                ) {
+                    BaseText(
+                        text = "Sync Products",
+                        fontSize = 14f,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
@@ -586,6 +613,24 @@ fun ProductDetailsDialog(
                                         }",
                                         fontSize = 12f,
                                         color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Quantity:",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "${variant.quantity}",
+                                        fontSize = 12f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
                                         fontFamily = GeneralSans
                                     )
                                 }

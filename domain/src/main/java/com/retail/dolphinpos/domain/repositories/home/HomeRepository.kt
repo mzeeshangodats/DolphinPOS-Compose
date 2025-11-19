@@ -12,5 +12,9 @@ interface HomeRepository {
     suspend fun searchProductByBarcode(barcode: String): Products?
 
     suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long
+    
+    // Update quantity methods
+    suspend fun deductProductQuantity(productId: Int, quantityToDeduct: Int)
+    suspend fun deductVariantQuantity(variantId: Int, quantityToDeduct: Int)
 
 }

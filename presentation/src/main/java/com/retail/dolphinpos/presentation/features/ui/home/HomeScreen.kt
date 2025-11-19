@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -121,7 +122,7 @@ import androidx.compose.runtime.rememberCoroutineScope
  */
 fun showComingSoonDialog() {
     DialogHandler.showDialog(
-        message = "Coming Soon",
+        message = "This feature is currently under development.",
         buttonText = "OK",
         iconRes = R.drawable.info_icon
     )
@@ -156,7 +157,7 @@ fun HomeScreen(
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
     var searchQuery by remember { mutableStateOf("") }
-    
+
     // Barcode scanner state
     var barcodeInput by remember { mutableStateOf("") }
     var lastBarcodeScanTime by remember { mutableStateOf(0L) }
@@ -264,7 +265,7 @@ fun HomeScreen(
     LaunchedEffect(barcodeInput) {
         // Cancel previous job if input changed
         barcodeScanJob?.cancel()
-        
+
         if (barcodeInput.isNotEmpty() && barcodeInput.length >= 3) {
             // Wait for 300ms after last input to detect if scanning is complete
             barcodeScanJob = coroutineScope.launch {
@@ -432,49 +433,58 @@ fun HomeScreen(
                                 // Allow cash selection even when total is 0
                                 viewModel.isCashSelected = true
                                 viewModel.updateCartPrices()
-                        }, onCardSelected = {
-                            viewModel.isCashSelected = false
-                            viewModel.updateCartPrices()
-                        }, onClear = {
+                            }, onCardSelected = {
+                                viewModel.isCashSelected = false
+                                viewModel.updateCartPrices()
+                            }, onClear = {
                                 paymentAmount = "0.00"
                             }, onNext = {
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                // Validate payment amount
-                                val currentPayment = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                                
-                                // Use small epsilon for floating point comparison
-                                val epsilon = 0.01
-                                
-                                if (totalAmount > 0 && currentPayment < 0.01) {
-                                    // Show error and auto-fill total amount
+                                if (cartItems.isEmpty()) {
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Total amount has been automatically entered.",
-                                        buttonText = "OK",
-                                        iconRes = R.drawable.info_icon
-                                    )
-                                    paymentAmount = viewModel.formatAmount(totalAmount)
-                                } else if (totalAmount > 0 && currentPayment < totalAmount - epsilon) {
-                                    // Show error if payment is less than total
-                                    DialogHandler.showDialog(
-                                        message = "Payment amount ($${viewModel.formatAmount(currentPayment)}) is less than total amount ($${viewModel.formatAmount(totalAmount)}). Please enter the full amount.",
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Payment equals or exceeds total amount - proceed
-                                    when {
-                                        viewModel.isCashSelected -> viewModel.createOrder("cash")
-                                        else -> viewModel.initCardPayment()
+                                    // Validate payment amount
+                                    val currentPayment =
+                                        paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+
+                                    // Use small epsilon for floating point comparison
+                                    val epsilon = 0.01
+
+                                    if (totalAmount > 0 && currentPayment < 0.01) {
+                                        // Show error and auto-fill total amount
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount cannot be zero. Total amount has been automatically entered.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                        paymentAmount = viewModel.formatAmount(totalAmount)
+                                    } else if (totalAmount > 0 && currentPayment < totalAmount - epsilon) {
+                                        // Show error if payment is less than total
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount ($${
+                                                viewModel.formatAmount(
+                                                    currentPayment
+                                                )
+                                            }) is less than total amount ($${
+                                                viewModel.formatAmount(
+                                                    totalAmount
+                                                )
+                                            }). Please enter the full amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else {
+                                        // Payment equals or exceeds total amount - proceed
+                                        when {
+                                            viewModel.isCashSelected -> viewModel.createOrder("cash")
+                                            else -> viewModel.initCardPayment()
+                                        }
                                     }
                                 }
-                            }
-                        })
+                            })
                     }
 
                     // Column 3 - Categories (25% width, full height)
@@ -1059,10 +1069,10 @@ fun CartItemRow(
 
     // Calculate unit price after discount
     val unitPriceAfterDiscount = item.getProductDiscountedPrice()
-    
+
     // Calculate total price (unit price × quantity)
     val totalPrice = unitPriceAfterDiscount * item.quantity
-    
+
     // Original unit price for comparison
     val originalUnitPrice = item.selectedPrice
 
@@ -1482,6 +1492,7 @@ fun KeypadButton(
                 else -> colorResource(id = R.color.primary)
             }
         }
+
         isActionButton -> colorResource(id = R.color.primary)
         else -> colorResource(id = R.color.pricing_calculator_clr)
     }
@@ -1639,7 +1650,7 @@ fun ProductsPanel(
         // Products Grid - 60% of height
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.weight(0.59f),
+            modifier = Modifier.weight(0.65f),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1651,7 +1662,7 @@ fun ProductsPanel(
 
         // Action Buttons - 40% of height
         ActionButtonsPanel(
-            modifier = Modifier.weight(0.41f),
+            modifier = Modifier.weight(0.35f),
             navController = navController,
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
@@ -1726,13 +1737,13 @@ fun ActionButtonsPanel(
         ActionButtonRow(
             buttons = listOf(
                 ActionButton("Split", R.drawable.split_btn),
-                ActionButton("Gift Card", R.drawable.gift_card_btn),
-                ActionButton("Pending Orders", R.drawable.pending_orders_button),
-                ActionButton("Refund", R.drawable.refund_btn)
+                ActionButton("Rewards", R.drawable.rewards_btn),
+                ActionButton("Refund", R.drawable.refund_btn),
+                ActionButton(if (isTaxExempt) "Apply Tax" else "Tax Exempt", R.drawable.tax_exempt_btn)
             ), onActionClick = { action ->
                 when (action) {
-                    "Pending Orders" -> {
-                        navController.navigate("pending_orders")
+                    "Tax Exempt", "Apply Tax" -> {
+                        viewModel.toggleTaxExempt()
                     }
 
                     else -> {
@@ -1745,32 +1756,29 @@ fun ActionButtonsPanel(
         ActionButtonRow(
             buttons = listOf(
                 ActionButton("EBT", R.drawable.ebt_btn),
-                ActionButton("Rewards", R.drawable.rewards_btn),
-                ActionButton("Online Order", R.drawable.online_order_btn),
-                ActionButton(if (isTaxExempt) "Apply Tax" else "Exempt", R.drawable.tax_exempt_btn)
+                ActionButton("Custom Sales", R.drawable.custom_sales),
+                ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
+                ActionButton("Void", R.drawable.void_btn)
+
             ), onActionClick = { action ->
                 when (action) {
-                    "Exempt", "Apply Tax" -> {
-                        viewModel.toggleTaxExempt()
-                    }
                     else -> {
                         showComingSoonDialog()
                     }
                 }
             })
 
-        // Row 3
-        ActionButtonRow(
-            buttons = listOf(
-                ActionButton("Custom Sales", R.drawable.custom_sales),
-                ActionButton("Last Receipt", R.drawable.last_receipt),
-                ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
-                ActionButton("Void", R.drawable.void_btn)
-            ), onActionClick = { action ->
-                showComingSoonDialog()
-            })
+//        // Row 3
+//        ActionButtonRow(
+//            buttons = listOf(
+//                ActionButton("Custom Sales", R.drawable.custom_sales),
+//                ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
+//                ActionButton("Void", R.drawable.void_btn)
+//            ), onActionClick = { action ->
+//                showComingSoonDialog()
+//            })
 
-        // Row 4
+        // Row 3
         ActionButtonRow(
             buttons = listOf(
                 ActionButton("Promotions", R.drawable.promotions_btn),
@@ -1813,7 +1821,7 @@ fun ActionButtonRow(
             } else {
                 colorResource(id = R.color.light_grey)
             }
-            
+
             Card(
                 onClick = { onActionClick(button.label) },
                 modifier = Modifier
@@ -2184,7 +2192,7 @@ fun OrderLevelDiscountDialog(
     }
     var selectedReason by remember { mutableStateOf(preFilledDiscountReason) }
     var orderDiscounts by remember { mutableStateOf(existingOrderDiscounts) }
-    
+
     // Calculate available discount amount considering discounts already added in dialog
     val availableDiscountAmount = remember(orderDiscounts, maxDiscountAmount) {
         var available = maxDiscountAmount
@@ -2193,9 +2201,11 @@ fun OrderLevelDiscountDialog(
                 com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
                     available - (available * discount.value / 100.0)
                 }
+
                 com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
                     available - discount.value
                 }
+
                 else -> available
             }
             if (available < 0) available = 0.0
@@ -2462,13 +2472,19 @@ fun OrderLevelDiscountDialog(
                                     // For amount type, check if discount doesn't exceed availableDiscountAmount
                                     if (value > availableDiscountAmount) {
                                         DialogHandler.showDialog(
-                                            "Discount amount cannot exceed $${String.format("%.2f", availableDiscountAmount)}"
+                                            "Discount amount cannot exceed $${
+                                                String.format(
+                                                    "%.2f",
+                                                    availableDiscountAmount
+                                                )
+                                            }"
                                         )
                                         false
                                     } else {
                                         true
                                     }
                                 }
+
                                 com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
                                     // For percentage type, check if it doesn't exceed 100%
                                     if (value > 100) {
@@ -2478,9 +2494,10 @@ fun OrderLevelDiscountDialog(
                                         true
                                     }
                                 }
+
                                 else -> true
                             }
-                            
+
                             if (isValidDiscount) {
                                 val newDiscount =
                                     com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount(

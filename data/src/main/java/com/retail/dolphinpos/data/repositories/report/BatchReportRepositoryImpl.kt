@@ -35,6 +35,13 @@ class BatchReportRepositoryImpl(
                 
                 // Save to local database
                 if (apiResponse.data != null) {
+                    // First, check if any batch report exists and delete all existing batch reports
+                    val existingBatchReports = batchReportDao.getAllBatchReports()
+                    if (existingBatchReports.isNotEmpty()) {
+                        batchReportDao.deleteAllBatchReports()
+                    }
+                    
+                    // Then insert the new batch report
                     val batchReportEntity = BatchReportMapper.toBatchReportEntity(apiResponse.data)
                     batchReportDao.insertBatchReport(batchReportEntity)
                 }

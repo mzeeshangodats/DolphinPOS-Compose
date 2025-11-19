@@ -189,6 +189,7 @@ fun OrdersScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            singleLine = true,
                             decorationBox = { innerTextField ->
                                 Box(modifier = Modifier.fillMaxWidth()) {
                                     if (searchQuery.isEmpty()) {

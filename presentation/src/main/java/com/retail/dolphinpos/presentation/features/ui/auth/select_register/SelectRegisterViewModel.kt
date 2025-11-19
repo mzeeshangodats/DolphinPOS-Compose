@@ -122,6 +122,9 @@ class SelectRegisterViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Delete all existing products data before syncing new data
+                storeRegistersRepository.deleteAllProductsData()
+
                 // Collect all image URLs for downloading
                 val allImageUrls = mutableListOf<String>()
                 

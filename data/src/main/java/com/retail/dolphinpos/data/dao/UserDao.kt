@@ -66,6 +66,9 @@ interface UserDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertBatchDetails(batchEntity: BatchEntity)
 
+    @Query("DELETE FROM batch")
+    suspend fun deleteAllBatches()
+
     @Query("SELECT * FROM batch")
     suspend fun getBatchDetails(): BatchEntity
 
