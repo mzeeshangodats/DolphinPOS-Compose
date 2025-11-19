@@ -161,6 +161,7 @@ fun InventoryScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            singleLine = true,
                             modifier = Modifier.focusRequester(searchFocusRequester),
                             decorationBox = { innerTextField ->
                                 Box {
@@ -238,14 +239,18 @@ fun InventoryScreen(
                         fontFamily = GeneralSans,
                         modifier = Modifier.width(100.dp)
                     )
-                    BaseText(
-                        text = "Quantity",
-                        fontSize = 12f,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontFamily = GeneralSans,
-                        modifier = Modifier.width(80.dp)
-                    )
+                    Box(
+                        modifier = Modifier.width(80.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BaseText(
+                            text = "Quantity",
+                            fontSize = 12f,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontFamily = GeneralSans
+                        )
+                    }
                 }
 
                 // Products List
@@ -285,13 +290,17 @@ fun InventoryScreen(
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.width(100.dp)
                             )
-                            BaseText(
-                                text = "${product.quantity}",
-                                fontSize = 12f,
-                                color = Color.Black,
-                                fontFamily = GeneralSans,
-                                modifier = Modifier.width(80.dp)
-                            )
+                            Box(
+                                modifier = Modifier.width(80.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                BaseText(
+                                    text = "${product.quantity}",
+                                    fontSize = 12f,
+                                    color = Color.Black,
+                                    fontFamily = GeneralSans
+                                )
+                            }
                         }
                     }
                 }
@@ -539,6 +548,24 @@ fun ProductDetailsDialog(
                                         text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
                                         fontSize = 12f,
                                         color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Quantity:",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "${variant.quantity}",
+                                        fontSize = 12f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
                                         fontFamily = GeneralSans
                                     )
                                 }

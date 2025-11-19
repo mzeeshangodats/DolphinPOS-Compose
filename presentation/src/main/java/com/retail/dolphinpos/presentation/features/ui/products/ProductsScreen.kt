@@ -162,6 +162,7 @@ fun ProductsScreen(
                                 fontFamily = GeneralSans,
                                 color = Color.Black
                             ),
+                            singleLine = true,
                             modifier = Modifier.focusRequester(searchFocusRequester),
                             decorationBox = { innerTextField ->
                                 Box {
@@ -585,6 +586,24 @@ fun ProductDetailsDialog(
                                         }",
                                         fontSize = 12f,
                                         color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Quantity:",
+                                        fontSize = 12f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "${variant.quantity}",
+                                        fontSize = 12f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
                                         fontFamily = GeneralSans
                                     )
                                 }

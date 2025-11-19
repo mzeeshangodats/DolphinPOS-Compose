@@ -1280,6 +1280,27 @@ class HomeViewModel @Inject constructor(
                 val orderId = orderRepository.saveOrderToLocal(orderRequest)
                 Log.d("Order", "Order saved locally with ID: $orderId")
                 
+                // Deduct product quantities from local database
+                try {
+                    _cartItems.value.forEach { cartItem ->
+                        val quantityToDeduct = cartItem.quantity ?: 1
+                        val productVariantId = cartItem.productVariantId
+                        val productId = cartItem.productId
+                        
+                        if (productVariantId != null) {
+                            // Deduct from variant quantity
+                            homeRepository.deductVariantQuantity(productVariantId, quantityToDeduct)
+                        } else if (productId != null) {
+                            // Deduct from product quantity
+                            homeRepository.deductProductQuantity(productId, quantityToDeduct)
+                        }
+                    }
+                    Log.d("Order", "Product quantities deducted successfully")
+                } catch (e: Exception) {
+                    Log.e("Order", "Failed to deduct product quantities: ${e.message}")
+                    // Continue with order processing even if quantity deduction fails
+                }
+                
                 // Save transaction to transactions table
                 try {
                     val paymentMethodEnum = PaymentMethod.fromString(paymentMethod)

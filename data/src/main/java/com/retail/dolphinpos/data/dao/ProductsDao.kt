@@ -108,4 +108,11 @@ interface ProductsDao {
     @Query("DELETE FROM vendor")
     suspend fun deleteAllVendors()
 
+    // Update quantity methods
+    @Query("UPDATE products SET quantity = quantity - :quantityToDeduct WHERE id = :productId")
+    suspend fun deductProductQuantity(productId: Int, quantityToDeduct: Int)
+
+    @Query("UPDATE variants SET quantity = quantity - :quantityToDeduct WHERE id = :variantId")
+    suspend fun deductVariantQuantity(variantId: Int, quantityToDeduct: Int)
+
 }

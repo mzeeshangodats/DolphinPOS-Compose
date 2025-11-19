@@ -232,4 +232,20 @@ class HomeRepositoryImpl(
             }
     }
 
+    override suspend fun deductProductQuantity(productId: Int, quantityToDeduct: Int) {
+        try {
+            productsDao.deductProductQuantity(productId, quantityToDeduct)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    override suspend fun deductVariantQuantity(variantId: Int, quantityToDeduct: Int) {
+        try {
+            productsDao.deductVariantQuantity(variantId, quantityToDeduct)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
 }
