@@ -89,4 +89,23 @@ interface ProductsDao {
     @Query("SELECT * FROM variants WHERE productId = :productId")
     suspend fun getVariantsByProductId(productId: Int): List<VariantsEntity>
 
+    // Delete methods for cleanup before sync
+    @Query("DELETE FROM category")
+    suspend fun deleteAllCategories()
+
+    @Query("DELETE FROM products")
+    suspend fun deleteAllProducts()
+
+    @Query("DELETE FROM product_images")
+    suspend fun deleteAllProductImages()
+
+    @Query("DELETE FROM variants")
+    suspend fun deleteAllVariants()
+
+    @Query("DELETE FROM variant_images")
+    suspend fun deleteAllVariantImages()
+
+    @Query("DELETE FROM vendor")
+    suspend fun deleteAllVendors()
+
 }

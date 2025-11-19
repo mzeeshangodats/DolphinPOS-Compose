@@ -33,6 +33,9 @@ interface StoreRegistersRepository {
     suspend fun insertVariantImagesIntoLocalDB(variantImageList: List<VariantImage>, variantId: Int)
     suspend fun insertVendorDetailsIntoLocalDB(vendor: Vendor, productId: Int)
     
+    // Cleanup methods before sync
+    suspend fun deleteAllProductsData()
+    
     // Image downloading methods
     suspend fun downloadAndCacheImages(imageUrls: List<String>)
     suspend fun getCachedImagePath(imageUrl: String): String?

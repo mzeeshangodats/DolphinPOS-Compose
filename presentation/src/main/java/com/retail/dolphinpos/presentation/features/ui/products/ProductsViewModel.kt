@@ -46,6 +46,107 @@ class ProductsViewModel @Inject constructor(
         }
     }
 
+    fun syncProducts() {
+        viewModelScope.launch {
+            _uiEvent.emit(ProductsUiEvent.ShowLoading)
+            try {
+                val storeID = preferenceManager.getStoreID()
+                val locationID = preferenceManager.getOccupiedLocationID()
+                
+                if (storeID == 0 || locationID == 0) {
+                    _uiEvent.emit(ProductsUiEvent.HideLoading)
+                    _uiEvent.emit(ProductsUiEvent.ShowError("Store ID or Location ID not found"))
+                    return@launch
+                }
+                
+                val response = storeRegistersRepository.getProducts(storeID, locationID)
+                
+                if (response.category?.categories.isNullOrEmpty()) {
+                    _uiEvent.emit(ProductsUiEvent.HideLoading)
+                    _uiEvent.emit(ProductsUiEvent.ShowError("No categories found in response"))
+                    return@launch
+                }
+                
+                // Delete all existing products data before syncing new data
+                storeRegistersRepository.deleteAllProductsData()
+                
+                // Collect all image URLs for downloading
+                val allImageUrls = mutableListOf<String>()
+                
+                response.category!!.categories.forEach { category ->
+                    // Insert category
+                    storeRegistersRepository.insertCategoriesIntoLocalDB(listOf(category))
+                    category.products!!.forEach { product ->
+                        // Insert products
+                        storeRegistersRepository.insertProductsIntoLocalDB(
+                            listOf(product),
+                            category.id
+                        )
+                        // Insert product images
+                        storeRegistersRepository.insertProductImagesIntoLocalDB(
+                            product.images,
+                            product.id
+                        )
+                        
+                        // Collect product image URLs
+                        product.images?.forEach { image ->
+                            image.fileURL?.let { allImageUrls.add(it) }
+                        }
+                        
+                        // Insert vendor
+                        product.vendor?.let {
+                            storeRegistersRepository.insertVendorDetailsIntoLocalDB(it, product.id)
+                        }
+                        // Insert variants
+                        product.variants!!.forEach { variant ->
+                            storeRegistersRepository.insertProductVariantsIntoLocalDB(
+                                listOf(variant),
+                                product.id
+                            )
+                            // Insert variant images
+                            storeRegistersRepository.insertVariantImagesIntoLocalDB(
+                                variant.images,
+                                variant.id
+                            )
+                            
+                            // Collect variant image URLs
+                            variant.images.forEach { image ->
+                                image.fileURL?.let { allImageUrls.add(it) }
+                            }
+                        }
+                    }
+                }
+                
+                // Download and cache all images
+                if (allImageUrls.isNotEmpty()) {
+                    try {
+                        storeRegistersRepository.downloadAndCacheImages(allImageUrls)
+                    } catch (e: Exception) {
+                        // Log error but don't fail the entire operation
+                        e.printStackTrace()
+                    }
+                }
+                
+                // Clear old cached images to manage storage
+                try {
+                    storeRegistersRepository.clearOldCachedImages()
+                } catch (e: Exception) {
+                    // Log error but don't fail the entire operation
+                    e.printStackTrace()
+                }
+                
+                _uiEvent.emit(ProductsUiEvent.HideLoading)
+                
+                // Reload products after sync
+                loadAllProducts()
+                
+            } catch (e: Exception) {
+                _uiEvent.emit(ProductsUiEvent.HideLoading)
+                _uiEvent.emit(ProductsUiEvent.ShowError(e.message ?: "Failed to sync products"))
+            }
+        }
+    }
+    
     fun logout() {
         viewModelScope.launch {
             // Just clear preferences and navigate, no API call

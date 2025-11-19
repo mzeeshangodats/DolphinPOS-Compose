@@ -264,6 +264,19 @@ class StoreRegisterRepositoryImpl(
             throw e
         }
     }
+    
+    override suspend fun deleteAllProductsData() {
+        try {
+            productsDao.deleteAllVariants()
+            productsDao.deleteAllVariantImages()
+            productsDao.deleteAllProductImages()
+            productsDao.deleteAllVendors()
+            productsDao.deleteAllProducts()
+            productsDao.deleteAllCategories()
+        } catch (e: Exception) {
+            throw e
+        }
+    }
 
     override suspend fun downloadAndCacheImages(imageUrls: List<String>) {
         try {

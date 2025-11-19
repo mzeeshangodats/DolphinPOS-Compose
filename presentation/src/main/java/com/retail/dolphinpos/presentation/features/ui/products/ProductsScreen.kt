@@ -87,7 +87,7 @@ fun ProductsScreen(
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
-                is ProductsUiEvent.ShowLoading -> Loader.show("Loading...")
+                is ProductsUiEvent.ShowLoading -> Loader.show("Products syncing please wait")
                 is ProductsUiEvent.HideLoading -> Loader.hide()
                 is ProductsUiEvent.NavigateToPinCode -> {
                     navController.navigate("pinCode") {
@@ -178,6 +178,23 @@ fun ProductsScreen(
                             }
                         )
                     }
+                }
+                
+                // Sync Products Button
+                Button(
+                    onClick = { viewModel.syncProducts() },
+                    modifier = Modifier.height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    )
+                ) {
+                    BaseText(
+                        text = "Sync Products",
+                        fontSize = 14f,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 
