@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -206,6 +207,19 @@ class CashDenominationViewModel @Inject constructor(
                         Log.e("Batch", "Failed to sync batch with server: ${e.message}")
                         // Hide progress dialog
                         Loader.hide()
+                        
+                        // Check if error is 422 status code
+                        val cause = e.cause
+                        if (cause is HttpException && cause.code() == 422) {
+                            // 422 status code - show error and do NOT navigate to home
+                            val errorMessage = e.message ?: "Validation error. Please check your input."
+                            Log.e("Batch", "422 error: $errorMessage")
+                            _cashDenominationUiEvent.emit(
+                                CashDenominationUiEvent.ShowError(errorMessage)
+                            )
+                            return@launch
+                        }
+                        
                         // Check if error message indicates batch is already active
                         val errorMessage = e.message ?: "Failed to sync batch"
                         if (errorMessage.contains("Batch already active.", ignoreCase = true)) {
@@ -222,6 +236,18 @@ class CashDenominationViewModel @Inject constructor(
                     Log.e("Batch", "Failed to sync batch with server: ${e.message}")
                     // Hide progress dialog
                     Loader.hide()
+                    
+                    // Check if error is 422 status code
+                    if (e is HttpException && e.code() == 422) {
+                        // 422 status code - show error and do NOT navigate to home
+                        val errorMessage = e.message ?: "Validation error. Please check your input."
+                        Log.e("Batch", "422 error: $errorMessage")
+                        _cashDenominationUiEvent.emit(
+                            CashDenominationUiEvent.ShowError(errorMessage)
+                        )
+                        return@launch
+                    }
+                    
                     // Emit error event with server error message
                     _cashDenominationUiEvent.emit(
                         CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
@@ -231,6 +257,18 @@ class CashDenominationViewModel @Inject constructor(
                 // Hide progress dialog on any unexpected error
                 Loader.hide()
                 Log.e("Batch", "Unexpected error: ${e.message}")
+                
+                // Check if error is 422 status code
+                if (e is HttpException && e.code() == 422) {
+                    // 422 status code - show error and do NOT navigate to home
+                    val errorMessage = e.message ?: "Validation error. Please check your input."
+                    Log.e("Batch", "422 error: $errorMessage")
+                    _cashDenominationUiEvent.emit(
+                        CashDenominationUiEvent.ShowError(errorMessage)
+                    )
+                    return@launch
+                }
+                
                 _cashDenominationUiEvent.emit(
                     CashDenominationUiEvent.ShowError(e.message ?: "Failed to start batch")
                 )

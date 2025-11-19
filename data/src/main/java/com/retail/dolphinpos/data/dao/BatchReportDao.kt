@@ -15,6 +15,12 @@ interface BatchReportDao {
     @Query("SELECT * FROM batch_report WHERE batchNo = :batchNo LIMIT 1")
     suspend fun getBatchReportByBatchNo(batchNo: String): BatchReportEntity?
     
+    @Query("SELECT * FROM batch_report")
+    suspend fun getAllBatchReports(): List<BatchReportEntity>
+    
+    @Query("DELETE FROM batch_report")
+    suspend fun deleteAllBatchReports()
+    
     @Query("DELETE FROM batch_report WHERE batchNo = :batchNo")
     suspend fun deleteBatchReport(batchNo: String)
 }
