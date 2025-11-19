@@ -23,12 +23,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -84,21 +86,37 @@ fun InventoryScreen(
         viewModel.loadAllProducts()
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { event ->
-            when (event) {
-                is InventoryUiEvent.ShowLoading -> Loader.show("Loading...")
-                is InventoryUiEvent.HideLoading -> Loader.hide()
-                is InventoryUiEvent.NavigateToPinCode -> {
-                    navController.navigate("pinCode") {
-                        popUpTo(0) { inclusive = false }
+    // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    DisposableEffect(currentRoute) {
+        onDispose {
+            // Hide loader when leaving this screen
+            Loader.hide()
+        }
+    }
+    
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "inventory") {
+            viewModel.uiEvent.collect { event ->
+                // Double-check we're still on inventory screen before processing events
+                if (navController.currentBackStackEntry?.destination?.route == "inventory") {
+                    when (event) {
+                        is InventoryUiEvent.ShowLoading -> Loader.show("Loading...")
+                        is InventoryUiEvent.HideLoading -> Loader.hide()
+                        is InventoryUiEvent.NavigateToPinCode -> {
+                            navController.navigate("pinCode") {
+                                popUpTo(0) { inclusive = false }
+                            }
+                        }
+                        is InventoryUiEvent.ShowError -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = "OK"
+                            ) {}
+                        }
                     }
-                }
-                is InventoryUiEvent.ShowError -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK"
-                    ) {}
                 }
             }
         }

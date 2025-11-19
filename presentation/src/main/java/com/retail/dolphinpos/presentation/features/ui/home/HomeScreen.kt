@@ -56,11 +56,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -167,52 +169,67 @@ fun HomeScreen(
     val isClockedIn = preferenceManager.isClockedIn()
     val clockInTime = preferenceManager.getClockInTime()
 
-    // Handle UI events
-    LaunchedEffect(Unit) {
-        viewModel.homeUiEvent.collect { event ->
-            when (event) {
-                is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
-                is HomeUiEvent.HideLoading -> Loader.hide()
-                is HomeUiEvent.ShowError -> {
-                    DialogHandler.showDialog(
-                        message = event.message, buttonText = "OK"
-                    ) {}
-                }
+    // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    DisposableEffect(currentRoute) {
+        onDispose {
+            // Hide loader when leaving this screen
+            Loader.hide()
+        }
+    }
+    
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home") {
+            viewModel.homeUiEvent.collect { event ->
+                // Double-check we're still on home screen before processing events
+                if (navController.currentBackStackEntry?.destination?.route == "home") {
+                    when (event) {
+                        is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
+                        is HomeUiEvent.HideLoading -> Loader.hide()
+                        is HomeUiEvent.ShowError -> {
+                            DialogHandler.showDialog(
+                                message = event.message, buttonText = "OK"
+                            ) {}
+                        }
 
-                is HomeUiEvent.ShowSuccess -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.success_circle_icon
-                    ) {}
-                }
+                        is HomeUiEvent.ShowSuccess -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = "OK",
+                                iconRes = R.drawable.success_circle_icon
+                            ) {}
+                        }
 
-                is HomeUiEvent.HoldCartSuccess -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.cart_icon_blue
-                    ) {}
-                }
+                        is HomeUiEvent.HoldCartSuccess -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = "OK",
+                                iconRes = R.drawable.cart_icon_blue
+                            ) {}
+                        }
 
-                is HomeUiEvent.PopulateCategoryList -> {
-                    if (event.categoryList.isNotEmpty()) {
-                        selectedCategory = event.categoryList[0]
-                        viewModel.loadProducts(event.categoryList[0].id)
-                    }
-                }
+                        is HomeUiEvent.PopulateCategoryList -> {
+                            if (event.categoryList.isNotEmpty()) {
+                                selectedCategory = event.categoryList[0]
+                                viewModel.loadProducts(event.categoryList[0].id)
+                            }
+                        }
 
-                is HomeUiEvent.OrderCreatedSuccessfully -> {
-                    // Calculate change (amount paid - order total)
-                    val paidAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
-                    val change = paidAmount - totalAmount
-                    paymentSuccessAmount = viewModel.formatAmount(change)
-                    showPaymentSuccessDialog = true
-                }
+                        is HomeUiEvent.OrderCreatedSuccessfully -> {
+                            // Calculate change (amount paid - order total)
+                            val paidAmount = paymentAmount.replace("$", "").toDoubleOrNull() ?: 0.0
+                            val change = paidAmount - totalAmount
+                            paymentSuccessAmount = viewModel.formatAmount(change)
+                            showPaymentSuccessDialog = true
+                        }
 
-                HomeUiEvent.NavigateToPinCode -> {
-                    navController.navigate("pinCode") {
-                        popUpTo(0) { inclusive = true }
+                        HomeUiEvent.NavigateToPinCode -> {
+                            navController.navigate("pinCode") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
                     }
                 }
             }

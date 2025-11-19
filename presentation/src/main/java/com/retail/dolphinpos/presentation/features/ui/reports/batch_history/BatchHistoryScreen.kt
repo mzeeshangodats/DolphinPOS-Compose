@@ -15,6 +15,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +55,13 @@ fun BatchHistoryContent(
         viewModel.loadBatchHistory()
     }
 
+    // Clean up loader when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            Loader.hide()
+        }
+    }
+    
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {

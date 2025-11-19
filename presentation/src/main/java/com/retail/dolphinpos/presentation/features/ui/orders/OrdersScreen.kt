@@ -27,12 +27,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -93,24 +95,40 @@ fun OrdersScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.uiEvent.collect { event ->
-            when (event) {
-                is OrdersUiEvent.ShowLoading -> Loader.show("Loading...")
-                is OrdersUiEvent.HideLoading -> Loader.hide()
-                is OrdersUiEvent.ShowError -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK"
-                    ) {}
-                }
+    // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    DisposableEffect(currentRoute) {
+        onDispose {
+            // Hide loader when leaving this screen
+            Loader.hide()
+        }
+    }
+    
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "orders") {
+            viewModel.uiEvent.collect { event ->
+                // Double-check we're still on orders screen before processing events
+                if (navController.currentBackStackEntry?.destination?.route == "orders") {
+                    when (event) {
+                        is OrdersUiEvent.ShowLoading -> Loader.show("Loading...")
+                        is OrdersUiEvent.HideLoading -> Loader.hide()
+                        is OrdersUiEvent.ShowError -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = "OK"
+                            ) {}
+                        }
 
-                is OrdersUiEvent.ShowSuccess -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.success_circle_icon,
-                    ) {}
+                        is OrdersUiEvent.ShowSuccess -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = "OK",
+                                iconRes = R.drawable.success_circle_icon,
+                            ) {}
+                        }
+                    }
                 }
             }
         }

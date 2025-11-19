@@ -19,6 +19,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -61,6 +62,13 @@ fun BatchReportContent(
     val isLoading by viewModel.isLoading.collectAsState()
     val showClosingCashDialog by viewModel.showClosingCashDialog.collectAsState()
 
+    // Clean up loader when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            Loader.hide()
+        }
+    }
+    
     // Use isLoading state directly to show/hide loader for batch report loading
     LaunchedEffect(isLoading) {
         if (isLoading) {
