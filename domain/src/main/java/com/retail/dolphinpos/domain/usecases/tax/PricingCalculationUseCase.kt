@@ -4,6 +4,7 @@ import android.util.Log
 import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.applyTax
+import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.cart.price
 import javax.inject.Inject
 import kotlin.math.round
@@ -155,19 +156,45 @@ class PricingCalculationUseCase @Inject constructor() {
 
             // Calculate item price based on pricing type
             // Note: CartItem.price already contains the card price (base price + dual price percentage)
+            // Check for product-level discount using discountType and discountValue
+            val hasProductDiscount = item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0
+            
             val itemPrice = when {
                 useCardPricing -> {
-                    if (item.isDiscounted && item.discountPrice != null) {
-                        item.discountPrice!!  // This is already cardDiscountedPrice
-                    } else {
-                        item.price ?: 0.0    // This is already cardPrice
+                    when {
+                        hasProductDiscount -> {
+                            // Use getProductDiscountedPrice() for product-level discounts
+                            item.getProductDiscountedPrice()
+                        }
+                        item.isDiscounted && item.discountPrice != null -> {
+                            item.discountPrice!!  // This is already cardDiscountedPrice
+                        }
+                        else -> {
+                            item.price ?: 0.0    // This is already cardPrice
+                        }
                     }
                 }
                 else -> {
-                    if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
-                        item.cashDiscountedPrice
-                    } else {
-                        item.cashPrice
+                    when {
+                        hasProductDiscount -> {
+                            // For cash pricing, calculate discounted price from cashPrice
+                            val cashPrice = item.cashPrice
+                            when (item.discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    cashPrice - ((cashPrice * (item.discountValue ?: 0.0)) / 100.0)
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    cashPrice - (item.discountValue ?: 0.0)
+                                }
+                                else -> cashPrice
+                            }
+                        }
+                        item.isDiscounted && item.cashDiscountedPrice > 0.0 -> {
+                            item.cashDiscountedPrice
+                        }
+                        else -> {
+                            item.cashPrice
+                        }
                     }
                 }
             }
@@ -385,19 +412,45 @@ class PricingCalculationUseCase @Inject constructor() {
      */
     private fun calculateSubtotal(cartItems: List<CartItem>, useCardPricing: Boolean): Double {
         return cartItems.sumOf { item ->
+            // Check for product-level discount using discountType and discountValue
+            val hasProductDiscount = item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0
+            
             val price = when {
                 useCardPricing -> {
-                    if (item.isDiscounted && item.discountPrice != null) {
-                        item.discountPrice!!
-                    } else {
-                        item.price ?: 0.0
+                    when {
+                        hasProductDiscount -> {
+                            // Use getProductDiscountedPrice() for product-level discounts
+                            item.getProductDiscountedPrice()
+                        }
+                        item.isDiscounted && item.discountPrice != null -> {
+                            item.discountPrice!!
+                        }
+                        else -> {
+                            item.price ?: 0.0
+                        }
                     }
                 }
                 else -> {
-                    if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
-                        item.cashDiscountedPrice
-                    } else {
-                        item.cashPrice
+                    when {
+                        hasProductDiscount -> {
+                            // For cash pricing, calculate discounted price from cashPrice
+                            val cashPrice = item.cashPrice
+                            when (item.discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    cashPrice - ((cashPrice * (item.discountValue ?: 0.0)) / 100.0)
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    cashPrice - (item.discountValue ?: 0.0)
+                                }
+                                else -> cashPrice
+                            }
+                        }
+                        item.isDiscounted && item.cashDiscountedPrice > 0.0 -> {
+                            item.cashDiscountedPrice
+                        }
+                        else -> {
+                            item.cashPrice
+                        }
                     }
                 }
             }
@@ -410,40 +463,51 @@ class PricingCalculationUseCase @Inject constructor() {
      */
     private fun calculateProductLevelDiscounts(cartItems: List<CartItem>, useCardPricing: Boolean): Double {
         return cartItems.sumOf { item ->
-            val itemTotal = when {
+            // Check for product-level discount using discountType and discountValue
+            val hasProductDiscount = item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0
+            
+            val basePrice = when {
                 useCardPricing -> {
-                    if (item.isDiscounted && item.discountPrice != null) {
-                        item.discountPrice!!
-                    } else {
-                        item.price ?: 0.0
-                    }
+                    item.price ?: 0.0
                 }
                 else -> {
-                    if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
-                        item.cashDiscountedPrice
-                    } else {
-                        item.cashPrice
-                    }
+                    item.cashPrice
                 }
-            } * (item.quantity ?: 1)
+            }
+            
+            val itemTotal = basePrice * (item.quantity ?: 1)
 
-            val discount = when (item.discountType?.name?.trim()?.lowercase()) {
-                "percentage" -> {
-                    if (item.fixedPercentageDiscount != null) {
-                        itemTotal * (item.fixedPercentageDiscount / 100.0)
-                    } else {
-                        0.0
+            val discount = if (hasProductDiscount) {
+                // Calculate discount using discountType and discountValue
+                when (item.discountType) {
+                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                        itemTotal * ((item.discountValue ?: 0.0) / 100.0)
                     }
-                }
-                "amount" -> {
-                    if (item.fixedDiscount != null) {
-                        item.fixedDiscount * (item.quantity ?: 1)
-                    } else {
-                        0.0
+                    com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                        (item.discountValue ?: 0.0) * (item.quantity ?: 1)
                     }
+                    else -> 0.0
                 }
-                else -> {
-                    item.fixedDiscount ?: 0.0
+            } else {
+                // Fallback to old discount fields for backward compatibility
+                when (item.discountType?.name?.trim()?.lowercase()) {
+                    "percentage" -> {
+                        if (item.fixedPercentageDiscount != null) {
+                            itemTotal * (item.fixedPercentageDiscount / 100.0)
+                        } else {
+                            0.0
+                        }
+                    }
+                    "amount" -> {
+                        if (item.fixedDiscount != null) {
+                            item.fixedDiscount * (item.quantity ?: 1)
+                        } else {
+                            0.0
+                        }
+                    }
+                    else -> {
+                        item.fixedDiscount ?: 0.0
+                    }
                 }
             }
 
@@ -490,19 +554,42 @@ class PricingCalculationUseCase @Inject constructor() {
 
         // Calculate the ratio of taxable items to total subtotal
         val taxableSubtotal = taxableItems.sumOf { item ->
+            val hasProductDiscount = item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0
+            
             val price = when {
                 useCardPricing -> {
-                    if (item.isDiscounted && item.discountPrice != null) {
-                        item.discountPrice!!
-                    } else {
-                        item.price ?: 0.0
+                    when {
+                        hasProductDiscount -> {
+                            item.getProductDiscountedPrice()
+                        }
+                        item.isDiscounted && item.discountPrice != null -> {
+                            item.discountPrice!!
+                        }
+                        else -> {
+                            item.price ?: 0.0
+                        }
                     }
                 }
                 else -> {
-                    if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
-                        item.cashDiscountedPrice
-                    } else {
-                        item.cashPrice
+                    when {
+                        hasProductDiscount -> {
+                            val cashPrice = item.cashPrice
+                            when (item.discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    cashPrice - ((cashPrice * (item.discountValue ?: 0.0)) / 100.0)
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    cashPrice - (item.discountValue ?: 0.0)
+                                }
+                                else -> cashPrice
+                            }
+                        }
+                        item.isDiscounted && item.cashDiscountedPrice > 0.0 -> {
+                            item.cashDiscountedPrice
+                        }
+                        else -> {
+                            item.cashPrice
+                        }
                     }
                 }
             }
@@ -511,19 +598,42 @@ class PricingCalculationUseCase @Inject constructor() {
 
         // Apply the same discount ratio to taxable amount
         val originalSubtotal = cartItems.sumOf { item ->
+            val hasProductDiscount = item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0
+            
             val price = when {
                 useCardPricing -> {
-                    if (item.isDiscounted && item.discountPrice != null) {
-                        item.discountPrice!!
-                    } else {
-                        item.price ?: 0.0
+                    when {
+                        hasProductDiscount -> {
+                            item.getProductDiscountedPrice()
+                        }
+                        item.isDiscounted && item.discountPrice != null -> {
+                            item.discountPrice!!
+                        }
+                        else -> {
+                            item.price ?: 0.0
+                        }
                     }
                 }
                 else -> {
-                    if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
-                        item.cashDiscountedPrice
-                    } else {
-                        item.cashPrice
+                    when {
+                        hasProductDiscount -> {
+                            val cashPrice = item.cashPrice
+                            when (item.discountType) {
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                    cashPrice - ((cashPrice * (item.discountValue ?: 0.0)) / 100.0)
+                                }
+                                com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                    cashPrice - (item.discountValue ?: 0.0)
+                                }
+                                else -> cashPrice
+                            }
+                        }
+                        item.isDiscounted && item.cashDiscountedPrice > 0.0 -> {
+                            item.cashDiscountedPrice
+                        }
+                        else -> {
+                            item.cashPrice
+                        }
                     }
                 }
             }

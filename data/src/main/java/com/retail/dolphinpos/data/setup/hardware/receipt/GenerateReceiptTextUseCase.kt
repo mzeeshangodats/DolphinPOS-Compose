@@ -3,6 +3,7 @@ package com.retail.dolphinpos.data.setup.hardware.receipt
 import android.annotation.SuppressLint
 import android.util.Log
 import com.retail.dolphinpos.common.utils.applyStrikethrough
+import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.order.PendingOrder
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -152,10 +153,11 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     val isDiscounted = item.isDiscounted
                     val discountedPrice = item.discountPrice
 
-                    // Check for product-level discounts (fixed discount or percentage discount)
+                    // Check for product-level discounts (fixed discount, percentage discount, or discountType with discountedPrice)
                     val hasProductLevelDiscount =
-                        item.fixedDiscount != null && item.fixedDiscount > 0.0 ||
-                                item.fixedPercentageDiscount != null && item.fixedPercentageDiscount > 0.0
+                        (item.fixedDiscount != null && item.fixedDiscount > 0.0) ||
+                                (item.fixedPercentageDiscount != null && item.fixedPercentageDiscount > 0.0) ||
+                                (item.discountType != null && item.discountedPrice != null && item.discountedPrice!! < (item.price ?: 0.0))
 
                     val effectivePrice = price
                     val effectiveTotal = price * quantity
@@ -222,39 +224,83 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         }
 
                         // Show discount line with discounted price
-                        val discountType = when {
-                            item.fixedPercentageDiscount != null && item.fixedPercentageDiscount > 0.0 ->
-                                "Discount ${item.fixedPercentageDiscount}% off"
-
-                            item.fixedDiscount != null && item.fixedDiscount > 0.0 ->
-                                "Discount $${item.fixedDiscount * quantity} off"
-
+                        val discountTypeText = when {
+                            // Check fixedPercentageDiscount first (most reliable for 100% discount detection)
+                            item.fixedPercentageDiscount != null && item.fixedPercentageDiscount > 0.0 -> {
+                                if (item.fixedPercentageDiscount == 100.0) {
+                                    "Discount 100% off (FREE)"
+                                } else {
+                                    "Discount ${item.fixedPercentageDiscount}% off"
+                                }
+                            }
+                            // Check fixedDiscount
+                            item.fixedDiscount != null && item.fixedDiscount > 0.0 -> {
+                                val discountTotal = item.fixedDiscount * quantity
+                                val originalTotal = price * quantity
+                                // Check if discount equals or exceeds original price (100% discount)
+                                if (discountTotal >= originalTotal) {
+                                    "Discount 100% off (FREE)"
+                                } else {
+                                    "Discount $${String.format(Locale.US, "%.2f", discountTotal)} off"
+                                }
+                            }
+                            // Check discountType string and discountedPrice
+                            item.discountType != null && item.discountedPrice != null -> {
+                                val originalTotal = price * quantity
+                                val discountedTotal = item.discountedPrice!! * quantity
+                                val discountAmount = originalTotal - discountedTotal
+                                // Check if discount equals or exceeds original price (100% discount)
+                                if (discountAmount >= originalTotal) {
+                                    "Discount 100% off (FREE)"
+                                } else if (item.discountType.equals("PERCENTAGE", ignoreCase = true)) {
+                                    val percentage = (discountAmount / originalTotal) * 100.0
+                                    "Discount ${String.format(Locale.US, "%.1f", percentage)}% off"
+                                } else {
+                                    "Discount $${String.format(Locale.US, "%.2f", discountAmount)} off"
+                                }
+                            }
                             else -> "Discount applied"
                         }
 
-                        // Calculate the actual discounted total (e.g., $89.95 * 0.95 = $85.45)
+                        // Calculate the actual discounted total (e.g., $89.95 * 0.95 = $85.45, or $0.00 for 100% discount)
                         val actualDiscountedTotal: Double = if (!isCashPayment) {
-                            (item.discountPrice ?: price) * quantity
+                            // For card pricing, use getProductDiscountedPrice() if discountType/discountValue is set
+                            val discountedPrice = if (item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0) {
+                                item.getProductDiscountedPrice()
+                            } else {
+                                item.discountPrice ?: price
+                            }
+                            maxOf(0.0, discountedPrice * quantity) // Ensure not negative
                         } else {
                             // Calculate the discounted price correctly for cash payments
                             val originalTotal = price * quantity
                             val discountAmount = when {
+                                // Check discountType and discountValue first (new way)
+                                item.discountType != null && item.discountValue != null && item.discountValue!! > 0.0 -> {
+                                    when (item.discountType) {
+                                        com.retail.dolphinpos.domain.model.home.cart.DiscountType.PERCENTAGE -> {
+                                            originalTotal * (item.discountValue!! / 100.0)
+                                        }
+                                        com.retail.dolphinpos.domain.model.home.cart.DiscountType.AMOUNT -> {
+                                            item.discountValue!! * quantity
+                                        }
+                                        else -> 0.0
+                                    }
+                                }
                                 item.fixedPercentageDiscount != null && item.fixedPercentageDiscount > 0.0 -> {
                                     originalTotal * (item.fixedPercentageDiscount / 100.0)
                                 }
-
                                 item.fixedDiscount != null && item.fixedDiscount > 0.0 -> {
                                     item.fixedDiscount * quantity
                                 }
-
                                 else -> 0.0
                             }
-                            originalTotal - discountAmount
+                            maxOf(0.0, originalTotal - discountAmount) // Ensure not negative
                         }
 
                         append(
                             formatReceiptEntry(
-                                discountType,
+                                discountTypeText,
                                 actualDiscountedTotal,
                                 isReceiptForRefund = isReceiptForRefund,
                             )
@@ -372,7 +418,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
             val tax = order.taxValue ?: 0.0
             val discount = order.discountAmount ?: 0.0
             val total = order.total ?: 0.0
-            
+
             Log.d(TAG, "generatePendingOrderReceipt: Order totals - Subtotal: $subtotal, Tax: $tax, Total: $total")
             Log.d(TAG, "generatePendingOrderReceipt: Tax details count: ${order.taxDetails?.size ?: 0}")
             order.taxDetails?.forEach { taxDetail ->
@@ -402,15 +448,15 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 "${"SUBTOTAL:".padEnd(25)} $subtotalValue\n"
             }
             )
-            
+
             // Enhanced tax breakdown display - aggregate and show ALL taxes once
             if (tax > 0.0) {
                 append("\n")
                 append("TAX BREAKDOWN:\n")
-                
+
                 // Aggregate all taxes (both store and product level) by description
                 val taxMap = mutableMapOf<String, Double>()
-                
+
                 // Add store-level taxes from order.taxDetails (default only)
                 order.taxDetails?.filter { it.isDefault == true }?.forEach { taxDetail ->
                     val taxAmount = taxDetail.amount ?: when (taxDetail.type?.lowercase()) {
@@ -424,7 +470,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             subtotal * rate
                         }
                     }
-                    
+
                     val taxValue = taxDetail.value
                     val taxType = taxDetail.type ?: "Percentage"
                     val taxDescription = when (taxType.lowercase()) {
@@ -434,7 +480,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     }
                     taxMap[taxDescription] = (taxMap[taxDescription] ?: 0.0) + taxAmount
                 }
-                
+
                 // Add product-level taxes from orderItems.appliedTaxes
                 orderItems.forEach { orderItem ->
                     orderItem.appliedTaxes?.forEach { productTaxDetail ->
@@ -449,7 +495,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                                 (orderItem.price?.toDoubleOrNull() ?: 0.0) * rate
                             }
                         }
-                        
+
                         val productTaxValue = productTaxDetail.value
                         val productTaxType = productTaxDetail.type ?: "Percentage"
                         val productTaxDescription = when (productTaxType.lowercase()) {
@@ -460,7 +506,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         taxMap[productTaxDescription] = (taxMap[productTaxDescription] ?: 0.0) + productTaxAmount
                     }
                 }
-                
+
                 // Display all taxes together
                 if (taxMap.isNotEmpty()) {
                     taxMap.forEach { (description, amount) ->
@@ -476,7 +522,7 @@ class GenerateReceiptTextUseCase @Inject constructor(
                     val storeData = getStoreDetailsFromLocalUseCase()
                     val taxRate = storeData?.taxValue ?: 0.0
                     val taxDescription = if (taxRate > 0.0) "Tax ($taxRate%)" else "Tax"
-                    
+
                     val taxValue = if (isReceiptForRefund) {
                         String.format(Locale.US, "-$%.2f", tax)
                     } else {
@@ -827,7 +873,21 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         val quantity = item.quantity ?: 0
                         val price = item.price ?: 0.0
                         val discountedPrice = item.discountedPrice
-                        val itemTotal = if (discountedPrice != null && discountedPrice > 0.0) {
+
+                        // Check for 100% discount using fixedPercentageDiscount
+                        // Also check discountType if it's "PERCENTAGE" string and fixedPercentageDiscount is 100%
+                        val has100PercentDiscount =
+                            (item.fixedPercentageDiscount != null && item.fixedPercentageDiscount == 100.0) ||
+                                    (item.discountType != null && item.discountType.equals(
+                                        "PERCENTAGE",
+                                        ignoreCase = true
+                                    ) &&
+                                            item.fixedPercentageDiscount != null && item.fixedPercentageDiscount == 100.0)
+
+                        val itemTotal = if (has100PercentDiscount) {
+                            // Item is free with 100% discount
+                            0.0
+                        } else if (discountedPrice != null && discountedPrice >= 0.0) {
                             discountedPrice * quantity
                         } else {
                             price * quantity
@@ -849,7 +909,9 @@ class GenerateReceiptTextUseCase @Inject constructor(
 
                         // Show quantity if more than 1
                         if (quantity > 1) {
-                            val unitPrice = if (discountedPrice != null && discountedPrice > 0.0) {
+                            val unitPrice = if (has100PercentDiscount) {
+                                0.0 // Free with 100% discount
+                            } else if (discountedPrice != null && discountedPrice >= 0.0) {
                                 discountedPrice
                             } else {
                                 price
@@ -857,10 +919,37 @@ class GenerateReceiptTextUseCase @Inject constructor(
                             append("  ($quantity x ${formatCurrency(unitPrice)})\n")
                         }
 
-                        // Show discount if applicable
-                        if (discountedPrice != null && discountedPrice > 0.0 && discountedPrice < price) {
-                            val discountAmount = (price - discountedPrice) * quantity
-                            append(formatLine("  Discount", formatNegativeCurrency(discountAmount)))
+                        // Show discount if applicable (handle 100% discount case)
+                        val hasDiscount =
+                            (item.fixedDiscount != null && (item.fixedDiscount ?: 0.0) > 0.0) ||
+                                    (item.fixedPercentageDiscount != null && (item.fixedPercentageDiscount
+                                        ?: 0.0) > 0.0) ||
+                                    (item.discountType != null && item.discountedPrice != null)
+                        val is100PercentDiscount =
+                            (item.fixedPercentageDiscount != null && item.fixedPercentageDiscount == 100.0) ||
+                                    (item.discountType != null && item.discountType.equals(
+                                        "PERCENTAGE",
+                                        ignoreCase = true
+                                    ) &&
+                                            item.fixedPercentageDiscount != null && item.fixedPercentageDiscount == 100.0)
+
+                        if (discountedPrice != null && discountedPrice >= 0.0 && (discountedPrice < price || is100PercentDiscount)) {
+                            val discountAmount = if (is100PercentDiscount) {
+                                price * quantity // Full discount for 100% off
+                            } else {
+                                (price - discountedPrice) * quantity
+                            }
+                            val discountLabel = if (is100PercentDiscount) {
+                                "  Discount 100% off (FREE)"
+                            } else {
+                                "  Discount"
+                            }
+                            append(
+                                formatLine(
+                                    discountLabel,
+                                    formatNegativeCurrency(discountAmount)
+                                )
+                            )
                         }
 
                         append(divider)
@@ -892,9 +981,16 @@ class GenerateReceiptTextUseCase @Inject constructor(
                 if (order.discountAmount > 0.0) {
                     Log.d(
                         TAG,
-                        "generatePendingOrderReceipt: Order discount: ${order.discountAmount}"
+                        "generatePendingOrderReceipt: Order discount: ${order.discountAmount}, Subtotal: ${order.subTotal}"
                     )
-                    append(formatLine("Discount", formatNegativeCurrency(order.discountAmount)))
+                    // Check if discount is 100% (discount equals subtotal or greater)
+                    val is100PercentDiscount = order.discountAmount >= order.subTotal
+                    val discountLabel = if (is100PercentDiscount) {
+                        "Discount 100% off (FREE)"
+                    } else {
+                        "Discount"
+                    }
+                    append(formatLine(discountLabel, formatNegativeCurrency(order.discountAmount)))
                 }
 
                 // Tax breakdown or Tax Exempt
@@ -914,31 +1010,40 @@ class GenerateReceiptTextUseCase @Inject constructor(
                         orderItem.appliedTaxes?.forEach { taxDetail ->
                             // Use the amount from taxDetail if available (pre-calculated per item based on item price)
                             // Otherwise calculate based on item price and quantity
-                            val taxAmount = if (taxDetail.amount != null && taxDetail.amount!! > 0.0) {
-                                // Use pre-calculated amount based on item's price
-                                Log.d(TAG, "Using pre-calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: ${taxDetail.amount}")
-                                taxDetail.amount!!
-                            } else {
-                                // Fallback: calculate based on item price (shouldn't happen if item-level taxes are saved correctly)
-                                val calculatedAmount = when (taxDetail.type?.lowercase()) {
-                                    "percentage" -> {
-                                        val rate = taxDetail.value / 100.0
-                                        val itemPrice =
-                                            orderItem.discountedPrice ?: orderItem.price ?: 0.0
-                                        itemPrice * (orderItem.quantity ?: 1) * rate
-                                    }
+                            val taxAmount =
+                                if (taxDetail.amount != null && taxDetail.amount!! > 0.0) {
+                                    // Use pre-calculated amount based on item's price
+                                    Log.d(
+                                        TAG,
+                                        "Using pre-calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: ${taxDetail.amount}"
+                                    )
+                                    taxDetail.amount!!
+                                } else {
+                                    // Fallback: calculate based on item price (shouldn't happen if item-level taxes are saved correctly)
+                                    val calculatedAmount = when (taxDetail.type?.lowercase()) {
+                                        "percentage" -> {
+                                            val rate = taxDetail.value / 100.0
+                                            val itemPrice =
+                                                orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                            itemPrice * (orderItem.quantity ?: 1) * rate
+                                        }
 
-                                    "fixed amount" -> taxDetail.value * (orderItem.quantity ?: 1)
-                                    else -> {
-                                        val rate = taxDetail.value / 100.0
-                                        val itemPrice =
-                                            orderItem.discountedPrice ?: orderItem.price ?: 0.0
-                                        itemPrice * (orderItem.quantity ?: 1) * rate
+                                        "fixed amount" -> taxDetail.value * (orderItem.quantity
+                                            ?: 1)
+
+                                        else -> {
+                                            val rate = taxDetail.value / 100.0
+                                            val itemPrice =
+                                                orderItem.discountedPrice ?: orderItem.price ?: 0.0
+                                            itemPrice * (orderItem.quantity ?: 1) * rate
+                                        }
                                     }
+                                    Log.d(
+                                        TAG,
+                                        "Calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: $calculatedAmount (fallback)"
+                                    )
+                                    calculatedAmount
                                 }
-                                Log.d(TAG, "Calculated tax amount for item: ${orderItem.name}, Tax: ${taxDetail.title}, Amount: $calculatedAmount (fallback)")
-                                calculatedAmount
-                            }
 
                             val taxValue = taxDetail.value
                             val taxType = taxDetail.type ?: "Percentage"
