@@ -56,10 +56,17 @@ fun SelectRegisterScreen(
 
     var selectedLocation by remember { mutableStateOf<Locations?>(null) }
     var selectedRegister by remember { mutableStateOf<Registers?>(null) }
+
+    // Get the hint text for comparison
+    val selectRegisterHint = stringResource(R.string.select_register_hint)
     
-    // Derived state for button enabled
-    val isButtonEnabled = remember(selectedLocation, selectedRegister) {
-        selectedLocation != null && selectedRegister != null
+    val selectRegisterErrorMessage = stringResource(R.string.select_register_error_message)
+    
+    // Derived state for button enabled - check if register is actually selected (not showing hint)
+    val isButtonEnabled = remember(selectedLocation, selectedRegister, registers, selectRegisterHint) {
+        selectedLocation != null && 
+        selectedRegister != null &&
+        registers.isNotEmpty()
     }
 
     val locationError = stringResource(id = R.string.no_loc_found)
@@ -100,8 +107,8 @@ fun SelectRegisterScreen(
                     if (event.locationsList.isEmpty()) {
                         DialogHandler.showDialog(
                             message = locationError,
-                        buttonText = "OK",
-                        iconRes = R.drawable.info_icon
+                            buttonText = "OK",
+                            iconRes = R.drawable.info_icon
                         ) {}
                     } else {
                         selectedLocation = event.locationsList[0]
@@ -116,9 +123,11 @@ fun SelectRegisterScreen(
                             buttonText = "OK",
                             iconRes = R.drawable.info_icon
                         ) {}
+                        // Clear selected register when no registers are available
+                        selectedRegister = null
                     } else {
-                        // Auto-select the first register if available
-                        selectedRegister = event.registersList[0]
+                        // Don't auto-select - user must explicitly select a register
+                        selectedRegister = null
                     }
                 }
             }
@@ -226,14 +235,16 @@ fun SelectRegisterScreen(
                         Spacer(Modifier.height(16.dp))
 
                         // 🟧 Register Dropdown - Always visible
+                                val registerDisplayText = if (registers.isEmpty()) {
+                            selectRegisterHint
+                        } else {
+                            selectedRegister?.name ?: selectRegisterHint
+                        }
+                        
                         DropdownSelector(
                             label = stringResource(id = R.string.select_register),
                             items = registers.map { it.name ?: "" },
-                            selectedText = if (registers.isEmpty()) {
-                                stringResource(R.string.select_register_hint)
-                            } else {
-                                selectedRegister?.name ?: registers.firstOrNull()?.name ?: ""
-                            },
+                            selectedText = registerDisplayText,
                             onItemSelected = { index ->
                                 selectedRegister = registers[index]
                             })
@@ -247,9 +258,18 @@ fun SelectRegisterScreen(
                                 .height(48.dp),
                             enabled = isButtonEnabled
                         ) {
-                            selectedLocation?.let { loc ->
-                                selectedRegister?.let { reg ->
-                                    viewModel.getProducts(loc.id, reg.id, reg)
+                            if (selectedRegister == null || registerDisplayText == selectRegisterHint) {
+                                // Show error if register is not selected
+                                DialogHandler.showDialog(
+                                    message = selectRegisterErrorMessage,
+                                    buttonText = "OK",
+                                    iconRes = R.drawable.info_icon
+                                ) {}
+                            } else {
+                                selectedLocation?.let { loc ->
+                                    selectedRegister?.let { reg ->
+                                        viewModel.getProducts(loc.id, reg.id, reg)
+                                    }
                                 }
                             }
                         }

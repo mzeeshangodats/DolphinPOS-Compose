@@ -30,6 +30,7 @@
     <string name="welcome_username">Welcome %1$s!</string>
     <string name="select_stores_hint">--Select Stores--</string>
     <string name="select_register_hint">--Select Register--</string>
+    <string name="select_register_error_message">Please select a register to continue</string>
     <string name="select_locations_hint">--Select Locations--</string>
     <string name="enter_pin_code">Enter PIN Code</string>
     <string name="clear">Clear</string>
