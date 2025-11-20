@@ -104,4 +104,8 @@ interface ApiService {
         @Query("keyword") keyword: String? = null
     ): OrderDetailsResponse
 
+    @POST("customer")
+    suspend fun createCustomer(
+        @Body batchCloseRequest: BatchCloseRequest
+    ): BatchCloseResponse
 }

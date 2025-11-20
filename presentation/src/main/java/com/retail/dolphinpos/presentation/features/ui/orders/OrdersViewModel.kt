@@ -54,53 +54,92 @@ class OrdersViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMorePages = MutableStateFlow(true)
+    val hasMorePages: StateFlow<Boolean> = _hasMorePages.asStateFlow()
+
     private val _uiEvent = MutableSharedFlow<OrdersUiEvent>()
     val uiEvent: SharedFlow<OrdersUiEvent> = _uiEvent.asSharedFlow()
+    
+    private val _startDate = MutableStateFlow<String?>(null)
+    val startDate: StateFlow<String?> = _startDate.asStateFlow()
+    
+    private val _endDate = MutableStateFlow<String?>(null)
+    val endDate: StateFlow<String?> = _endDate.asStateFlow()
+    
+    private var currentPage = 1
+    private val pageLimit = 10
 
-    fun loadOrders(keyword: String? = null) {
+    fun loadOrders(keyword: String? = null, reset: Boolean = true) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _uiEvent.emit(OrdersUiEvent.ShowLoading)
             try {
+                if (reset) {
+                    _isLoading.value = true
+                    _uiEvent.emit(OrdersUiEvent.ShowLoading)
+                    currentPage = 1
+                    _hasMorePages.value = true
+                } else {
+                    _isLoadingMore.value = true
+                }
+
                 // If internet is available, fetch orders from API and save to unified table
                 if (networkMonitor.isNetworkAvailable()) {
-                    loadOrdersFromApi(keyword)
+                    loadOrdersFromApi(keyword, reset)
+                    // Don't load from local DB after API call - use API response directly for pagination
+                    // Local DB is only used when offline
+                } else {
+                    // No internet - load from local DB
+                    if (reset) {
+                        loadOrdersFromLocalDatabase(keyword, reset)
+                        // When offline, we can't paginate, so set hasMorePages to false
+                        _hasMorePages.value = false
+                    } else {
+                        // Can't load more when offline
+                        _hasMorePages.value = false
+                    }
                 }
                 
-                // Always load orders from unified table (works for both online and offline)
-                loadOrdersFromLocalDatabase(keyword)
+                // Hide loading after successful load
+                _isLoading.value = false
+                _isLoadingMore.value = false
+                _uiEvent.emit(OrdersUiEvent.HideLoading)
             } catch (e: Exception) {
                 _isLoading.value = false
+                _isLoadingMore.value = false
                 _uiEvent.emit(OrdersUiEvent.HideLoading)
                 _uiEvent.emit(OrdersUiEvent.ShowError("Failed to load orders: ${e.message}"))
-            } finally {
-                _isLoading.value = false
             }
         }
     }
 
-    private suspend fun loadOrdersFromApi(keyword: String?) {
+    private suspend fun loadOrdersFromApi(keyword: String?, reset: Boolean) {
         try {
-            // Get date range (last 30 days by default)
-            val calendar = Calendar.getInstance()
+            // Get date range from ViewModel state (default: yesterday to today)
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-
-            // End date is today
-            val endDate = dateFormat.format(calendar.time)
-
-            // Start date is 30 days ago
-            calendar.add(Calendar.DAY_OF_YEAR, -30)
-            val startDate = dateFormat.format(calendar.time)
+            val calendar = Calendar.getInstance()
+            
+            val endDateStr = _endDate.value ?: run {
+                // Default to today if end date not set
+                dateFormat.format(calendar.time)
+            }
+            
+            val startDateStr = _startDate.value ?: run {
+                // Default to yesterday if start date not set
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                dateFormat.format(calendar.time)
+            }
 
             val storeId = preferenceManager.getStoreID()
 
             val result = ordersRepository.getOrdersDetails(
                 orderBy = "createdAt",
                 order = "desc",
-                startDate = startDate,
-                endDate = endDate,
-                limit = 100, // Load 100 orders at a time
-                page = 1,
+                startDate = startDateStr,
+                endDate = endDateStr,
+                limit = pageLimit,
+                page = currentPage,
                 paginate = true,
                 storeId = storeId,
                 keyword = keyword
@@ -110,17 +149,40 @@ class OrdersViewModel @Inject constructor(
                 orderRepository.saveApiOrders(response.data.list)
                 // Clean up any duplicate orders
                 orderRepository.removeDuplicateOrders()
-                // Orders will be loaded from local database in loadOrdersFromLocalDatabase
+                
+                // Convert API orders to OrderDetailList
+                val newOrderDetails = response.data.list
+                
+                // Update orders list based on reset flag
+                if (reset) {
+                    // For reset, replace all orders with new page 1 results
+                    _orders.value = newOrderDetails
+                } else {
+                    // For pagination, append new orders to existing list
+                    _orders.value = _orders.value + newOrderDetails
+                }
+                
+                // Check if there are more pages
+                val totalRecords = response.data.totalRecords
+                val currentRecords = _orders.value.size
+                // Check if there are more pages based on total records
+                _hasMorePages.value = currentRecords < totalRecords && totalRecords > 0
             }.onFailure { e ->
                 // Even if API fails, we can still load from local database
                 android.util.Log.e("OrdersViewModel", "Failed to fetch orders from API: ${e.message}")
+                if (reset) {
+                    _hasMorePages.value = false
+                }
             }
         } catch (e: Exception) {
             android.util.Log.e("OrdersViewModel", "Error loading orders from API: ${e.message}")
+            if (reset) {
+                _hasMorePages.value = false
+            }
         }
     }
 
-    private suspend fun loadOrdersFromLocalDatabase(keyword: String?) {
+    private suspend fun loadOrdersFromLocalDatabase(keyword: String?, reset: Boolean) {
         try {
             val storeId = preferenceManager.getStoreID()
             
@@ -138,22 +200,29 @@ class OrdersViewModel @Inject constructor(
             val completedList = mutableListOf<OrderDetailList>()
             val pendingList = mutableListOf<OrderDetailList>()
             
-            allOrders.forEach { entity ->
+            val orderDetailList = allOrders.map { entity ->
                 val orderDetail = convertOrderEntityToOrderDetailList(entity)
                 if (entity.isSynced) {
                     completedList.add(orderDetail)
                 } else {
                     pendingList.add(orderDetail)
                 }
+                orderDetail
             }
 
-            _orders.value = allOrders.map { convertOrderEntityToOrderDetailList(it) }
+            if (reset) {
+                _orders.value = orderDetailList
+            } else {
+                // Append new orders to existing list (for pagination)
+                _orders.value = _orders.value + orderDetailList
+            }
             _completedOrders.value = completedList
             _pendingOrders.value = pendingList
-            _uiEvent.emit(OrdersUiEvent.HideLoading)
+            // Don't emit HideLoading here - it will be emitted in loadOrders() after all operations complete
         } catch (e: Exception) {
-            _uiEvent.emit(OrdersUiEvent.HideLoading)
-            _uiEvent.emit(OrdersUiEvent.ShowError("Failed to load orders from local storage: ${e.message}"))
+            // Don't emit HideLoading here - it will be emitted in loadOrders() catch block
+            android.util.Log.e("OrdersViewModel", "Error loading orders from local database: ${e.message}")
+            throw e // Re-throw to be caught in loadOrders()
         }
     }
 
@@ -284,8 +353,40 @@ class OrdersViewModel @Inject constructor(
         )
     }
 
+    fun loadMoreOrders() {
+        // Only load more if not already loading, has more pages, and internet is available
+        if (!_isLoadingMore.value && !_isLoading.value && _hasMorePages.value && networkMonitor.isNetworkAvailable()) {
+            currentPage++
+            loadOrders(reset = false)
+        }
+    }
+
     init {
+        // Initialize default dates: end date = today, start date = yesterday
+        initializeDefaultDates()
         loadOrders()
+    }
+    
+    private fun initializeDefaultDates() {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val calendar = Calendar.getInstance()
+        
+        // End date = current date
+        val endDateStr = dateFormat.format(calendar.time)
+        _endDate.value = endDateStr
+        
+        // Start date = one day before current date
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        val startDateStr = dateFormat.format(calendar.time)
+        _startDate.value = startDateStr
+    }
+    
+    fun setStartDate(date: String) {
+        _startDate.value = date
+    }
+    
+    fun setEndDate(date: String) {
+        _endDate.value = date
     }
 
     fun printOrder(order: OrderDetailList) {

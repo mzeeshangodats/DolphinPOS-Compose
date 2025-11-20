@@ -1,7 +1,9 @@
 package com.retail.dolphinpos.presentation.features.ui.orders
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +21,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.AlertDialog
@@ -38,13 +42,20 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.google.android.material.datepicker.CalendarConstraints
+import com.google.android.material.datepicker.DateValidatorPointBackward
+import com.google.android.material.datepicker.MaterialDatePicker
+import java.util.Calendar
+import java.util.TimeZone
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBar
@@ -66,14 +77,45 @@ fun OrdersScreen(
 ) {
     val orders by viewModel.orders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMorePages by viewModel.hasMorePages.collectAsState()
+    val startDate by viewModel.startDate.collectAsState()
+    val endDate by viewModel.endDate.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedOrder by remember { mutableStateOf<OrderDetailList?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    
+    val listState = rememberLazyListState()
 
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
     val isClockedIn = preferenceManager.isClockedIn()
     val clockInTime = preferenceManager.getClockInTime()
+    
+    // Date format for display
+    val displayDateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val apiDateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    
+    val context = LocalContext.current
+    
+    // Get activity for fragment manager
+    val activity = remember {
+        when {
+            context is FragmentActivity -> context
+            context is android.app.Activity -> {
+                try {
+                    context as? FragmentActivity
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+    
+    // State to trigger date pickers
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     // Filter orders based on search query
     val filteredOrders = if (searchQuery.isEmpty()) {
@@ -89,10 +131,22 @@ fun OrdersScreen(
         if (searchQuery.isNotEmpty()) {
             // Debounce search - reload after user stops typing
             kotlinx.coroutines.delay(500)
-            viewModel.loadOrders(searchQuery)
+            viewModel.loadOrders(searchQuery, reset = true)
         } else {
-            viewModel.loadOrders()
+            viewModel.loadOrders(reset = true)
         }
+    }
+    
+    // Load more when scrolling near the bottom
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisibleIndex ->
+                // Use orders.size instead of filteredOrders.size for pagination check
+                val totalItems = orders.size
+                if (lastVisibleIndex != null && lastVisibleIndex >= totalItems - 3 && hasMorePages && !isLoadingMore && !isLoading) {
+                    viewModel.loadMoreOrders()
+                }
+            }
     }
 
     // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
@@ -108,6 +162,7 @@ fun OrdersScreen(
     
     LaunchedEffect(currentRoute) {
         if (currentRoute == "orders") {
+
             viewModel.uiEvent.collect { event ->
                 // Double-check we're still on orders screen before processing events
                 if (navController.currentBackStackEntry?.destination?.route == "orders") {
@@ -133,6 +188,76 @@ fun OrdersScreen(
             }
         }
     }
+    
+    // Handle start date picker
+    LaunchedEffect(showStartDatePicker) {
+        if (showStartDatePicker && activity != null) {
+            try {
+                val constraints = CalendarConstraints.Builder()
+                    .setValidator(DateValidatorPointBackward.now())
+                    .build()
+                
+                val datePicker = MaterialDatePicker.Builder.datePicker()
+                    .setTitleText("Select Start Date")
+                    .setCalendarConstraints(constraints)
+                    .build()
+                
+                datePicker.addOnPositiveButtonClickListener { selectedDate ->
+                    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    calendar.timeInMillis = selectedDate
+                    val dateStr = apiDateFormat.format(calendar.time)
+                    viewModel.setStartDate(dateStr)
+                }
+                
+                datePicker.addOnDismissListener {
+                    showStartDatePicker = false
+                }
+                
+                datePicker.show(activity.supportFragmentManager, "StartDatePicker")
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersScreen", "Error showing start date picker: ${e.message}")
+                showStartDatePicker = false
+            }
+        } else if (showStartDatePicker && activity == null) {
+            android.util.Log.e("OrdersScreen", "Activity is not FragmentActivity, cannot show date picker")
+            showStartDatePicker = false
+        }
+    }
+    
+    // Handle end date picker
+    LaunchedEffect(showEndDatePicker) {
+        if (showEndDatePicker && activity != null) {
+            try {
+                val constraints = CalendarConstraints.Builder()
+                    .setValidator(DateValidatorPointBackward.now())
+                    .build()
+                
+                val datePicker = MaterialDatePicker.Builder.datePicker()
+                    .setTitleText("Select End Date")
+                    .setCalendarConstraints(constraints)
+                    .build()
+                
+                datePicker.addOnPositiveButtonClickListener { selectedDate ->
+                    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    calendar.timeInMillis = selectedDate
+                    val dateStr = apiDateFormat.format(calendar.time)
+                    viewModel.setEndDate(dateStr)
+                }
+                
+                datePicker.addOnDismissListener {
+                    showEndDatePicker = false
+                }
+                
+                datePicker.show(activity.supportFragmentManager, "EndDatePicker")
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersScreen", "Error showing end date picker: ${e.message}")
+                showEndDatePicker = false
+            }
+        } else if (showEndDatePicker && activity == null) {
+            android.util.Log.e("OrdersScreen", "Activity is not FragmentActivity, cannot show date picker")
+            showEndDatePicker = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -155,6 +280,110 @@ fun OrdersScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            // Date Range Selector
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Start Date
+                Column(modifier = Modifier.weight(0.8f)) {
+                    BaseText(
+                        text = "Start Date",
+                        fontSize = 12f,
+                        color = Color.Gray,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                showStartDatePicker = true
+                            },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BaseText(
+                            text = startDate?.let { 
+                                try {
+                                    val date = apiDateFormat.parse(it)
+                                    date?.let { displayDateFormat.format(it) } ?: it
+                                } catch (e: Exception) {
+                                    it
+                                }
+                            } ?: "Select Start Date",
+                            fontSize = 14f,
+                            color = if (startDate != null) Color.Black else Color.Gray,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+                
+                // End Date
+                Column(modifier = Modifier.weight(0.8f)) {
+                    BaseText(
+                        text = "End Date",
+                        fontSize = 12f,
+                        color = Color.Gray,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                showEndDatePicker = true
+                            },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BaseText(
+                            text = endDate?.let { 
+                                try {
+                                    val date = apiDateFormat.parse(it)
+                                    date?.let { displayDateFormat.format(it) } ?: it
+                                } catch (e: Exception) {
+                                    it
+                                }
+                            } ?: "Select End Date",
+                            fontSize = 14f,
+                            color = if (endDate != null) Color.Black else Color.Gray,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+                
+                // Apply Button
+                BaseButton(
+                    text = "Apply",
+                    modifier = Modifier
+                        .width(120.dp)
+                        .padding(top = 20.dp),
+                    backgroundColor = colorResource(id = R.color.primary),
+                    textColor = Color.White,
+                    fontSize = 14,
+                    fontWeight = FontWeight.SemiBold,
+                    height = 40.dp,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    onClick = {
+                        viewModel.loadOrders(reset = true)
+                    }
+                )
+            }
+            
             // Search Bar
             Row(
                 modifier = Modifier
@@ -286,7 +515,7 @@ fun OrdersScreen(
                 }
 
                 // Orders List
-                LazyColumn {
+                LazyColumn(state = listState) {
                     items(filteredOrders) { order ->
                         Row(
                             modifier = Modifier
