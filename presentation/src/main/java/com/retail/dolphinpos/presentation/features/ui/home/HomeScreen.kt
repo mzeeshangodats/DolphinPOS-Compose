@@ -1838,7 +1838,7 @@ fun ActionButtonRow(
                         BaseText(
                             text = button.label,
                             color = Color.White,
-                            fontSize = 16f,
+                            fontSize = 13f,
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
