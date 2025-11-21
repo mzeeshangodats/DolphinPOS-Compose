@@ -1607,7 +1607,9 @@ fun CategoryItem(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) colorResource(id = R.color.primary) else Color.White
         ),
@@ -1616,16 +1618,16 @@ fun CategoryItem(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
             contentAlignment = Alignment.Center
         ) {
             BaseText(
                 text = category.title,
                 color = if (isSelected) Color.White else Color.Black,
-                fontSize = 12f,
+                fontSize = 13f,
                 fontFamily = GeneralSans,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
