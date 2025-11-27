@@ -88,7 +88,9 @@ object Utils {
         iconRes: Int = R.drawable.cross_red,
         cancellable: Boolean = false,
         onDismiss: () -> Unit,
-        onActionClick: (() -> Unit)? = null
+        onActionClick: (() -> Unit)? = null,
+        secondButtonText: String? = null,
+        onSecondButtonClick: (() -> Unit)? = null
     ) {
         if (!cancellable) {
             Dialog(onDismissRequest = { /* Disabled cancel */ }) {
@@ -98,7 +100,9 @@ object Utils {
                     iconRes = iconRes,
                     onDismiss = onDismiss,
                     onActionClick = onActionClick,
-                    showCloseButton = false
+                    showCloseButton = false,
+                    secondButtonText = secondButtonText,
+                    onSecondButtonClick = onSecondButtonClick
                 )
             }
         } else {
@@ -109,7 +113,9 @@ object Utils {
                     iconRes = iconRes,
                     onDismiss = onDismiss,
                     onActionClick = onActionClick,
-                    showCloseButton = true
+                    showCloseButton = true,
+                    secondButtonText = secondButtonText,
+                    onSecondButtonClick = onSecondButtonClick
                 )
             }
         }
@@ -122,7 +128,9 @@ object Utils {
         iconRes: Int,
         onDismiss: () -> Unit,
         onActionClick: (() -> Unit)? = null,
-        showCloseButton: Boolean = true
+        showCloseButton: Boolean = true,
+        secondButtonText: String? = null,
+        onSecondButtonClick: (() -> Unit)? = null
     ) {
         Card(
             shape = RoundedCornerShape(16.dp),
@@ -174,22 +182,67 @@ object Utils {
                     overflow = TextOverflow.Visible
                 )
 
-                // Action button
-                Button(
-                    onClick = {
-                        onDismiss()
-                        onActionClick?.invoke()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.primary)),
-                    modifier = Modifier
-                        .padding(vertical = 20.dp)
-                        .wrapContentWidth()
-                ) {
-                    BaseText(
-                        text = buttonText,
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium
-                    )
+                // Action buttons
+                if (secondButtonText != null && onSecondButtonClick != null) {
+                    // Two buttons - display side by side
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Second button (Print) - left side
+                        Button(
+                            onClick = {
+                                onSecondButtonClick.invoke()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorResource(id = R.color.primary)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            BaseText(
+                                text = secondButtonText,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        // Primary button (OK) - right side
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                onActionClick?.invoke()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorResource(id = R.color.primary)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            BaseText(
+                                text = buttonText,
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    // Single button
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onActionClick?.invoke()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.primary)),
+                        modifier = Modifier
+                            .padding(vertical = 20.dp)
+                            .wrapContentWidth()
+                    ) {
+                        BaseText(
+                            text = buttonText,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
         }

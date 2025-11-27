@@ -23,6 +23,13 @@ import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplayS
 @Composable
 fun AppNavigation(preferenceManager: PreferenceManager) {
     val navController = rememberNavController()
+    
+    // Determine start destination: show splash only on first launch
+    val startDestination = if (preferenceManager.isSplashScreenShown()) {
+        "pinCode"  // Skip splash after first time
+    } else {
+        "splash"   // Show splash on first launch
+    }
 
     // Check if we need to navigate to selectRegister (after register verification failure)
     LaunchedEffect(Unit) {
@@ -38,7 +45,7 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
 
     NavHost(
         navController = navController,
-        startDestination = "splash"
+        startDestination = startDestination
     ) {
         // Splash Screen
         composable("splash") {

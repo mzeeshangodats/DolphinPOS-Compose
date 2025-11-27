@@ -250,4 +250,13 @@ class PreferenceManager @Inject constructor(
         return prefs.getBoolean(Constants.CUSTOMER_DISPLAY_ENABLED, defaultValue)
     }
 
+    // Splash screen methods
+    fun setSplashScreenShown(value: Boolean) {
+        prefs.edit { putBoolean(Constants.SPLASH_SCREEN_SHOWN, value) }
+    }
+
+    fun isSplashScreenShown(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.SPLASH_SCREEN_SHOWN, defaultValue)
+    }
+
 }

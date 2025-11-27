@@ -56,6 +56,7 @@ class PrinterSetupViewModel @Inject constructor(
 
     fun startDiscovery(context: Context, excludeBluetooth: Boolean = false) {
         _viewState.value = _viewState.value.copy(discoveredPrinters = emptyList())
+        emitViewEffect(PrinterViewEffect.ShowLoading(true))
 
         startDiscoveryUseCase.invoke(
             context = context,
@@ -64,6 +65,7 @@ class PrinterSetupViewModel @Inject constructor(
                 addPrinter(printer)
             },
             onDiscoveryFinished = {
+                emitViewEffect(PrinterViewEffect.ShowLoading(false))
                 emitViewEffect(
                     PrinterViewEffect.ShowInformationSnackBar(
                         "Discovery finished. Found ${_viewState.value.discoveredPrinters.size} printers."
@@ -71,6 +73,7 @@ class PrinterSetupViewModel @Inject constructor(
                 )
             },
             onError = { exception ->
+                emitViewEffect(PrinterViewEffect.ShowLoading(false))
                 emitViewEffect(
                     PrinterViewEffect.ShowErrorSnackBar(
                         "Discovery failed: ${exception.localizedMessage}"

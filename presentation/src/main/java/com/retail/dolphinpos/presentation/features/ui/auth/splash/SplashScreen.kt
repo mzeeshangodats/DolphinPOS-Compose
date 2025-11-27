@@ -42,13 +42,23 @@ fun SplashScreen(
         currentTime = currentTime,
         currentDate = currentDate,
         onStartClick = {
+            // Mark splash screen as shown (first time only)
+            preferenceManager.setSplashScreenShown(true)
+            
             val isLoggedIn = preferenceManager.isLogin()
             val hasRegister = preferenceManager.getRegister()
-            navController.navigate("login")
+            
+            // Navigate based on login and register status
             when {
-                !isLoggedIn -> navController.navigate("login")
-                !hasRegister -> navController.navigate("selectRegister")
-                else -> navController.navigate("pinCode")
+                !isLoggedIn -> navController.navigate("login") {
+                    popUpTo("splash") { inclusive = true }
+                }
+                !hasRegister -> navController.navigate("selectRegister") {
+                    popUpTo("splash") { inclusive = true }
+                }
+                else -> navController.navigate("pinCode") {
+                    popUpTo("splash") { inclusive = true }
+                }
             }
         }
     )

@@ -16,9 +16,19 @@ object DialogHandler {
         buttonText: String = "OK",
         iconRes: Int = R.drawable.cross_red,
         cancellable: Boolean = false,
-        onActionClick: (() -> Unit)? = null
+        onActionClick: (() -> Unit)? = null,
+        secondButtonText: String? = null,
+        onSecondButtonClick: (() -> Unit)? = null
     ) {
-        showDialog = DialogData(message, buttonText, iconRes, cancellable, onActionClick)
+        showDialog = DialogData(
+            message = message,
+            buttonText = buttonText,
+            iconRes = iconRes,
+            cancellable = cancellable,
+            onActionClick = onActionClick,
+            secondButtonText = secondButtonText,
+            onSecondButtonClick = onSecondButtonClick
+        )
     }
 
     data class DialogData(
@@ -26,7 +36,9 @@ object DialogHandler {
         val buttonText: String,
         val iconRes: Int,
         val cancellable: Boolean,
-        val onActionClick: (() -> Unit)?
+        val onActionClick: (() -> Unit)?,
+        val secondButtonText: String? = null,
+        val onSecondButtonClick: (() -> Unit)? = null
     )
 
     fun hideDialog() {
@@ -42,7 +54,9 @@ object DialogHandler {
                 iconRes = data.iconRes,
                 cancellable = data.cancellable,
                 onDismiss = { hideDialog() },
-                onActionClick = data.onActionClick
+                onActionClick = data.onActionClick,
+                secondButtonText = data.secondButtonText,
+                onSecondButtonClick = data.onSecondButtonClick
             )
         }
     }

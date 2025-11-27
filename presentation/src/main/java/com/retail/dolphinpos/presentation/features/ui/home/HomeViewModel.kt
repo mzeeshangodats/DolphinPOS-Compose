@@ -112,6 +112,12 @@ class HomeViewModel @Inject constructor(
     private val _totalAmount = MutableStateFlow(0.0)
     val totalAmount: StateFlow<Double> = _totalAmount.asStateFlow()
 
+    private val _cashTotal = MutableStateFlow(0.0)
+    val cashTotal: StateFlow<Double> = _cashTotal.asStateFlow()
+
+    private val _cardTotal = MutableStateFlow(0.0)
+    val cardTotal: StateFlow<Double> = _cardTotal.asStateFlow()
+
     private val _isTaxExempt = MutableStateFlow(false)
     val isTaxExempt: StateFlow<Boolean> = _isTaxExempt.asStateFlow()
 
@@ -794,12 +800,158 @@ class HomeViewModel @Inject constructor(
             // 7️⃣ Final total
             val totalAmount = finalSubtotal + taxValue
 
+            // 8️⃣ Calculate cash and card totals separately for display
+            // Calculate cash-based subtotal (using cash prices)
+            val cashBasedProductDiscountedSubtotal = cartItems.sumOf { cartItem ->
+                val cashPrice = cartItem.cashPrice
+                val discountedCashPrice = when (cartItem.discountType) {
+                    DiscountType.PERCENTAGE -> {
+                        cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cashPrice - (cartItem.discountValue ?: 0.0)
+                    }
+                    else -> cashPrice
+                }
+                discountedCashPrice * cartItem.quantity
+            }
+            
+            // Apply order-level discounts to cash subtotal
+            var cashDiscountedSubtotal = cashBasedProductDiscountedSubtotal
+            for (discount in _orderLevelDiscounts.value) {
+                cashDiscountedSubtotal = when (discount.type) {
+                    DiscountType.PERCENTAGE -> {
+                        cashDiscountedSubtotal - (cashDiscountedSubtotal * discount.value / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cashDiscountedSubtotal - discount.value
+                    }
+                }
+            }
+            
+            // Calculate card-based subtotal (using card prices) - already calculated as productDiscountedSubtotal
+            var cardDiscountedSubtotal = productDiscountedSubtotal
+            for (discount in _orderLevelDiscounts.value) {
+                cardDiscountedSubtotal = when (discount.type) {
+                    DiscountType.PERCENTAGE -> {
+                        cardDiscountedSubtotal - (cardDiscountedSubtotal * discount.value / 100.0)
+                    }
+                    DiscountType.AMOUNT -> {
+                        cardDiscountedSubtotal - discount.value
+                    }
+                }
+            }
+            
+            // Calculate tax for cash scenario
+            val cashTax = if (_isTaxExempt.value) {
+                0.0
+            } else {
+                try {
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val location = verifyPinRepository.getLocationByLocationID(locationId)
+                    val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    
+                    // Calculate taxable amount for cash
+                    val cashTaxableAmount = cartItems.sumOf { cartItem ->
+                        if (cartItem.chargeTaxOnThisProduct == true) {
+                            val cashPrice = cartItem.cashPrice
+                            val discountedCashPrice = when (cartItem.discountType) {
+                                DiscountType.PERCENTAGE -> {
+                                    cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                                }
+                                DiscountType.AMOUNT -> {
+                                    cashPrice - (cartItem.discountValue ?: 0.0)
+                                }
+                                else -> cashPrice
+                            }
+                            discountedCashPrice * cartItem.quantity
+                        } else {
+                            0.0
+                        }
+                    }
+                    
+                    // Apply order discount proportionally to taxable amount
+                    val cashTaxableAfterDiscounts = if (cashBasedProductDiscountedSubtotal > 0 && cashTaxableAmount > 0) {
+                        cashTaxableAmount * (cashDiscountedSubtotal / cashBasedProductDiscountedSubtotal)
+                    } else {
+                        cashDiscountedSubtotal
+                    }
+                    
+                    cashTaxableAfterDiscounts * taxRate
+                } catch (e: Exception) {
+                    // Fallback: use same tax rate as calculated for current selection
+                    val taxRate = try {
+                        val locationId = preferenceManager.getOccupiedLocationID()
+                        val location = verifyPinRepository.getLocationByLocationID(locationId)
+                        location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    } catch (ex: Exception) {
+                        0.10
+                    }
+                    cashDiscountedSubtotal * taxRate
+                }
+            }
+            
+            // Calculate tax for card scenario
+            val cardTax = if (_isTaxExempt.value) {
+                0.0
+            } else {
+                try {
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val location = verifyPinRepository.getLocationByLocationID(locationId)
+                    val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    
+                    // Calculate taxable amount for card
+                    val cardTaxableAmount = cartItems.sumOf { cartItem ->
+                        if (cartItem.chargeTaxOnThisProduct == true) {
+                            val cardPrice = cartItem.cardPrice
+                            val discountedCardPrice = when (cartItem.discountType) {
+                                DiscountType.PERCENTAGE -> {
+                                    cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                                }
+                                DiscountType.AMOUNT -> {
+                                    cardPrice - (cartItem.discountValue ?: 0.0)
+                                }
+                                else -> cardPrice
+                            }
+                            discountedCardPrice * cartItem.quantity
+                        } else {
+                            0.0
+                        }
+                    }
+                    
+                    // Apply order discount proportionally to taxable amount
+                    val cardTaxableAfterDiscounts = if (productDiscountedSubtotal > 0 && cardTaxableAmount > 0) {
+                        cardTaxableAmount * (cardDiscountedSubtotal / productDiscountedSubtotal)
+                    } else {
+                        cardDiscountedSubtotal
+                    }
+                    
+                    cardTaxableAfterDiscounts * taxRate
+                } catch (e: Exception) {
+                    // Fallback: use same tax rate as calculated for current selection
+                    val taxRate = try {
+                        val locationId = preferenceManager.getOccupiedLocationID()
+                        val location = verifyPinRepository.getLocationByLocationID(locationId)
+                        location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
+                    } catch (ex: Exception) {
+                        0.10
+                    }
+                    cardDiscountedSubtotal * taxRate
+                }
+            }
+            
+            // Calculate final totals
+            val cashTotalAmount = cashDiscountedSubtotal + cashTax
+            val cardTotalAmount = cardDiscountedSubtotal + cardTax
+
             withContext(Dispatchers.Main) {
                 _subtotal.value =
                     subtotal   // subtotal shows card prices minus product-level discounts only
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
+                _cashTotal.value = cashTotalAmount
+                _cardTotal.value = cardTotalAmount
 
                 // Broadcast cart update to customer display
                 // Determine status based on cart state
@@ -917,7 +1069,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun formatAmount(amount: Double): String {
-        return String.format(Locale.US, "%.2f", amount)
+        // Format with thousand separators and 2 decimal places, e.g. 1,234.56
+        return String.format(Locale.US, "%,.2f", amount)
     }
 
     // Hold Cart functionality

@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -20,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -38,6 +41,7 @@ import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterDetails
 import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterViewEffect
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
+import com.retail.dolphinpos.presentation.util.Loader
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -50,7 +54,7 @@ fun PrinterSetupScreen(
     
     // Map domain connection type to UI enum
     var connectionType by remember { mutableStateOf(PrinterConnectionType.LAN) }
-    var selectedPrinterIndex by remember { mutableStateOf(0) }
+    var selectedPrinter by remember { mutableStateOf<PrinterDetails?>(null) }
     var printerAddress by remember { mutableStateOf("") }
     
     // Track pending actions after permission grant
@@ -75,7 +79,7 @@ fun PrinterSetupScreen(
             if (pendingDiscovery) {
                 pendingDiscovery = false
                 viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                selectedPrinterIndex = 0
+                selectedPrinter = null
                 printerAddress = ""
             }
             if (pendingTestPrint) {
@@ -99,6 +103,14 @@ fun PrinterSetupScreen(
             viewModel.updateBluetoothPermissionStatus(hasBluetoothConnect && hasBluetoothScan)
         } else {
             viewModel.updateBluetoothPermissionStatus(true)
+        }
+    }
+
+    // Handle ViewEffects - Use DisposableEffect to clean up loader when leaving screen
+    DisposableEffect(Unit) {
+        onDispose {
+            // Hide loader when leaving this screen
+            Loader.hide()
         }
     }
 
@@ -136,7 +148,11 @@ fun PrinterSetupScreen(
                     ) {}
                 }
                 is PrinterViewEffect.ShowLoading -> {
-                    // Handle loading state if needed
+                    if (effect.isLoading) {
+                        Loader.show("Discovering printers...")
+                    } else {
+                        Loader.hide()
+                    }
                 }
             }
         }
@@ -175,26 +191,24 @@ fun PrinterSetupScreen(
         }
     }
 
-    // Printer names for dropdown
-    val printerNamesForDropdown = remember(filteredPrinters) {
-        listOf("No printer selected") + filteredPrinters.map { "${it.name} (${it.address})" }
-    }
-
     // Initialize saved printer selection when filtered printers or saved printer changes
     LaunchedEffect(viewState.savedPrinterDetails, filteredPrinters) {
         viewState.savedPrinterDetails?.let { printer ->
             printerAddress = printer.address
-            // Find index in filtered list
-            val index = filteredPrinters.indexOfFirst { it.address == printer.address && it.name == printer.name }
-            if (index >= 0 && selectedPrinterIndex != index + 1) {
-                selectedPrinterIndex = index + 1
-            } else if (index < 0 && selectedPrinterIndex != 0) {
-                selectedPrinterIndex = 0
+            // Find printer in filtered list
+            val foundPrinter = filteredPrinters.firstOrNull { 
+                it.address == printer.address && it.name == printer.name 
+            }
+            if (foundPrinter != null && selectedPrinter?.address != foundPrinter.address) {
+                selectedPrinter = foundPrinter
+            } else if (foundPrinter == null && selectedPrinter != null) {
+                selectedPrinter = null
+                printerAddress = ""
             }
         } ?: run {
             // No saved printer, reset selection
-            if (selectedPrinterIndex != 0) {
-                selectedPrinterIndex = 0
+            if (selectedPrinter != null) {
+                selectedPrinter = null
                 printerAddress = ""
             }
         }
@@ -245,7 +259,7 @@ fun PrinterSetupScreen(
                         .fillMaxWidth()
                         .padding(4.dp)
                 ) {
-                    // Row 1: Printer Name
+                    // Row 1: Printer Name - Selected Printer Card
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -257,22 +271,188 @@ fun PrinterSetupScreen(
                             fontSize = 14f,
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        DropdownSelector(
-                            label = "",
-                            items = printerNamesForDropdown,
-                            selectedText = printerNamesForDropdown.getOrNull(selectedPrinterIndex) ?: "No printer selected",
-                            onItemSelected = { index ->
-                                selectedPrinterIndex = index
-                                if (index == 0) {
-                                    printerAddress = ""
-                                } else {
-                                    val selectedPrinter = filteredPrinters[index - 1]
-                                    printerAddress = selectedPrinter.address
-                                    viewModel.onDeviceClicked(selectedPrinter)
+                        
+                        // Selected Printer Card
+                        selectedPrinter?.let { printer ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = colorResource(id = R.color.primary).copy(alpha = 0.1f)
+                                ),
+                                border = BorderStroke(1.dp, colorResource(id = R.color.primary))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp)
+                                ) {
+                                    BaseText(
+                                        text = printer.name,
+                                        color = Color.Black,
+                                        fontSize = 14f,
+                                        fontFamily = GeneralSans,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    // Only show address if not USB printer
+                                    if (printer.connectionType != DomainPrinterConnectionType.USB) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        BaseText(
+                                            text = printer.address,
+                                            color = Color.Gray,
+                                            fontSize = 12f,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
                                 }
                             }
-                        )
+                        } ?: run {
+                            // No printer selected message
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 8.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF5F5F5)
+                                ),
+                                border = BorderStroke(1.dp, Color.Gray)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    BaseText(
+                                        text = "No printer selected",
+                                        color = Color.Gray,
+                                        fontSize = 14f,
+                                        fontFamily = GeneralSans,
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Printers List
+                        if (filteredPrinters.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            BaseText(
+                                text = "Available Printers",
+                                color = Color.Black,
+                                fontSize = 12f,
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 4.dp)
+                            )
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp), // Fixed height for the list
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White
+                                ),
+                                border = BorderStroke(1.dp, Color(0xFFE0E0E0))
+                            ) {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(filteredPrinters) { printer ->
+                                        val isSelected = selectedPrinter?.address == printer.address && 
+                                                         selectedPrinter?.name == printer.name
+                                        
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                .clickable {
+                                                    selectedPrinter = printer
+                                                    printerAddress = printer.address
+                                                    viewModel.onDeviceClicked(printer)
+                                                },
+                                            shape = RoundedCornerShape(6.dp),
+                                            colors = CardDefaults.cardColors(
+                                                containerColor = if (isSelected) {
+                                                    colorResource(id = R.color.primary).copy(alpha = 0.15f)
+                                                } else {
+                                                    Color.White
+                                                }
+                                            ),
+                                            border = BorderStroke(
+                                                1.dp,
+                                                if (isSelected) colorResource(id = R.color.primary) else Color(0xFFE0E0E0)
+                                            )
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    BaseText(
+                                                        text = printer.name,
+                                                        color = if (isSelected) colorResource(id = R.color.primary) else Color.Black,
+                                                        fontSize = 14f,
+                                                        fontFamily = GeneralSans,
+                                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                                    )
+                                                    // Only show address if not USB printer
+                                                    if (printer.connectionType != DomainPrinterConnectionType.USB) {
+                                                        Spacer(modifier = Modifier.height(2.dp))
+                                                        BaseText(
+                                                            text = printer.address,
+                                                            color = Color.Gray,
+                                                            fontSize = 12f,
+                                                            fontFamily = GeneralSans
+                                                        )
+                                                    }
+                                                }
+                                                if (isSelected) {
+                                                    Icon(
+                                                        painter = painterResource(id = R.drawable.success_circle_icon),
+                                                        contentDescription = "Selected",
+                                                        tint = colorResource(id = R.color.primary),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // Empty state
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 8.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color(0xFFF5F5F5)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    BaseText(
+                                        text = "No printers found. Click 'Discover' to search for printers.",
+                                        color = Color.Gray,
+                                        fontSize = 12f,
+                                        fontFamily = GeneralSans,
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -301,7 +481,7 @@ fun PrinterSetupScreen(
                                     modifier = Modifier.clickable {
                                         connectionType = option
                                         // Reset selected printer when connection type changes
-                                        selectedPrinterIndex = 0
+                                        selectedPrinter = null
                                         printerAddress = ""
                                     }
                                 ) {
@@ -310,7 +490,7 @@ fun PrinterSetupScreen(
                                         onClick = {
                                             connectionType = option
                                             // Reset selected printer when connection type changes
-                                            selectedPrinterIndex = 0
+                                            selectedPrinter = null
                                             printerAddress = ""
                                         },
                                         colors = RadioButtonDefaults.colors(
@@ -350,7 +530,7 @@ fun PrinterSetupScreen(
                             value = printerAddress,
                             onValueChange = { printerAddress = it },
                             placeholder = "Enter printer address",
-                            enabled = selectedPrinterIndex == 0 // Allow editing only when no printer is selected
+                            enabled = selectedPrinter == null // Allow editing only when no printer is selected
                         )
                     }
 
@@ -431,7 +611,7 @@ fun PrinterSetupScreen(
                     border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
                     contentPadding = PaddingValues(horizontal = 4.dp),
                     fontSize = 12,
-                    onClick = { /*navController.popBackStack()*/ }
+                    onClick = { navigateToHome() }
                 )
 
                 BaseButton(
@@ -471,7 +651,7 @@ fun PrinterSetupScreen(
                                 
                                 if (hasBluetoothConnect && hasBluetoothScan) {
                                     viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                                    selectedPrinterIndex = 0
+                                    selectedPrinter = null
                                     printerAddress = ""
                                 } else {
                                     // Request permissions
@@ -489,12 +669,12 @@ fun PrinterSetupScreen(
                                 }
                             } else {
                                 viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                                selectedPrinterIndex = 0
+                                selectedPrinter = null
                                 printerAddress = ""
                             }
                         } else {
                             viewModel.startDiscovery(context, excludeBluetooth = true)
-                            selectedPrinterIndex = 0
+                            selectedPrinter = null
                             printerAddress = ""
                         }
                     }

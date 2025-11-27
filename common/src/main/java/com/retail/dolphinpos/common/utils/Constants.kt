@@ -49,4 +49,7 @@ object Constants {
     const val CUSTOMER_DISPLAY_IP_ADDRESS = "customer_display_ip_address"
     const val CUSTOMER_DISPLAY_ENABLED = "customer_display_enabled"
 
+    // Splash screen preference
+    const val SPLASH_SCREEN_SHOWN = "splash_screen_shown"
+
 }
