@@ -95,6 +95,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil3.compose.AsyncImage
 import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
@@ -102,6 +103,7 @@ import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
+import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
@@ -116,6 +118,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.tooling.preview.Preview
 
 /**
  * Helper function to show "Coming Soon" dialog
@@ -380,7 +383,8 @@ fun HomeScreen(
                         totalAmount = totalAmount,
                         cashTotal = cashTotal,
                         cardTotal = cardTotal,
-                        isCashSelected = viewModel.isCashSelected
+                        isCashSelected = viewModel.isCashSelected,
+                        cartItems = cartItems
                     )
 
                     // Cart Action Buttons
@@ -840,143 +844,212 @@ fun PricingSummary(
     totalAmount: Double,
     cashTotal: Double,
     cardTotal: Double,
-    isCashSelected: Boolean
+    isCashSelected: Boolean,
+    cartItems: List<CartItem>
 ) {
-    Column(
+    // Calculate cash subtotal (cash prices with product discounts)
+    val cashSubtotal = cartItems.sumOf { cartItem ->
+        val cashPrice = cartItem.cashPrice
+        val discountedCashPrice = when (cartItem.discountType) {
+            DiscountType.PERCENTAGE -> {
+                cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+            }
+            DiscountType.AMOUNT -> {
+                cashPrice - (cartItem.discountValue ?: 0.0)
+            }
+            else -> cashPrice
+        }
+        discountedCashPrice * cartItem.quantity
+    }
+    
+    // Calculate order discount for cash (proportional to cash subtotal)
+    val cashOrderDiscount = if (subtotal > 0 && orderDiscountTotal > 0) {
+        // Apply the same percentage discount to cash subtotal
+        val discountPercentage = orderDiscountTotal / subtotal
+        cashSubtotal * discountPercentage
+    } else {
+        0.0
+    }
+    
+    // Calculate total cash discount (cash discount + order discount)
+    val totalCashDiscount = cashDiscountTotal + cashOrderDiscount
+    
+    // Calculate cash tax (from cashTotal - cashSubtotal + totalCashDiscount)
+    val cashTax = (cashTotal - (cashSubtotal - totalCashDiscount)).coerceAtLeast(0.0)
+    
+    // Card subtotal is already available
+    val cardSubtotal = subtotal
+    
+    // Card discount is order discount
+    val cardDiscount = orderDiscountTotal
+    
+    // Calculate card tax (from cardTotal - cardSubtotal + cardDiscount)
+    val cardTax = (cardTotal - (cardSubtotal - cardDiscount)).coerceAtLeast(0.0)
+    
+    Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = Color.White, shape = RoundedCornerShape(5.dp)
-            )
-            .padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // Subtotal
-        Row(
-            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            BaseText(
-                text = "Subtotal:",
-                color = Color.Black,
-                fontSize = 14f,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = GeneralSans
-            )
-            BaseText(
-                text = String.format(Locale.US, "$%.2f", subtotal),
-                color = Color.Black,
-                fontSize = 14f,
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        // Cash Discount
-        if (isCashSelected && cashDiscountTotal > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                BaseText(
-                    text = "Cash Discount:",
-                    color = colorResource(id = R.color.green_success),
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-                BaseText(
-                    text = String.format(Locale.US, "-$%.2f", cashDiscountTotal),
-                    color = colorResource(id = R.color.green_success),
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        // Order Discount
-        if (orderDiscountTotal > 0) {
-            Row(
-                modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                BaseText(
-                    text = "Discount:",
-                    color = colorResource(id = R.color.green_success),
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-                BaseText(
-                    text = String.format(Locale.US, "-$%.2f", orderDiscountTotal),
-                    color = colorResource(id = R.color.green_success),
-                    fontSize = 14f,
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-
-        // Tax
-        Row(
-            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            BaseText(
-                text = "Tax:",
-                color = Color.Black,
-                fontSize = 12f,
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.SemiBold
-            )
-            BaseText(
-                text = String.format(Locale.US, "$%.2f", tax),
-                color = Color.Black,
-                fontSize = 14f,
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        // Divider
-        HorizontalDivider(
-            color = Color.Gray, thickness = 1.dp
+        // Cash Price Card
+        PriceCard(
+            modifier = Modifier.weight(1f),
+            title = "Cash Price",
+            headerColor = colorResource(id = R.color.green_success),
+            subtotal = cashSubtotal,
+            discount = totalCashDiscount,
+            tax = cashTax,
+            total = cashTotal
         )
+        
+        // Card Price Card
+        PriceCard(
+            modifier = Modifier.weight(1f),
+            title = "Card Price",
+            headerColor = colorResource(id = R.color.primary),
+            subtotal = cardSubtotal,
+            discount = cardDiscount,
+            tax = cardTax,
+            total = cardTotal
+        )
+    }
+}
 
-        // Cash Total
-        Row(
-            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
+@Composable
+fun PriceCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    headerColor: Color,
+    subtotal: Double,
+    discount: Double,
+    tax: Double,
+    total: Double
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(5.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
         ) {
-            BaseText(
-                text = "Cash Total:",
-                color = if (isCashSelected) colorResource(id = R.color.primary) else Color.Black,
-                fontSize = if (isCashSelected) 18f else 14f,
-                fontFamily = GeneralSans,
-                fontWeight = if (isCashSelected) FontWeight.Bold else FontWeight.SemiBold
-            )
-            BaseText(
-                text = String.format(Locale.US, "$%,.2f", cashTotal),
-                color = if (isCashSelected) colorResource(id = R.color.primary) else Color.Black,
-                fontSize = if (isCashSelected) 18f else 14f,
-                fontFamily = GeneralSans,
-                fontWeight = if (isCashSelected) FontWeight.Bold else FontWeight.SemiBold
-            )
-        }
-
-        // Card Total
-        Row(
-            modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            BaseText(
-                text = "Card Total:",
-                color = if (!isCashSelected) colorResource(id = R.color.primary) else Color.Black,
-                fontSize = if (!isCashSelected) 18f else 14f,
-                fontFamily = GeneralSans,
-                fontWeight = if (!isCashSelected) FontWeight.Bold else FontWeight.SemiBold
-            )
-            BaseText(
-                text = String.format(Locale.US, "$%,.2f", cardTotal),
-                color = if (!isCashSelected) colorResource(id = R.color.primary) else Color.Black,
-                fontSize = if (!isCashSelected) 18f else 14f,
-                fontFamily = GeneralSans,
-                fontWeight = if (!isCashSelected) FontWeight.Bold else FontWeight.SemiBold
-            )
+            // Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(headerColor)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                BaseText(
+                    text = title,
+                    color = Color.White,
+                    fontSize = 12f,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = GeneralSans
+                )
+            }
+            
+            // Content
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(5.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Subtotal
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Subtotal:",
+                        color = Color.Black,
+                        fontSize = 14f,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = GeneralSans
+                    )
+                    BaseText(
+                        text = String.format(Locale.US, "$%.2f", subtotal),
+                        color = Color.Black,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                // Discount
+                if (discount > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BaseText(
+                            text = "Discount:",
+                            color = colorResource(id = R.color.green_success),
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                        BaseText(
+                            text = String.format(Locale.US, "-$%.2f", discount),
+                            color = colorResource(id = R.color.green_success),
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                
+                // Tax
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Tax:",
+                        color = Color.Black,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                    BaseText(
+                        text = String.format(Locale.US, "$%.2f", tax),
+                        color = Color.Black,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                // Divider
+                HorizontalDivider(
+                    color = Color.Gray,
+                    thickness = 1.dp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+                
+                // Total
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Total:",
+                        color = colorResource(id = R.color.primary),
+                        fontSize = 16f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold
+                    )
+                    BaseText(
+                        text = String.format(Locale.US, "$%.2f", total),
+                        color = colorResource(id = R.color.primary),
+                        fontSize = 16f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
@@ -3155,3 +3228,4 @@ fun PaymentSuccessUI(
         }
     }
 }
+
