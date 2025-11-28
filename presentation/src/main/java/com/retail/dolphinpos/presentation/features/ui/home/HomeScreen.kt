@@ -142,13 +142,15 @@ fun HomeScreen(
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showPaymentSuccessDialog by remember { mutableStateOf(false) }
+    var paymentSuccessAmount by remember { mutableStateOf("0.00") }
+    var amountTendered by remember { mutableStateOf(0.0) }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
     val cartItems by viewModel.cartItems.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
     val subtotal by viewModel.subtotal.collectAsStateWithLifecycle()
     val tax by viewModel.tax.collectAsStateWithLifecycle()
-    val totalAmount by viewModel.totalAmount.collectAsStateWithLifecycle()
     val cashTotal by viewModel.cashTotal.collectAsStateWithLifecycle()
     val cardTotal by viewModel.cardTotal.collectAsStateWithLifecycle()
     val cashDiscountTotal by viewModel.cashDiscountTotal.collectAsStateWithLifecycle()
@@ -222,21 +224,9 @@ fun HomeScreen(
                         }
 
                         is HomeUiEvent.OrderCreatedSuccessfully -> {
-                            // Show order success in popup dialog with Print button
-                            DialogHandler.showDialog(
-                                message = event.message,
-                                buttonText = "OK",
-                                iconRes = R.drawable.success_circle_icon,
-                                secondButtonText = "Print",
-                                onSecondButtonClick = {
-                                    viewModel.printLatestOnlineOrder()
-                                },
-                                onActionClick =  {
-                                    // Clear cart and reset payment after dialog is closed
-                                    viewModel.clearCart()
-                                    paymentAmount = "0.00"
-                                }
-                            )
+                            // Store amount tendered (change) and show PaymentSuccessUI dialog
+                            paymentSuccessAmount = viewModel.formatAmount(amountTendered).replace("$", "").replace(",", "")
+                            showPaymentSuccessDialog = true
                         }
 
                         HomeUiEvent.NavigateToPinCode -> {
@@ -258,13 +248,10 @@ fun HomeScreen(
         }
     }
 
-    // Update payment amount automatically when total changes (when products are added/removed)
-    LaunchedEffect(totalAmount) {
-        // Always update payment input to match total when cart has items
-        if (totalAmount > 0) {
-            paymentAmount = viewModel.formatAmount(totalAmount)
-        } else {
-            // Clear payment input when cart is empty
+    // Clear payment input only when cart becomes empty
+    LaunchedEffect(cardTotal) {
+        // Only clear payment input when cart is empty, don't auto-populate when items are added
+        if (cardTotal <= 0) {
             paymentAmount = "0.00"
         }
     }
@@ -380,7 +367,6 @@ fun HomeScreen(
                         cashDiscountTotal = cashDiscountTotal,
                         orderDiscountTotal = orderDiscountTotal,
                         tax = tax,
-                        totalAmount = totalAmount,
                         cashTotal = cashTotal,
                         cardTotal = cardTotal,
                         isCashSelected = viewModel.isCashSelected,
@@ -423,7 +409,7 @@ fun HomeScreen(
                         }, onAmountSet = { amount ->
                             paymentAmount = viewModel.formatAmount(amount)
                         }, onExactAmount = {
-                            paymentAmount = viewModel.formatAmount(totalAmount)
+                            paymentAmount = viewModel.formatAmount(cardTotal)
                         }, onCashSelected = {
                             // Set cash as selected payment method
                             viewModel.isCashSelected = true
@@ -444,15 +430,15 @@ fun HomeScreen(
                                 // Use small epsilon for floating point comparison
                                 val epsilon = 0.01
 
-                                if (totalAmount > 0 && currentPayment < 0.01) {
-                                    // Show error and auto-fill total amount
+                                val cashTotalAmount = cashTotal
+                                if (cashTotalAmount > 0 && currentPayment < 0.01) {
+                                    // Show error message only, don't auto-fill
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Total amount has been automatically entered.",
+                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
-                                    paymentAmount = viewModel.formatAmount(totalAmount)
-                                } else if (totalAmount > 0 && currentPayment < totalAmount - epsilon) {
+                                } else if (cashTotalAmount > 0 && currentPayment < cashTotalAmount - epsilon) {
                                     // Show error if payment is less than total
                                     DialogHandler.showDialog(
                                         message = "Payment amount ($${
@@ -461,7 +447,7 @@ fun HomeScreen(
                                             )
                                         }) is less than total amount ($${
                                             viewModel.formatAmount(
-                                                totalAmount
+                                                cashTotalAmount
                                             )
                                         }). Please enter the full amount.",
                                         buttonText = "OK",
@@ -469,6 +455,12 @@ fun HomeScreen(
                                     )
                                 } else {
                                     // Payment equals or exceeds total amount - proceed with cash order
+                                    // Calculate amount tendered (change) if payment is greater than cash total
+                                    amountTendered = if (currentPayment > cashTotalAmount) {
+                                        currentPayment - cashTotalAmount
+                                    } else {
+                                        0.0 // Exact payment, no change
+                                    }
                                     viewModel.createOrder("cash")
                                 }
                             }
@@ -492,15 +484,14 @@ fun HomeScreen(
                                 // Use small epsilon for floating point comparison
                                 val epsilon = 0.01
 
-                                if (totalAmount > 0 && currentPayment < 0.01) {
-                                    // Show error and auto-fill total amount
+                                if (cardTotal > 0 && currentPayment < 0.01) {
+                                    // Show error message only, don't auto-fill
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Total amount has been automatically entered.",
+                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
-                                    paymentAmount = viewModel.formatAmount(totalAmount)
-                                } else if (totalAmount > 0 && currentPayment < totalAmount - epsilon) {
+                                } else if (cardTotal > 0 && currentPayment < cardTotal - epsilon) {
                                     // Show error if payment is less than total
                                     DialogHandler.showDialog(
                                         message = "Payment amount ($${
@@ -509,7 +500,7 @@ fun HomeScreen(
                                             )
                                         }) is less than total amount ($${
                                             viewModel.formatAmount(
-                                                totalAmount
+                                                cardTotal
                                             )
                                         }). Please enter the full amount.",
                                         buttonText = "OK",
@@ -659,6 +650,24 @@ fun HomeScreen(
                         selectedProductForVariant = null
                     }
                 })
+        }
+        
+        // Payment Success Dialog
+        if (showPaymentSuccessDialog) {
+            Dialog(onDismissRequest = { }) {
+                PaymentSuccessUI(
+                    amountTendered = paymentSuccessAmount,
+                    onPrint = {
+                        viewModel.printLatestOnlineOrder()
+                    },
+                    onDone = {
+                        // Clear cart and reset payment after dialog is closed
+                        viewModel.clearCart()
+                        paymentAmount = "0.00"
+                        showPaymentSuccessDialog = false
+                    }
+                )
+            }
         }
     }
 }
@@ -841,7 +850,6 @@ fun PricingSummary(
     cashDiscountTotal: Double,
     orderDiscountTotal: Double,
     tax: Double,
-    totalAmount: Double,
     cashTotal: Double,
     cardTotal: Double,
     isCashSelected: Boolean,
@@ -871,8 +879,16 @@ fun PricingSummary(
         0.0
     }
     
-    // Calculate total cash discount (cash discount + order discount)
-    val totalCashDiscount = cashDiscountTotal + cashOrderDiscount
+    // Calculate total cash discount
+    // When cash is selected, don't show cash discount (only show order discount)
+    // When card is selected, show both cash discount and order discount
+    val totalCashDiscount = if (isCashSelected) {
+        // Only show order discount when cash is selected
+        cashOrderDiscount
+    } else {
+        // Show both cash discount and order discount when card is selected
+        cashDiscountTotal + cashOrderDiscount
+    }
     
     // Calculate cash tax (from cashTotal - cashSubtotal + totalCashDiscount)
     val cashTax = (cashTotal - (cashSubtotal - totalCashDiscount)).coerceAtLeast(0.0)
@@ -1037,16 +1053,16 @@ fun PriceCard(
                     BaseText(
                         text = "Total:",
                         color = colorResource(id = R.color.primary),
-                        fontSize = 16f,
+                        fontSize = 14f,
                         fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                     BaseText(
                         text = String.format(Locale.US, "$%.2f", total),
                         color = colorResource(id = R.color.primary),
-                        fontSize = 16f,
+                        fontSize = 14f,
                         fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
