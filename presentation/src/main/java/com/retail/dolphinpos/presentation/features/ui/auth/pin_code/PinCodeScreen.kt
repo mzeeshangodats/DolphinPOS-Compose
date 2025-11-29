@@ -1,6 +1,8 @@
 package com.retail.dolphinpos.presentation.features.ui.auth.pin_code
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,9 +18,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,6 +47,7 @@ import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import kotlinx.coroutines.flow.collectLatest
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun PinCodeScreen(
@@ -189,74 +193,100 @@ fun PinCodeScreen(
                             .fillMaxWidth()
                             .padding(vertical = 60.dp)
                     ) {
-                        // Table Header
-                        Row(
+                        // Heading
+                        BaseText(
+                            text = "Clock In/Out History",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 24F,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(colorResource(id = R.color.primary))
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                .padding(bottom = 16.dp),
+//                            textAlign = TextAlign.Center
+                        )
+
+                        // Table with rounded corners and border
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(8.dp)),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
                         ) {
-                            BaseText(text = "No", color = Color.White, modifier = Modifier.width(40.dp))
-                            BaseText(text = "Date", color = Color.White, modifier = Modifier.width(120.dp))
-                            BaseText(text = "Clock-In", color = Color.White, modifier = Modifier.width(100.dp))
-                            BaseText(text = "Clock-Out", color = Color.White, modifier = Modifier.width(100.dp))
-                            BaseText(text = "Total", color = Color.White, modifier = Modifier.width(100.dp))
-                        }
-
-                        // List
-                        LazyColumn {
-                            items(clockHistory.size) { index ->
-                                val entry = clockHistory[index]
-                                val rawIn = entry.check_in_time
-                                val rawOut = entry.check_out_time
-
-                                fun parseDateTime(raw: String?): Pair<String, String> {
-                                    return try {
-                                        if (raw.isNullOrBlank()) return "-" to "-"
-                                        val dt = java.time.OffsetDateTime.parse(raw)
-                                        val date = dt.toLocalDate().toString()
-                                        val time = dt.toLocalTime().withSecond(0).withNano(0).toString()
-                                        date to time
-                                    } catch (_: Exception) {
-                                        try {
-                                            val dt = java.time.LocalDateTime.parse(raw)
-                                            val date = dt.toLocalDate().toString()
-                                            val time = dt.toLocalTime().withSecond(0).withNano(0).toString()
-                                            date to time
-                                        } catch (_: Exception) {
-                                            "-" to "-"
-                                        }
-                                    }
-                                }
-
-                                val (dateIn, timeIn) = parseDateTime(rawIn)
-                                val (_, timeOut) = parseDateTime(rawOut)
-
-                                val total = try {
-                                    if (rawIn.isNullOrBlank() || rawOut.isNullOrBlank()) "-" else run {
-                                        val start = java.time.OffsetDateTime.parse(rawIn)
-                                        val end = java.time.OffsetDateTime.parse(rawOut)
-                                        val minutes = java.time.Duration.between(start, end).toMinutes()
-                                        val hrs = minutes / 60
-                                        val mins = minutes % 60
-                                        String.format("%02dh %02dm", hrs, mins)
-                                    }
-                                } catch (_: Exception) { "-" }
+                            Column {
+                                // Table Header
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(
-                                            if (index % 2 == 0) Color.White else Color(0xFFF5F5F5)
-                                        )
+                                        .background(colorResource(id = R.color.primary))
                                         .padding(16.dp),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    BaseText(text = "${index + 1}-", modifier = Modifier.width(40.dp), color = Color.Black)
-                                    BaseText(text = dateIn, modifier = Modifier.width(120.dp), color = Color.Black)
-                                    BaseText(text = timeIn, modifier = Modifier.width(100.dp), color = Color.Black)
-                                    BaseText(text = timeOut, modifier = Modifier.width(100.dp), color = Color.Black)
-                                    BaseText(text = total, modifier = Modifier.width(100.dp), color = Color.Black)
+                                    BaseText(text = "#", color = Color.White, modifier = Modifier.width(40.dp))
+                                    BaseText(text = "Date", color = Color.White, modifier = Modifier.weight(1f))
+                                    BaseText(text = "Clock In", color = Color.White, modifier = Modifier.weight(1f))
+                                    BaseText(text = "Clock Out", color = Color.White, modifier = Modifier.weight(1f))
+                                    BaseText(text = "Total Hours", color = Color.White, modifier = Modifier.weight(1f))
+                                }
+
+                                // List
+                                LazyColumn {
+                                    items(clockHistory.size) { index ->
+                                        val entry = clockHistory[index]
+                                        val rawIn = entry.check_in_time
+                                        val rawOut = entry.check_out_time
+
+                                        val timeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+
+                                        fun parseDateTime(raw: String?): Pair<String, String> {
+                                            return try {
+                                                if (raw.isNullOrBlank()) return "-" to "-"
+                                                val dt = java.time.OffsetDateTime.parse(raw)
+                                                val date = dt.toLocalDate().toString()
+                                                val time = dt.toLocalTime().format(timeFormatter)
+                                                date to time
+                                            } catch (_: Exception) {
+                                                try {
+                                                    val dt = java.time.LocalDateTime.parse(raw)
+                                                    val date = dt.toLocalDate().toString()
+                                                    val time = dt.toLocalTime().format(timeFormatter)
+                                                    date to time
+                                                } catch (_: Exception) {
+                                                    "-" to "-"
+                                                }
+                                            }
+                                        }
+
+                                        val (dateIn, timeIn) = parseDateTime(rawIn)
+                                        val (_, timeOut) = parseDateTime(rawOut)
+
+                                        val total = try {
+                                            if (rawIn.isNullOrBlank() || rawOut.isNullOrBlank()) "-" else run {
+                                                val start = java.time.OffsetDateTime.parse(rawIn)
+                                                val end = java.time.OffsetDateTime.parse(rawOut)
+                                                val minutes = java.time.Duration.between(start, end).toMinutes()
+                                                val hrs = minutes / 60
+                                                val mins = minutes % 60
+                                                String.format("%02dh %02dm", hrs, mins)
+                                            }
+                                        } catch (_: Exception) { "-" }
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(
+                                                    if (index % 2 == 0) Color.White else Color(0xFFF5F5F5)
+                                                )
+                                                .padding(16.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            BaseText(text = "${index + 1}-", modifier = Modifier.width(40.dp), color = Color.Black)
+                                            BaseText(text = dateIn, modifier = Modifier.weight(1f), color = Color.Black)
+                                            BaseText(text = timeIn, modifier = Modifier.weight(1f), color = Color.Black)
+                                            BaseText(text = timeOut, modifier = Modifier.weight(1f), color = Color.Black)
+                                            BaseText(text = total, modifier = Modifier.weight(1f), color = Color.Black)
+                                        }
+                                    }
                                 }
                             }
                         }
