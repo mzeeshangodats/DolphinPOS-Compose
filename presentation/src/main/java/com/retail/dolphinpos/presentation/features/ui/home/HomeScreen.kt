@@ -93,6 +93,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.AsyncImage
 import com.retail.dolphinpos.common.components.BaseText
@@ -103,6 +104,7 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
+import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
@@ -557,6 +559,7 @@ fun HomeScreen(
                     navController = navController,
                     products = if (searchQuery.isNotEmpty()) searchResults else products,
                     cartItems = cartItems,
+                    viewModel = viewModel,
                     onShowOrderDiscountDialog = {
                         if (cartItems.isEmpty()) {
                             DialogHandler.showDialog("There are no items in cart")
@@ -1819,20 +1822,39 @@ fun ProductsPanel(
     navController: NavController,
     products: List<Products>,
     cartItems: List<CartItem>,
+    viewModel: HomeViewModel,
     onProductClick: (Products) -> Unit,
     onShowOrderDiscountDialog: () -> Unit,
     onShowAddCustomerDialog: () -> Unit
 ) {
+    val bottomNavMenus by viewModel.menus.collectAsStateWithLifecycle()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    
+    // Determine current selected index based on current destination
+    val selectedIndex = remember(currentDestination) {
+        val route = currentDestination?.route
+        when (route) {
+            "home" -> 0
+            "products" -> 1
+            "orders" -> 2
+            "inventory" -> 3
+            "reports" -> 4
+            "setup" -> 5
+            else -> 0
+        }
+    }
+    
     Column(
         modifier = modifier
             .fillMaxHeight()
             .background(colorResource(id = R.color.light_grey))
-            .padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(8.dp)
     ) {
-        // Products Grid - 60% of height
+        // Products Grid - Takes available space
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
-            modifier = Modifier.weight(0.65f),
+            modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -1842,15 +1864,105 @@ fun ProductsPanel(
             }
         }
 
-        // Action Buttons - 40% of height
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Action Buttons - Fixed above navigation rows
         ActionButtonsPanel(
-            modifier = Modifier.weight(0.35f),
+            modifier = Modifier.fillMaxWidth(),
             navController = navController,
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
             onShowAddCustomerDialog = onShowAddCustomerDialog,
-            viewModel = viewModel()
+            viewModel = viewModel
         )
+
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        // Navigation Buttons - Fixed at bottom (2 rows)
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            // Row 1 - First 4 navigation buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                bottomNavMenus.take(4).forEachIndexed { index, menu ->
+                    NavigationButton(
+                        menu = menu,
+                        isSelected = selectedIndex == index,
+                        onClick = {
+                            // Handle cash drawer button - just call function, don't navigate
+                            if (menu.destinationId == R.id.cashDrawerScreen) {
+                                viewModel.openCashDrawer("Manual Open")
+                            } else {
+                                // Map resource IDs to navigation routes
+                                val route = when (menu.destinationId) {
+                                    R.id.homeScreen -> "home"
+                                    R.id.productsScreen -> "products"
+                                    R.id.ordersScreen -> "orders"
+                                    R.id.inventoryScreen -> "inventory"
+                                    R.id.reportsScreen -> "reports"
+                                    R.id.setupScreen -> "setup"
+                                    else -> null
+                                }
+                                route?.let {
+                                    navController.navigate(it) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            
+            // Row 2 - Remaining 4 navigation buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                bottomNavMenus.drop(4).forEachIndexed { index, menu ->
+                    NavigationButton(
+                        menu = menu,
+                        isSelected = selectedIndex == (index + 4),
+                        onClick = {
+                            // Handle cash drawer button - just call function, don't navigate
+                            if (menu.destinationId == R.id.cashDrawerScreen) {
+                                viewModel.openCashDrawer("Manual Open")
+                            } else {
+                                // Map resource IDs to navigation routes
+                                val route = when (menu.destinationId) {
+                                    R.id.homeScreen -> "home"
+                                    R.id.productsScreen -> "products"
+                                    R.id.ordersScreen -> "orders"
+                                    R.id.inventoryScreen -> "inventory"
+                                    R.id.reportsScreen -> "reports"
+                                    R.id.setupScreen -> "setup"
+                                    else -> null
+                                }
+                                route?.let {
+                                    navController.navigate(it) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -1912,122 +2024,173 @@ fun ActionButtonsPanel(
     val isTaxExempt by viewModel.isTaxExempt.collectAsStateWithLifecycle()
     Column(
         modifier = modifier
-            .fillMaxHeight()
-            .padding(5.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Row 1
-        ActionButtonRow(
-            buttons = listOf(
-                ActionButton("EBT", R.drawable.ebt_btn),
-                ActionButton("Split", R.drawable.split_btn),
-                ActionButton("Add Customer", R.drawable.add_customer_btn),
-                ActionButton("Order Discount", R.drawable.discount_btn),
-            ), onActionClick = { action ->
-                when (action) {
-                    "Order Discount" -> {
-                        onShowOrderDiscountDialog()
-                    }
+            // Row 1
+            ActionButtonRow(
+                rowIndex = 0,
+                buttons = listOf(
+                    ActionButton("EBT"),
+                    ActionButton("Split"),
+                    ActionButton("Add Customer"),
+                    ActionButton("Discount"),
+                ), onActionClick = { action ->
+                    when (action) {
+                        "Discount" -> {
+                            onShowOrderDiscountDialog()
+                        }
 
-                    "Add Customer" -> {
-                        onShowAddCustomerDialog()
-                    }
+                        "Add Customer" -> {
+                            onShowAddCustomerDialog()
+                        }
 
-                    else -> {
-                        showComingSoonDialog()
+                        else -> {
+                            showComingSoonDialog()
+                        }
                     }
-                }
-            })
+                })
 
-        // Row 2
-        ActionButtonRow(
-            buttons = listOf(
-                ActionButton("Custom Sales", R.drawable.custom_sales_btn),
-                ActionButton("PLU Search", R.drawable.plu_btn),
-                ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
-                ActionButton("Refund", R.drawable.refund_btn),
-            ), onActionClick = { action ->
-                when (action) {
-                    else -> {
-                        showComingSoonDialog()
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Row 2
+            ActionButtonRow(
+                rowIndex = 1,
+                buttons = listOf(
+                    ActionButton("Custom Sales"),
+                    ActionButton("PLU Search"),
+                    ActionButton("Pay In/Out"),
+                    ActionButton("Refund"),
+                ), onActionClick = { action ->
+                    when (action) {
+                        else -> {
+                            showComingSoonDialog()
+                        }
                     }
-                }
-            })
+                })
 
-        // Row 3
-        ActionButtonRow(
-            buttons = listOf(
-                ActionButton("Weight Scale", R.drawable.weight_scale_btn),
-                ActionButton("Rewards", R.drawable.rewards_btn),
-                ActionButton(
-                    if (isTaxExempt) "Apply Tax" else "Tax Exempt",
-                    R.drawable.tax_exempt_btn
-                ),
-                ActionButton("Void", R.drawable.void_btn)
+            Spacer(modifier = Modifier.height(4.dp))
 
-            ), onActionClick = { action ->
-                when (action) {
-                    "Tax Exempt", "Apply Tax" -> {
-                        viewModel.toggleTaxExempt()
+            // Row 3
+            ActionButtonRow(
+                rowIndex = 2,
+                buttons = listOf(
+                    ActionButton("Weight Scale"),
+                    ActionButton("Rewards"),
+                    ActionButton(
+                        if (isTaxExempt) "Apply Tax" else "Tax-Exempt"
+                    ),
+                    ActionButton("Void")
+
+                ), onActionClick = { action ->
+                    when (action) {
+                        "Tax-Exempt", "Apply Tax" -> {
+                            viewModel.toggleTaxExempt()
+                        }
+
+                        else -> {
+                            showComingSoonDialog()
+                        }
                     }
-
-                    else -> {
-                        showComingSoonDialog()
-                    }
-                }
-            })
+                })
     }
 }
 
 data class ActionButton(
-    val label: String, val iconRes: Int
+    val label: String
 )
 
 @Composable
 fun ActionButtonRow(
+    rowIndex: Int = 0,
+    modifier: Modifier = Modifier,
     buttons: List<ActionButton>, onActionClick: (String) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)
+        modifier = modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .padding(0.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        buttons.forEach { button ->
-            // Use custom red color background for exempt button, light grey for others
-            val backgroundColor = if (button.label == "Exempt" || button.label == "Apply Tax") {
+        buttons.forEachIndexed { buttonIndex, button ->
+            // Use custom red color background for Discount, Refund, Void, and Tax-Exempt buttons, default blue for others
+            val backgroundColor = if (button.label == "Discount" || 
+                button.label == "Refund" || 
+                button.label == "Void" || 
+                button.label == "Tax-Exempt" || 
+                button.label == "Apply Tax") {
                 Color(0xFFDC3E42)
             } else {
-                colorResource(id = R.color.light_grey)
+                Color(0xFF043E7F)
             }
 
-            Card(
-                onClick = { onActionClick(button.label) },
+            // Text color - white for all buttons
+            val textColor = Color.White
+
+            // Apply slightly rounded corners to all buttons
+            val cornerRadius = RoundedCornerShape(4.dp)
+
+            Box(
                 modifier = Modifier
                     .weight(1f)
-                    .height(60.dp),
-                shape = RoundedCornerShape(4.dp),
-                colors = CardDefaults.cardColors(containerColor = backgroundColor)
+                    .height(50.dp)
+                    .background(
+                        color = backgroundColor,
+                        shape = cornerRadius
+                    )
+                    .clickable { onActionClick(button.label) },
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center
-                ) {
-                    // Show text for tax exempt button, image for others
-                    if (button.label == "Exempt" || button.label == "Apply Tax") {
-                        BaseText(
-                            text = button.label,
-                            color = Color.White,
-                            fontSize = 16f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    } else {
-                        Image(
-                            painter = painterResource(id = button.iconRes),
-                            contentDescription = button.label,
-                            contentScale = ContentScale.Fit
-                        )
-                    }
-                }
+                BaseText(
+                    text = button.label,
+                    color = textColor,
+                    fontSize = 12f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
+    }
+}
+
+@Composable
+fun NavigationButton(
+    menu: BottomMenu,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isSelected) {
+        colorResource(id = R.color.primary)
+    } else {
+        colorResource(id = R.color.nav_bar_button_clr)
+    }
+    
+    val textColor = if (isSelected) {
+        Color.White
+    } else {
+        Color.Black
+    }
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backgroundColor,
+            contentColor = textColor
+        ),
+        shape = RoundedCornerShape(4.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
+    ) {
+        BaseText(
+            text = menu.menuName,
+            fontSize = 12f,
+            fontFamily = GeneralSans,
+            fontWeight = FontWeight.Medium,
+            color = textColor
+        )
     }
 }
 
