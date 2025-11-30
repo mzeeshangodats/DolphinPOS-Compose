@@ -1853,7 +1853,7 @@ fun ProductsPanel(
     ) {
         // Products Grid - Takes available space
         LazyVerticalGrid(
-            columns = GridCells.Fixed(4),
+            columns = GridCells.Fixed(3),
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1974,40 +1974,68 @@ fun ProductItem(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1f),
+            .height(60.dp),
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (product.images!!.isNotEmpty()) {
-                AsyncImage(
-                    model = product.images!!.first().fileURL,
-                    contentDescription = product.name,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop
-                )
+            // Column 1 - Product Image
+            Box(
+                modifier = Modifier
+                    .weight(0.4f)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (product.images!!.isNotEmpty()) {
+                    AsyncImage(
+                        model = product.images!!.first().fileURL,
+                        contentDescription = product.name,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(4.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            // Column 2 - Product Name and Weight
+            Column(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Row 1 - Product Name
+                BaseText(
+                    text = product.name!!,
+                    color = Color.Black,
+                    fontSize = 10f,
+                    fontFamily = GeneralSans,
+                    textAlign = TextAlign.Left,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            BaseText(
-                text = product.name!!,
-                color = Color.Black,
-                fontSize = 10f,
-                fontFamily = GeneralSans,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Row 2 - Product Weight (placeholder - update when weight field is available)
+                BaseText(
+                    text = product.quantity.toString() + " units", // Placeholder - replace with weight when available
+                    color = Color.Gray,
+                    fontSize = 9f,
+                    fontFamily = GeneralSans,
+                    textAlign = TextAlign.Left,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
