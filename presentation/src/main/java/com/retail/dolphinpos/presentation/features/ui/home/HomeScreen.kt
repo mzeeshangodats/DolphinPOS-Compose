@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,9 +34,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -43,30 +46,29 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
@@ -80,45 +82,39 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.foundation.focusable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.AsyncImage
-import java.util.Calendar
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
-import com.retail.dolphinpos.common.utils.PreferenceManager
-import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
-import java.util.Locale
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.tooling.preview.Preview
+import java.util.Calendar
+import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Helper function to show "Coming Soon" dialog
@@ -225,7 +221,9 @@ fun HomeScreen(
 
                         is HomeUiEvent.OrderCreatedSuccessfully -> {
                             // Store amount tendered (change) and show PaymentSuccessUI dialog
-                            paymentSuccessAmount = viewModel.formatAmount(amountTendered).replace("$", "").replace(",", "")
+                            paymentSuccessAmount =
+                                viewModel.formatAmount(amountTendered).replace("$", "")
+                                    .replace(",", "")
                             showPaymentSuccessDialog = true
                         }
 
@@ -354,172 +352,193 @@ fun HomeScreen(
                     canRemoveItemFromCart = { viewModel.canRemoveItemFromCart() })
 
                 // Column 2 - Pricing/Payment/Keypad + Action Buttons (25% width, full height)
-                Column(
+                Box(
                     modifier = Modifier
                         .weight(0.3f)
                         .background(colorResource(id = R.color.light_grey))
-                        .padding(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        .padding(8.dp)
+                        .fillMaxHeight()
                 ) {
-                    // Pricing Summary
-                    PricingSummary(
-                        subtotal = subtotal,
-                        cashDiscountTotal = cashDiscountTotal,
-                        orderDiscountTotal = orderDiscountTotal,
-                        tax = tax,
-                        cashTotal = cashTotal,
-                        cardTotal = cardTotal,
-                        isCashSelected = viewModel.isCashSelected,
-                        cartItems = cartItems
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxHeight()
+                    ) {
+                        // Pricing Summary
+                        PricingSummary(
+                            subtotal = subtotal,
+                            cashDiscountTotal = cashDiscountTotal,
+                            orderDiscountTotal = orderDiscountTotal,
+                            tax = tax,
+                            cashTotal = cashTotal,
+                            cardTotal = cardTotal,
+                            isCashSelected = viewModel.isCashSelected,
+                            cartItems = cartItems
+                        )
 
-                    // Cart Action Buttons
-                    CartActionButtons(
-                        cartItems = cartItems,
-                        onClearCart = { viewModel.clearCart() },
-                        onHoldCartClick = {
-                            if (cartItems.isEmpty()) {
-                                showHoldCartDialog = true
-                            } else {
-                                viewModel.saveHoldCart("Guest Cart")
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Cart Action Buttons
+                        CartActionButtons(
+                            cartItems = cartItems,
+                            onClearCart = { viewModel.clearCart() },
+                            onHoldCartClick = {
+                                if (cartItems.isEmpty()) {
+                                    showHoldCartDialog = true
+                                } else {
+                                    viewModel.saveHoldCart("Guest Cart")
+                                }
+                            },
+                            onPrint = {
+                                viewModel.printLatestOnlineOrder()
                             }
-                        },
-                        onPrint = {
-                            viewModel.printLatestOnlineOrder()
-                        }
-                    )
+                        )
 
-                    // Payment Input
-                    PaymentInput(
-                        paymentAmount = paymentAmount,
-                        onPaymentAmountChange = { paymentAmount = it },
-                        onRemoveDigit = {
-                            val current = paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                            val newAmount = viewModel.removeLastDigit(current)
-                            paymentAmount = viewModel.formatAmount(newAmount)
-                        })
+                    }
 
-                    // Keypad
-                    Keypad(
-                        isCashSelected = viewModel.isCashSelected,
-                        onDigitClick = { digit ->
-                            val current = paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                            val newAmount = viewModel.appendDigitToAmount(current, digit)
-                            paymentAmount = viewModel.formatAmount(newAmount)
-                        }, onAmountSet = { amount ->
-                            paymentAmount = viewModel.formatAmount(amount)
-                        }, onExactAmount = {
-                            paymentAmount = viewModel.formatAmount(cardTotal)
-                        }, onCashSelected = {
-                            // Set cash as selected payment method
-                            viewModel.isCashSelected = true
-                            viewModel.updateCartPrices()
-                            
-                            // Validate and proceed with order creation
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                // Validate payment amount
-                                val currentPayment =
-                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                    // Payment Input and Keypad positioned at bottom
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    ) {
+                        // Payment Input
+                        PaymentInput(
+                            paymentAmount = paymentAmount,
+                            onPaymentAmountChange = { paymentAmount = it },
+                            onRemoveDigit = {
+                                val current =
+                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val newAmount = viewModel.removeLastDigit(current)
+                                paymentAmount = viewModel.formatAmount(newAmount)
+                            })
 
-                                // Use small epsilon for floating point comparison
-                                val epsilon = 0.01
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                                val cashTotalAmount = cashTotal
-                                if (cashTotalAmount > 0 && currentPayment < 0.01) {
-                                    // Show error message only, don't auto-fill
+                        // Keypad
+                        Keypad(
+                            isCashSelected = viewModel.isCashSelected,
+                            onDigitClick = { digit ->
+                                val current =
+                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val newAmount = viewModel.appendDigitToAmount(current, digit)
+                                paymentAmount = viewModel.formatAmount(newAmount)
+                            }, onAmountSet = { amount ->
+                                paymentAmount = viewModel.formatAmount(amount)
+                            }, onExactAmount = {
+                                paymentAmount = viewModel.formatAmount(cardTotal)
+                            }, onCashSelected = {
+                                // Set cash as selected payment method
+                                viewModel.isCashSelected = true
+                                viewModel.updateCartPrices()
+
+                                // Validate and proceed with order creation
+                                if (cartItems.isEmpty()) {
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
-                                        buttonText = "OK",
-                                        iconRes = R.drawable.info_icon
-                                    )
-                                } else if (cashTotalAmount > 0 && currentPayment < cashTotalAmount - epsilon) {
-                                    // Show error if payment is less than total
-                                    DialogHandler.showDialog(
-                                        message = "Payment amount ($${
-                                            viewModel.formatAmount(
-                                                currentPayment
-                                            )
-                                        }) is less than total amount ($${
-                                            viewModel.formatAmount(
-                                                cashTotalAmount
-                                            )
-                                        }). Please enter the full amount.",
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Payment equals or exceeds total amount - proceed with cash order
-                                    // Calculate amount tendered (change) if payment is greater than cash total
-                                    amountTendered = if (currentPayment > cashTotalAmount) {
-                                        currentPayment - cashTotalAmount
+                                    // Validate payment amount
+                                    val currentPayment =
+                                        paymentAmount.replace("$", "").replace(",", "")
+                                            .toDoubleOrNull() ?: 0.0
+
+                                    // Use small epsilon for floating point comparison
+                                    val epsilon = 0.01
+
+                                    val cashTotalAmount = cashTotal
+                                    if (cashTotalAmount > 0 && currentPayment < 0.01) {
+                                        // Show error message only, don't auto-fill
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount cannot be zero. Please enter the payment amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else if (cashTotalAmount > 0 && currentPayment < cashTotalAmount - epsilon) {
+                                        // Show error if payment is less than total
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount ($${
+                                                viewModel.formatAmount(
+                                                    currentPayment
+                                                )
+                                            }) is less than total amount ($${
+                                                viewModel.formatAmount(
+                                                    cashTotalAmount
+                                                )
+                                            }). Please enter the full amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
                                     } else {
-                                        0.0 // Exact payment, no change
+                                        // Payment equals or exceeds total amount - proceed with cash order
+                                        // Calculate amount tendered (change) if payment is greater than cash total
+                                        amountTendered = if (currentPayment > cashTotalAmount) {
+                                            currentPayment - cashTotalAmount
+                                        } else {
+                                            0.0 // Exact payment, no change
+                                        }
+                                        viewModel.createOrder("cash")
                                     }
-                                    viewModel.createOrder("cash")
                                 }
-                            }
-                        }, onCardSelected = {
-                            // Set card as selected payment method
-                            viewModel.isCashSelected = false
-                            viewModel.updateCartPrices()
-                            
-                            // Validate and proceed with order creation
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                // Validate payment amount
-                                val currentPayment =
-                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                            }, onCardSelected = {
+                                // Set card as selected payment method
+                                viewModel.isCashSelected = false
+                                viewModel.updateCartPrices()
 
-                                // Use small epsilon for floating point comparison
-                                val epsilon = 0.01
-
-                                if (cardTotal > 0 && currentPayment < 0.01) {
-                                    // Show error message only, don't auto-fill
+                                // Validate and proceed with order creation
+                                if (cartItems.isEmpty()) {
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
-                                        buttonText = "OK",
-                                        iconRes = R.drawable.info_icon
-                                    )
-                                } else if (cardTotal > 0 && currentPayment < cardTotal - epsilon) {
-                                    // Show error if payment is less than total
-                                    DialogHandler.showDialog(
-                                        message = "Payment amount ($${
-                                            viewModel.formatAmount(
-                                                currentPayment
-                                            )
-                                        }) is less than total amount ($${
-                                            viewModel.formatAmount(
-                                                cardTotal
-                                            )
-                                        }). Please enter the full amount.",
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Payment equals or exceeds total amount - proceed with card payment
-                                    viewModel.initCardPayment()
+                                    // Validate payment amount
+                                    val currentPayment =
+                                        paymentAmount.replace("$", "").replace(",", "")
+                                            .toDoubleOrNull() ?: 0.0
+
+                                    // Use small epsilon for floating point comparison
+                                    val epsilon = 0.01
+
+                                    if (cardTotal > 0 && currentPayment < 0.01) {
+                                        // Show error message only, don't auto-fill
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount cannot be zero. Please enter the payment amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else if (cardTotal > 0 && currentPayment < cardTotal - epsilon) {
+                                        // Show error if payment is less than total
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount ($${
+                                                viewModel.formatAmount(
+                                                    currentPayment
+                                                )
+                                            }) is less than total amount ($${
+                                                viewModel.formatAmount(
+                                                    cardTotal
+                                                )
+                                            }). Please enter the full amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else {
+                                        // Payment equals or exceeds total amount - proceed with card payment
+                                        viewModel.initCardPayment()
+                                    }
                                 }
-                            }
-                        }, onClear = {
-                            paymentAmount = "0.00"
-                        }, onNext = {
-                            // Round off payment amount to nearest integer
-                            val currentPayment =
-                                paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                            val roundedAmount = kotlin.math.round(currentPayment).toDouble()
-                            paymentAmount = viewModel.formatAmount(roundedAmount)
-                        })
+                            }, onClear = {
+                                paymentAmount = "0.00"
+                            }, onNext = {
+                                // Round off payment amount to nearest integer
+                                val currentPayment =
+                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val roundedAmount = kotlin.math.round(currentPayment).toDouble()
+                                paymentAmount = viewModel.formatAmount(roundedAmount)
+                            })
+                    }
                 }
 
                 // Column 3 - Categories (25% width, full height)
@@ -562,7 +581,8 @@ fun HomeScreen(
                                 DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
                             }
                         }
-                    })
+                    }
+                )
             }
         }
 
@@ -651,7 +671,7 @@ fun HomeScreen(
                     }
                 })
         }
-        
+
         // Payment Success Dialog
         if (showPaymentSuccessDialog) {
             Dialog(onDismissRequest = { }) {
@@ -862,14 +882,16 @@ fun PricingSummary(
             DiscountType.PERCENTAGE -> {
                 cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
             }
+
             DiscountType.AMOUNT -> {
                 cashPrice - (cartItem.discountValue ?: 0.0)
             }
+
             else -> cashPrice
         }
         discountedCashPrice * cartItem.quantity
     }
-    
+
     // Calculate order discount for cash (proportional to cash subtotal)
     val cashOrderDiscount = if (subtotal > 0 && orderDiscountTotal > 0) {
         // Apply the same percentage discount to cash subtotal
@@ -878,7 +900,7 @@ fun PricingSummary(
     } else {
         0.0
     }
-    
+
     // Calculate total cash discount
     // When cash is selected, don't show cash discount (only show order discount)
     // When card is selected, show both cash discount and order discount
@@ -889,19 +911,19 @@ fun PricingSummary(
         // Show both cash discount and order discount when card is selected
         cashDiscountTotal + cashOrderDiscount
     }
-    
+
     // Calculate cash tax (from cashTotal - cashSubtotal + totalCashDiscount)
     val cashTax = (cashTotal - (cashSubtotal - totalCashDiscount)).coerceAtLeast(0.0)
-    
+
     // Card subtotal is already available
     val cardSubtotal = subtotal
-    
+
     // Card discount is order discount
     val cardDiscount = orderDiscountTotal
-    
+
     // Calculate card tax (from cardTotal - cardSubtotal + cardDiscount)
     val cardTax = (cardTotal - (cardSubtotal - cardDiscount)).coerceAtLeast(0.0)
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth(),
@@ -917,7 +939,7 @@ fun PricingSummary(
             tax = cashTax,
             total = cashTotal
         )
-        
+
         // Card Price Card
         PriceCard(
             modifier = Modifier.weight(1f),
@@ -965,7 +987,7 @@ fun PriceCard(
                     fontFamily = GeneralSans
                 )
             }
-            
+
             // Content
             Column(
                 modifier = Modifier
@@ -993,7 +1015,7 @@ fun PriceCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
-                
+
                 // Discount
                 if (discount > 0) {
                     Row(
@@ -1016,7 +1038,7 @@ fun PriceCard(
                         )
                     }
                 }
-                
+
                 // Tax
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1037,14 +1059,14 @@ fun PriceCard(
                         fontWeight = FontWeight.Medium
                     )
                 }
-                
+
                 // Divider
                 HorizontalDivider(
                     color = Color.Gray,
                     thickness = 1.dp,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
-                
+
                 // Total
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1065,6 +1087,7 @@ fun PriceCard(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+                Spacer(modifier = Modifier.height(4.dp))
             }
         }
     }
@@ -1390,8 +1413,10 @@ fun PaymentInput(
             BasicTextField(
                 value = paymentAmount, onValueChange = { newValue ->
                     // Prevent deletion below 0.00
-                    val currentAmount = paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                    val newAmount = newValue.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                    val currentAmount =
+                        paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                    val newAmount =
+                        newValue.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
 
                     // Only allow changes if the new amount is not less than 0.00
                     if (newAmount >= 0.0) {
@@ -1417,13 +1442,15 @@ fun PaymentInput(
             IconButton(
                 onClick = {
                     // Only allow removal if current amount is greater than 0.00
-                    val currentAmount = paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                    val currentAmount =
+                        paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
                     if (currentAmount > 0.0) {
                         onRemoveDigit()
                     }
                 },
                 modifier = Modifier.size(24.dp),
-                enabled = (paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0) > 0.0
+                enabled = (paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                    ?: 0.0) > 0.0
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.clear_text_icon),
@@ -1777,7 +1804,10 @@ fun CategoryItem(
                 color = if (isSelected) Color.White else Color.Black,
                 fontSize = 13f,
                 fontFamily = GeneralSans,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
             )
         }
     }
@@ -1884,21 +1914,23 @@ fun ActionButtonsPanel(
         modifier = modifier
             .fillMaxHeight()
             .padding(5.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         // Row 1
         ActionButtonRow(
             buttons = listOf(
+                ActionButton("EBT", R.drawable.ebt_btn),
                 ActionButton("Split", R.drawable.split_btn),
-                ActionButton("Rewards", R.drawable.rewards_btn),
-                ActionButton("Refund", R.drawable.refund_btn),
-                ActionButton(
-                    if (isTaxExempt) "Apply Tax" else "Tax Exempt",
-                    R.drawable.tax_exempt_btn
-                )
+                ActionButton("Add Customer", R.drawable.add_customer_btn),
+                ActionButton("Order Discount", R.drawable.discount_btn),
             ), onActionClick = { action ->
                 when (action) {
-                    "Tax Exempt", "Apply Tax" -> {
-                        viewModel.toggleTaxExempt()
+                    "Order Discount" -> {
+                        onShowOrderDiscountDialog()
+                    }
+
+                    "Add Customer" -> {
+                        onShowAddCustomerDialog()
                     }
 
                     else -> {
@@ -1910,11 +1942,10 @@ fun ActionButtonsPanel(
         // Row 2
         ActionButtonRow(
             buttons = listOf(
-                ActionButton("EBT", R.drawable.ebt_btn),
-                ActionButton("Custom Sales", R.drawable.custom_sales),
+                ActionButton("Custom Sales", R.drawable.custom_sales_btn),
+                ActionButton("PLU Search", R.drawable.plu_btn),
                 ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
-                ActionButton("Void", R.drawable.void_btn)
-
+                ActionButton("Refund", R.drawable.refund_btn),
             ), onActionClick = { action ->
                 when (action) {
                     else -> {
@@ -1923,31 +1954,21 @@ fun ActionButtonsPanel(
                 }
             })
 
-//        // Row 3
-//        ActionButtonRow(
-//            buttons = listOf(
-//                ActionButton("Custom Sales", R.drawable.custom_sales),
-//                ActionButton("Pay In/Out", R.drawable.pay_in_out_btn),
-//                ActionButton("Void", R.drawable.void_btn)
-//            ), onActionClick = { action ->
-//                showComingSoonDialog()
-//            })
-
         // Row 3
         ActionButtonRow(
             buttons = listOf(
-                ActionButton("Promotions", R.drawable.promotions_btn),
                 ActionButton("Weight Scale", R.drawable.weight_scale_btn),
-                ActionButton("Add Customer", R.drawable.add_customer_btn),
-                ActionButton("Order Discount", R.drawable.discount_btn)
+                ActionButton("Rewards", R.drawable.rewards_btn),
+                ActionButton(
+                    if (isTaxExempt) "Apply Tax" else "Tax Exempt",
+                    R.drawable.tax_exempt_btn
+                ),
+                ActionButton("Void", R.drawable.void_btn)
+
             ), onActionClick = { action ->
                 when (action) {
-                    "Order Discount" -> {
-                        onShowOrderDiscountDialog()
-                    }
-
-                    "Add Customer" -> {
-                        onShowAddCustomerDialog()
+                    "Tax Exempt", "Apply Tax" -> {
+                        viewModel.toggleTaxExempt()
                     }
 
                     else -> {
