@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "508457758015",
-    "project_id": "dolphin-pos",
-    "storage_bucket": "dolphin-pos.firebasestorage.app"
+    "project_number": "74810217000",
+    "project_id": "dolphin-pos-adfb9",
+    "storage_bucket": "dolphin-pos-adfb9.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:508457758015:android:65b18ca7d4bb3b3e48b78a",
+        "mobilesdk_app_id": "1:74810217000:android:b8a362c8d8103da6971b1d",
         "android_client_info": {
           "package_name": "com.retail.dolphinpos"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBjuNwdCJqn669LFDLw4Ny_-zoXzDy9lGI"
+          "current_key": "AIzaSyCApSSeFKJ2zhEnRAn5ijGTEdCFNsLQOcE"
         }
       ],
       "services": {
