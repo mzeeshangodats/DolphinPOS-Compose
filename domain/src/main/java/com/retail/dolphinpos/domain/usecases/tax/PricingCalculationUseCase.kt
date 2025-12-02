@@ -217,12 +217,27 @@ class PricingCalculationUseCase @Inject constructor() {
             val itemTaxableAmount = subtotalAfterDiscounts * itemProportion
 
             // Calculate tax for this specific item with edge case handling
-            val (itemTaxAmount, totalTaxRate) = calculateItemTax(
-                item = item,
-                itemTaxableAmount = itemTaxableAmount,
-                taxDetails = taxDetails,
-                fallbackTaxRate = taxRate
-            )
+            // Use cardTax/cashTax from Products if available, otherwise calculate from tax details
+            val (itemTaxAmount, totalTaxRate) = if (item.chargeTaxOnThisProduct == true) {
+                // Use cardTax or cashTax directly from Products (multiplied by quantity)
+                val taxFromProduct = if (useCardPricing) {
+                    item.cardTax * (item.quantity ?: 1)
+                } else {
+                    item.cashTax * (item.quantity ?: 1)
+                }
+                
+                // Calculate tax rate from the tax amount
+                val calculatedRate = if (itemTaxableAmount > 0) {
+                    taxFromProduct / itemTaxableAmount
+                } else {
+                    taxRate // Fallback to default rate
+                }
+                
+                Pair(taxFromProduct, calculatedRate)
+            } else {
+                // Product is tax exempt, return zero tax
+                Pair(0.0, 0.0)
+            }
 
             item.copy(
                 productTaxAmount = itemTaxAmount,

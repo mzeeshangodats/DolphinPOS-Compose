@@ -85,6 +85,16 @@ class LoginRepositoryImpl(
                 // Save location only (registers will be fetched from API when needed)
                 val locationEntity = UserMapper.toLocationEntity(storeID, location, gson)
                 userDao.insertLocations(locationEntity)
+                
+                // Save tax details separately in tax_details table
+                location.taxDetails?.let { taxDetails ->
+                    val taxDetailEntities = taxDetails.map { taxDetail ->
+                        UserMapper.toTaxDetailEntity(location.id, taxDetail)
+                    }
+                    // Delete existing tax details for this location before inserting new ones
+                    userDao.deleteTaxDetailsByLocationId(location.id)
+                    userDao.insertTaxDetails(taxDetailEntities)
+                }
             }
 
         } catch (e: Exception) {

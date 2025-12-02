@@ -34,7 +34,10 @@ data class CartItem(
     val productTaxDetails: List<TaxDetail>? = null,
     var productTaxAmount: Double = 0.0,
     var productTaxRate: Double = 0.0,
-    var productTaxableAmount: Double = 0.0
+    var productTaxableAmount: Double = 0.0,
+    // Tax values from Products
+    val cardTax: Double = 0.0,
+    val cashTax: Double = 0.0
 )
 enum class DiscountType {
     PERCENTAGE, AMOUNT

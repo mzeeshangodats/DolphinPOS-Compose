@@ -55,7 +55,9 @@ class HomeRepositoryImpl(
                 vendor = null,
                 variants = variants,
                 images = productImages,
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = productEntity.cardTax,
+                cashTax = productEntity.cashTax
             )
         }
     }
@@ -91,7 +93,9 @@ class HomeRepositoryImpl(
                 vendor = null,
                 variants = variants,
                 images = productImages,
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = productEntity.cardTax,
+                cashTax = productEntity.cashTax
             )
         }
     }
@@ -139,7 +143,9 @@ class HomeRepositoryImpl(
                 vendor = null,
                 variants = variants,
                 images = productImages,
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = productEntity.cardTax,
+                cashTax = productEntity.cashTax
             )
         }
     }
@@ -175,7 +181,9 @@ class HomeRepositoryImpl(
                 vendor = null,
                 variants = variants,
                 images = productImages,
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = productEntity.cardTax,
+                cashTax = productEntity.cashTax
             )
         }
         
@@ -213,7 +221,9 @@ class HomeRepositoryImpl(
                 vendor = null,
                 variants = variants,
                 images = productImages,
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = parentProductEntity.cardTax,
+                cashTax = parentProductEntity.cashTax
             )
         }
         

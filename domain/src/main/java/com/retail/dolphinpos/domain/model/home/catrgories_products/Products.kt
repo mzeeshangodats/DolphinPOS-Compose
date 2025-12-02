@@ -24,6 +24,8 @@ data class Products(
     val name: String?,
     val price: String? = "",
     val quantity: Int,
+    val cardTax: Double,
+    val cashTax: Double,
     val secondaryBarcodes: List<SecondaryBarcode>?,
     val status: String?,
     val storeId: Int,

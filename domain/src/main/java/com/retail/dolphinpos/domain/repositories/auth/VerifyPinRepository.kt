@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.domain.repositories.auth
 
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations
@@ -32,4 +33,6 @@ interface VerifyPinRepository {
     suspend fun getLastTimeSlotSlug(userId: Int): String?
 
     suspend fun getClockInOutHistory(userId: Int): Result<List<ClockInOutHistoryData>>
+
+    suspend fun getTaxDetailsByLocationId(locationId: Int): List<TaxDetail>
 }

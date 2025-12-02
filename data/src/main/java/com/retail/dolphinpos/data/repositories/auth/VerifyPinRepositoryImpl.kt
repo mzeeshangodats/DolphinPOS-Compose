@@ -6,6 +6,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
+import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
@@ -134,6 +135,13 @@ class VerifyPinRepositoryImpl(
             result.map { response -> response.data }
         } catch (e: Exception) {
             Result.failure(Throwable(e.message ?: "Failed to load history"))
+        }
+    }
+
+    override suspend fun getTaxDetailsByLocationId(locationId: Int): List<TaxDetail> {
+        val taxDetailEntities = userDao.getTaxDetailsByLocationId(locationId)
+        return taxDetailEntities.map { entity ->
+            UserMapper.toTaxDetail(entity)
         }
     }
 }

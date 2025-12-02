@@ -40,6 +40,7 @@ import com.retail.dolphinpos.data.entities.user.RegisterEntity
 import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
 import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
+import com.retail.dolphinpos.data.entities.user.TaxDetailEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
 import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 
@@ -48,8 +49,8 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
-        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class],
-    version = 10,
+        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -80,7 +81,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -347,6 +348,28 @@ abstract class DolphinDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 // Add tax_details column to orders table
                 db.execSQL("ALTER TABLE orders ADD COLUMN tax_details TEXT")
+            }
+        }
+
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create tax_details table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS tax_details (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        locationId INTEGER NOT NULL,
+                        type TEXT,
+                        title TEXT,
+                        value REAL NOT NULL,
+                        amount REAL,
+                        isDefault INTEGER,
+                        refundedTax REAL,
+                        FOREIGN KEY(locationId) REFERENCES store_locations(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                
+                // Create index on locationId for faster lookups
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_tax_details_location_id ON tax_details(locationId)")
             }
         }
 

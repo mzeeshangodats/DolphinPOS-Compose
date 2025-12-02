@@ -35,6 +35,8 @@ import com.retail.dolphinpos.domain.usecases.order.GetLatestOnlineOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.OpenCashDrawerUseCase
 import com.retail.dolphinpos.domain.usecases.tax.PricingCalculationUseCase
+import com.retail.dolphinpos.domain.usecases.tax.PricingSummaryUseCase
+import com.retail.dolphinpos.domain.usecases.tax.DynamicTaxCalculationUseCase
 import com.retail.dolphinpos.domain.usecases.tax.DiscountOrder
 import com.retail.dolphinpos.domain.usecases.tax.PricingConfiguration
 import com.retail.dolphinpos.domain.model.TaxDetail
@@ -78,6 +80,8 @@ class HomeViewModel @Inject constructor(
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
     private val customerDisplayManager: CustomerDisplayManager,
     private val pricingCalculationUseCase: PricingCalculationUseCase,
+    val pricingSummaryUseCase: PricingSummaryUseCase,
+    private val dynamicTaxCalculationUseCase: DynamicTaxCalculationUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -290,7 +294,9 @@ class HomeViewModel @Inject constructor(
                     cashPrice = product.cashPrice.toDouble(),
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
                     selectedPrice = product.cardPrice.toDouble(),  // Always add new products at card price
-                    productTaxDetails = product.taxDetails  // Include product tax details
+                    productTaxDetails = product.taxDetails,  // Include product tax details
+                    cardTax = product.cardTax.toDouble(),
+                    cashTax = product.cashTax.toDouble()
                 )
             )
         }
@@ -332,7 +338,9 @@ class HomeViewModel @Inject constructor(
                     cashPrice = variantCashPrice,
                     chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
                     selectedPrice = variantCardPrice,  // Always add new products at card price
-                    productTaxDetails = variant.taxDetails ?: product.taxDetails  // Prefer variant tax details, fallback to product
+                    productTaxDetails = variant.taxDetails ?: product.taxDetails,  // Prefer variant tax details, fallback to product
+                    cardTax = product.cardTax.toDouble(),  // Use product's cardTax for variants
+                    cashTax = product.cashTax.toDouble()  // Use product's cashTax for variants
                 )
             )
         }
@@ -375,24 +383,82 @@ class HomeViewModel @Inject constructor(
     }
 
     fun updateCartItem(updatedItem: CartItem) {
-        val currentList = _cartItems.value.toMutableList()
-        // Find index based on both productId and variantId
-        val index = currentList.indexOfFirst { item ->
-            item.productId == updatedItem.productId && item.productVariantId == updatedItem.productVariantId
+        viewModelScope.launch {
+            val currentList = _cartItems.value.toMutableList()
+            // Find index based on both productId and variantId
+            val index = currentList.indexOfFirst { item ->
+                item.productId == updatedItem.productId && item.productVariantId == updatedItem.productVariantId
+            }
+            if (index >= 0) {
+                if (updatedItem.quantity <= 0) {
+                    currentList.removeAt(index)
+                } else {
+                    // Calculate discounted prices
+                    val discountedCardPrice = calculateDiscountedPrice(
+                        basePrice = updatedItem.cardPrice,
+                        discountType = updatedItem.discountType,
+                        discountValue = updatedItem.discountValue
+                    )
+                    val discountedCashPrice = calculateDiscountedPrice(
+                        basePrice = updatedItem.cashPrice,
+                        discountType = updatedItem.discountType,
+                        discountValue = updatedItem.discountValue
+                    )
+
+                    // Get tax details from Room database
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val taxDetails = try {
+                        verifyPinRepository.getTaxDetailsByLocationId(locationId)
+                    } catch (e: Exception) {
+                        Log.e("HomeViewModel", "Error getting tax details: ${e.message}")
+                        emptyList()
+                    }
+
+                    // Recalculate tax dynamically based on discounted prices
+                    val taxResult = dynamicTaxCalculationUseCase.calculateTax(
+                        cardPrice = discountedCardPrice,
+                        cashPrice = discountedCashPrice,
+                        taxDetails = taxDetails,
+                        chargeTaxOnThisProduct = updatedItem.chargeTaxOnThisProduct
+                    )
+
+                    // Update cart item with recalculated tax
+                    val itemWithRecalculatedTax = updatedItem.copy(
+                        cardTax = taxResult.cardTax,
+                        cashTax = taxResult.cashTax
+                    )
+                    currentList[index] = itemWithRecalculatedTax
+                }
+            }
+            _cartItems.value = currentList
+            if (currentList.isEmpty()) {
+                isCashSelected = false  // Set default to card when cart becomes empty
+                resetOrderDiscountValues()  // Reset order discount values when cart becomes empty
+            }
+            calculateSubtotal(currentList)
         }
-        if (index >= 0) {
-            if (updatedItem.quantity <= 0) {
-                currentList.removeAt(index)
-            } else {
-                currentList[index] = updatedItem
+    }
+
+    /**
+     * Calculate discounted price based on discount type and value
+     */
+    private fun calculateDiscountedPrice(
+        basePrice: Double,
+        discountType: DiscountType?,
+        discountValue: Double?
+    ): Double {
+        if (discountType == null || discountValue == null || discountValue <= 0.0) {
+            return basePrice
+        }
+
+        return when (discountType) {
+            DiscountType.PERCENTAGE -> {
+                basePrice - ((basePrice * discountValue) / 100.0)
+            }
+            DiscountType.AMOUNT -> {
+                basePrice - discountValue
             }
         }
-        _cartItems.value = currentList
-        if (currentList.isEmpty()) {
-            isCashSelected = false  // Set default to card when cart becomes empty
-            resetOrderDiscountValues()  // Reset order discount values when cart becomes empty
-        }
-        calculateSubtotal(currentList)
     }
 
     fun toggleTaxExempt() {
@@ -1641,8 +1707,9 @@ class HomeViewModel @Inject constructor(
 
     private suspend fun getTaxPercentage(): Double {
         return try {
-            val activeUserDetails = verifyPinRepository.getActiveUserDetails()
-            val taxValueString = activeUserDetails?.taxValue
+            val locationId = preferenceManager.getOccupiedLocationID()
+            val location = verifyPinRepository.getLocationByLocationID(locationId)
+            val taxValueString = location.taxValue
             taxValueString?.toDoubleOrNull() ?: 10.0
         } catch (e: Exception) {
             // If any error occurs, default to 0.0

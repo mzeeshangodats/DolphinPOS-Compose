@@ -103,6 +103,7 @@ import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
+import com.retail.dolphinpos.domain.usecases.tax.PricingSummaryUseCase
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
@@ -373,7 +374,8 @@ fun HomeScreen(
                             cashTotal = cashTotal,
                             cardTotal = cardTotal,
                             isCashSelected = viewModel.isCashSelected,
-                            cartItems = cartItems
+                            cartItems = cartItems,
+                            pricingSummaryUseCase = viewModel.pricingSummaryUseCase
                         )
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -876,56 +878,19 @@ fun PricingSummary(
     cashTotal: Double,
     cardTotal: Double,
     isCashSelected: Boolean,
-    cartItems: List<CartItem>
+    cartItems: List<CartItem>,
+    pricingSummaryUseCase: PricingSummaryUseCase
 ) {
-    // Calculate cash subtotal (cash prices with product discounts)
-    val cashSubtotal = cartItems.sumOf { cartItem ->
-        val cashPrice = cartItem.cashPrice
-        val discountedCashPrice = when (cartItem.discountType) {
-            DiscountType.PERCENTAGE -> {
-                cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
-            }
-
-            DiscountType.AMOUNT -> {
-                cashPrice - (cartItem.discountValue ?: 0.0)
-            }
-
-            else -> cashPrice
-        }
-        discountedCashPrice * cartItem.quantity
+    // Calculate pricing summary using use case
+    val summaryResult = remember(cartItems, subtotal, cashDiscountTotal, orderDiscountTotal, isCashSelected) {
+        pricingSummaryUseCase.calculatePricingSummary(
+            cartItems = cartItems,
+            subtotal = subtotal,
+            cashDiscountTotal = cashDiscountTotal,
+            orderDiscountTotal = orderDiscountTotal,
+            isCashSelected = isCashSelected
+        )
     }
-
-    // Calculate order discount for cash (proportional to cash subtotal)
-    val cashOrderDiscount = if (subtotal > 0 && orderDiscountTotal > 0) {
-        // Apply the same percentage discount to cash subtotal
-        val discountPercentage = orderDiscountTotal / subtotal
-        cashSubtotal * discountPercentage
-    } else {
-        0.0
-    }
-
-    // Calculate total cash discount
-    // When cash is selected, don't show cash discount (only show order discount)
-    // When card is selected, show both cash discount and order discount
-    val totalCashDiscount = if (isCashSelected) {
-        // Only show order discount when cash is selected
-        cashOrderDiscount
-    } else {
-        // Show both cash discount and order discount when card is selected
-        cashDiscountTotal + cashOrderDiscount
-    }
-
-    // Calculate cash tax (from cashTotal - cashSubtotal + totalCashDiscount)
-    val cashTax = (cashTotal - (cashSubtotal - totalCashDiscount)).coerceAtLeast(0.0)
-
-    // Card subtotal is already available
-    val cardSubtotal = subtotal
-
-    // Card discount is order discount
-    val cardDiscount = orderDiscountTotal
-
-    // Calculate card tax (from cardTotal - cardSubtotal + cardDiscount)
-    val cardTax = (cardTotal - (cardSubtotal - cardDiscount)).coerceAtLeast(0.0)
 
     Row(
         modifier = Modifier
@@ -937,10 +902,10 @@ fun PricingSummary(
             modifier = Modifier.weight(1f),
             title = "Cash Price",
             headerColor = colorResource(id = R.color.green_success),
-            subtotal = cashSubtotal,
-            discount = totalCashDiscount,
-            tax = cashTax,
-            total = cashTotal
+            subtotal = summaryResult.cashSubtotal,
+            discount = summaryResult.totalCashDiscount,
+            tax = summaryResult.cashTax,
+            total = summaryResult.cashTotal
         )
 
         // Card Price Card
@@ -948,10 +913,10 @@ fun PricingSummary(
             modifier = Modifier.weight(1f),
             title = "Card Price",
             headerColor = colorResource(id = R.color.primary),
-            subtotal = cardSubtotal,
-            discount = cardDiscount,
-            tax = cardTax,
-            total = cardTotal
+            subtotal = summaryResult.cardSubtotal,
+            discount = summaryResult.cardDiscount,
+            tax = summaryResult.cardTax,
+            total = summaryResult.cardTotal
         )
     }
 }

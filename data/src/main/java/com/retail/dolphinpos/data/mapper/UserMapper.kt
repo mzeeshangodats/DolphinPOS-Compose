@@ -10,6 +10,7 @@ import com.retail.dolphinpos.data.entities.user.RegisterEntity
 import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
 import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
+import com.retail.dolphinpos.data.entities.user.TaxDetailEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
 import com.retail.dolphinpos.domain.model.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
@@ -147,7 +148,6 @@ object UserMapper {
             locationAddress = activeUserDetails.locationAddress,
             locationStatus = activeUserDetails.locationStatus,
             zipCode = activeUserDetails.zipCode,
-            taxValue = activeUserDetails.taxValue,
             taxTitle = activeUserDetails.taxTitle,
             startTime = activeUserDetails.startTime,
             endTime = activeUserDetails.endTime,
@@ -359,7 +359,6 @@ object UserMapper {
             locationAddress = entity.locationAddress,
             locationStatus = entity.locationStatus,
             zipCode = entity.zipCode,
-            taxValue = entity.taxValue,
             taxTitle = entity.taxTitle,
             startTime = entity.startTime,
             endTime = entity.endTime,
@@ -395,5 +394,32 @@ object UserMapper {
         } catch (e: JsonSyntaxException) {
             null
         }
+    }
+
+    // -------------------------
+    // TaxDetail Mappers
+    // -------------------------
+
+    fun toTaxDetailEntity(locationId: Int, taxDetail: TaxDetail): TaxDetailEntity {
+        return TaxDetailEntity(
+            locationId = locationId,
+            type = taxDetail.type,
+            title = taxDetail.title,
+            value = taxDetail.value,
+            amount = taxDetail.amount,
+            isDefault = taxDetail.isDefault,
+            refundedTax = taxDetail.refundedTax
+        )
+    }
+
+    fun toTaxDetail(entity: TaxDetailEntity): TaxDetail {
+        return TaxDetail(
+            type = entity.type,
+            title = entity.title,
+            value = entity.value,
+            amount = entity.amount,
+            isDefault = entity.isDefault,
+            refundedTax = entity.refundedTax
+        )
     }
 }

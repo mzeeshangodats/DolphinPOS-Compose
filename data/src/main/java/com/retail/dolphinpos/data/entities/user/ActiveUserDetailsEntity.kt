@@ -31,7 +31,6 @@ data class ActiveUserDetailsEntity(
     val locationAddress: String?,
     val locationStatus: String?,
     val zipCode: String?,
-    val taxValue: String?,
     val taxTitle: String?,
     val startTime: String?,
     val endTime: String?,

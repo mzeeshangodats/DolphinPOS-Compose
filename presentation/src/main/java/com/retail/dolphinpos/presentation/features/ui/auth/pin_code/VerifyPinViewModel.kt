@@ -152,7 +152,6 @@ class VerifyPinViewModel @Inject constructor(
             locationAddress = location.address,
             locationStatus = location.status,
             zipCode = location.zipCode,
-            taxValue = location.taxValue,
             taxTitle = location.taxTitle,
             startTime = location.startTime,
             endTime = location.endTime,

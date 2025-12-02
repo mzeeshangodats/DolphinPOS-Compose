@@ -18,4 +18,6 @@ data class ProductsEntity(
     val barCode: String?,
     val chargeTaxOnThisProduct: Boolean?,
     val locationId: Int,
+    val cardTax: Double = 0.0,
+    val cashTax: Double = 0.0
 )

@@ -41,7 +41,9 @@ object ProductMapper {
             barCode = products.barCode,
             storeId = products.storeId,
             locationId = products.locationId,
-            chargeTaxOnThisProduct = products.chargeTaxOnThisProduct
+            chargeTaxOnThisProduct = products.chargeTaxOnThisProduct,
+            cardTax = products.cardTax,
+            cashTax = products.cashTax
         )
     }
 
@@ -119,7 +121,9 @@ object ProductMapper {
                 vendor = null,
                 variants = emptyList(),
                 images = emptyList(),
-                secondaryBarcodes = null
+                secondaryBarcodes = null,
+                cardTax = product.cardTax,
+                cashTax = product.cashTax
             )
         }
     }

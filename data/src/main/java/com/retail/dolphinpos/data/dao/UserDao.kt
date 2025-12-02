@@ -13,6 +13,7 @@ import com.retail.dolphinpos.data.entities.user.RegisterEntity
 import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
 import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
+import com.retail.dolphinpos.data.entities.user.TaxDetailEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
 
 @Dao
@@ -111,4 +112,18 @@ interface UserDao {
     @Query("SELECT * FROM time_slots WHERE userId = :userId ORDER BY id DESC LIMIT 1")
     suspend fun getLastTimeSlot(userId: Int): com.retail.dolphinpos.data.entities.user.TimeSlotEntity?
 
+    // -----------------------------
+    // Tax Detail DAO
+    // -----------------------------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTaxDetails(taxDetails: List<TaxDetailEntity>)
+
+    @Query("SELECT * FROM tax_details WHERE locationId = :locationId")
+    suspend fun getTaxDetailsByLocationId(locationId: Int): List<TaxDetailEntity>
+
+    @Query("DELETE FROM tax_details WHERE locationId = :locationId")
+    suspend fun deleteTaxDetailsByLocationId(locationId: Int)
+
+    @Query("DELETE FROM tax_details")
+    suspend fun deleteAllTaxDetails()
 }
