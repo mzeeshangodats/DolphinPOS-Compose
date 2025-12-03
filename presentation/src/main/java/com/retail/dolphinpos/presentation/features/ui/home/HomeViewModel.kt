@@ -855,46 +855,51 @@ class HomeViewModel @Inject constructor(
                     val taxRate = location?.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
                     Log.d("HomeViewModel", "Fallback: Using tax rate: $taxRate (${location?.taxValue ?: 10}%)")
 
-                    // Calculate taxable base (only items that should be taxed)
-                    val taxableBase = cartItems.sumOf { cart ->
-                        if (cart.applyTax == true) {
+                    // Rule: Calculate tax directly on the discounted subtotal (after order-level discounts)
+                    // discountedSubtotal already has order-level discounts applied
+                    // If discounted subtotal is 0, tax must be 0
+                    if (discountedSubtotal <= 0) {
+                        taxValue = 0.0
+                    } else {
+                        taxValue = discountedSubtotal * taxRate
+                    }
+                    Log.d("HomeViewModel", "Fallback tax calculation:")
+                    Log.d("HomeViewModel", "  Discounted subtotal: $discountedSubtotal")
+                    Log.d("HomeViewModel", "  Tax rate: $taxRate")
+                    Log.d("HomeViewModel", "  Calculated tax: $taxValue")
+
+                    // Update cart items with fallback tax (distributed proportionally based on discounted prices)
+                    // Calculate total discounted subtotal for proportion calculation
+                    val totalDiscountedSubtotal = cartItems.sumOf { item ->
+                        if (item.applyTax) {
                             val itemPrice = if (isCashSelected) {
-                                if (cart.isDiscounted && cart.cashDiscountedPrice > 0.0) {
-                                    cart.cashDiscountedPrice
+                                if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
+                                    item.cashDiscountedPrice
                                 } else {
-                                    cart.cashPrice
+                                    item.cashPrice
                                 }
                             } else {
-                                if (cart.isDiscounted && cart.discountPrice != null) {
-                                    cart.discountPrice!!
+                                if (item.isDiscounted && item.discountPrice != null) {
+                                    item.discountPrice!!
                                 } else {
-                                    cart.price ?: 0.0
+                                    item.price ?: 0.0
                                 }
                             }
-                            itemPrice * (cart.quantity ?: 1)
+                            itemPrice * (item.quantity ?: 1)
                         } else {
                             0.0
                         }
                     }
-
-                    // Apply proportion of discounts to taxable amount
-                    val taxableAfterOrderDiscounts = if (productDiscountedSubtotal > 0 && taxableBase > 0) {
-                        taxableBase * (finalSubtotal / productDiscountedSubtotal)
+                    
+                    // Apply order-level discount proportionally to get item-level discounted amounts
+                    val discountRatio = if (totalDiscountedSubtotal > 0 && discountedSubtotal > 0) {
+                        discountedSubtotal / totalDiscountedSubtotal
                     } else {
-                        finalSubtotal  // If no taxable items, use final subtotal
+                        0.0
                     }
-
-                    // Calculate tax using actual tax rate
-                    taxValue = taxableAfterOrderDiscounts * taxRate
-                    Log.d("HomeViewModel", "Fallback tax calculation:")
-                    Log.d("HomeViewModel", "  Taxable base: $taxableBase")
-                    Log.d("HomeViewModel", "  Taxable after discounts: $taxableAfterOrderDiscounts")
-                    Log.d("HomeViewModel", "  Tax rate: $taxRate")
-                    Log.d("HomeViewModel", "  Calculated tax: $taxValue")
-
-                    // Update cart items with fallback tax (distributed proportionally)
+                    
                     updatedCartItems = cartItems.map { item ->
-                        if (item.applyTax && taxableAfterOrderDiscounts > 0) {
+                        if (item.applyTax && discountedSubtotal > 0 && totalDiscountedSubtotal > 0) {
                             val itemPrice = if (isCashSelected) {
                                 if (item.isDiscounted && item.cashDiscountedPrice > 0.0) {
                                     item.cashDiscountedPrice
@@ -909,14 +914,13 @@ class HomeViewModel @Inject constructor(
                                 }
                             }
                             val itemSubtotal = itemPrice * (item.quantity ?: 1)
-                            val itemProportion = if (taxableBase > 0) itemSubtotal / taxableBase else 0.0
-                            val itemTaxableAmount = taxableAfterOrderDiscounts * itemProportion
-                            val itemTaxAmount = itemTaxableAmount * taxRate
+                            val itemDiscountedAmount = itemSubtotal * discountRatio
+                            val itemTaxAmount = itemDiscountedAmount * taxRate
 
                             item.copy(
                                 productTaxAmount = itemTaxAmount,
                                 productTaxRate = taxRate,
-                                productTaxableAmount = itemTaxableAmount
+                                productTaxableAmount = itemDiscountedAmount
                             )
                         } else {
                             item.copy(
@@ -963,6 +967,15 @@ class HomeViewModel @Inject constructor(
                 }
             }
             
+            // Apply cash discount to cash subtotal (after order-level discounts)
+            // Get the current cash discount value
+            var currentCashDiscountForCash = _cashDiscountTotal.value
+            // Don't apply cash discount if subtotal is already 0 or less
+            if (cashDiscountedSubtotal <= 0) {
+                currentCashDiscountForCash = 0.0
+            }
+            val cashSubtotalAfterAllDiscounts = cashDiscountedSubtotal - currentCashDiscountForCash
+            
             // Calculate card-based subtotal (using card prices) - already calculated as productDiscountedSubtotal
             var cardDiscountedSubtotal = productDiscountedSubtotal
             for (discount in _orderLevelDiscounts.value) {
@@ -975,8 +988,12 @@ class HomeViewModel @Inject constructor(
                     }
                 }
             }
+            // Card doesn't have cash discount, so cardSubtotalAfterAllDiscounts = cardDiscountedSubtotal
+            val cardSubtotalAfterAllDiscounts = cardDiscountedSubtotal
             
             // Calculate tax for cash scenario
+            // Rule: Calculate tax directly on the discounted subtotal (after order-level discounts and cash discount)
+            // If discounted subtotal is 0, tax must be 0
             val cashTax = if (_isTaxExempt.value) {
                 0.0
             } else {
@@ -985,33 +1002,12 @@ class HomeViewModel @Inject constructor(
                     val location = verifyPinRepository.getLocationByLocationID(locationId)
                     val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
                     
-                    // Calculate taxable amount for cash
-                    val cashTaxableAmount = cartItems.sumOf { cartItem ->
-                        if (cartItem.chargeTaxOnThisProduct == true) {
-                            val cashPrice = cartItem.cashPrice
-                            val discountedCashPrice = when (cartItem.discountType) {
-                                DiscountType.PERCENTAGE -> {
-                                    cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
-                                }
-                                DiscountType.AMOUNT -> {
-                                    cashPrice - (cartItem.discountValue ?: 0.0)
-                                }
-                                else -> cashPrice
-                            }
-                            discountedCashPrice * cartItem.quantity
-                        } else {
-                            0.0
-                        }
-                    }
-                    
-                    // Apply order discount proportionally to taxable amount
-                    val cashTaxableAfterDiscounts = if (cashBasedProductDiscountedSubtotal > 0 && cashTaxableAmount > 0) {
-                        cashTaxableAmount * (cashDiscountedSubtotal / cashBasedProductDiscountedSubtotal)
+                    // Calculate tax directly on the subtotal after all discounts
+                    if (cashSubtotalAfterAllDiscounts <= 0) {
+                        0.0
                     } else {
-                        cashDiscountedSubtotal
+                        cashSubtotalAfterAllDiscounts * taxRate
                     }
-                    
-                    cashTaxableAfterDiscounts * taxRate
                 } catch (e: Exception) {
                     // Fallback: use same tax rate as calculated for current selection
                     val taxRate = try {
@@ -1021,11 +1017,18 @@ class HomeViewModel @Inject constructor(
                     } catch (ex: Exception) {
                         0.10
                     }
-                    cashDiscountedSubtotal * taxRate
+                    // Calculate tax directly on discounted subtotal
+                    if (cashSubtotalAfterAllDiscounts <= 0) {
+                        0.0
+                    } else {
+                        cashSubtotalAfterAllDiscounts * taxRate
+                    }
                 }
             }
             
             // Calculate tax for card scenario
+            // Rule: Calculate tax directly on the discounted subtotal (after order-level discounts)
+            // If discounted subtotal is 0, tax must be 0
             val cardTax = if (_isTaxExempt.value) {
                 0.0
             } else {
@@ -1034,33 +1037,12 @@ class HomeViewModel @Inject constructor(
                     val location = verifyPinRepository.getLocationByLocationID(locationId)
                     val taxRate = location.taxValue?.toDoubleOrNull()?.div(100.0) ?: 0.10
                     
-                    // Calculate taxable amount for card
-                    val cardTaxableAmount = cartItems.sumOf { cartItem ->
-                        if (cartItem.chargeTaxOnThisProduct == true) {
-                            val cardPrice = cartItem.cardPrice
-                            val discountedCardPrice = when (cartItem.discountType) {
-                                DiscountType.PERCENTAGE -> {
-                                    cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
-                                }
-                                DiscountType.AMOUNT -> {
-                                    cardPrice - (cartItem.discountValue ?: 0.0)
-                                }
-                                else -> cardPrice
-                            }
-                            discountedCardPrice * cartItem.quantity
-                        } else {
-                            0.0
-                        }
-                    }
-                    
-                    // Apply order discount proportionally to taxable amount
-                    val cardTaxableAfterDiscounts = if (productDiscountedSubtotal > 0 && cardTaxableAmount > 0) {
-                        cardTaxableAmount * (cardDiscountedSubtotal / productDiscountedSubtotal)
+                    // Calculate tax directly on the subtotal after all discounts
+                    if (cardSubtotalAfterAllDiscounts <= 0) {
+                        0.0
                     } else {
-                        cardDiscountedSubtotal
+                        cardSubtotalAfterAllDiscounts * taxRate
                     }
-                    
-                    cardTaxableAfterDiscounts * taxRate
                 } catch (e: Exception) {
                     // Fallback: use same tax rate as calculated for current selection
                     val taxRate = try {
@@ -1070,7 +1052,12 @@ class HomeViewModel @Inject constructor(
                     } catch (ex: Exception) {
                         0.10
                     }
-                    cardDiscountedSubtotal * taxRate
+                    // Calculate tax directly on discounted subtotal
+                    if (cardSubtotalAfterAllDiscounts <= 0) {
+                        0.0
+                    } else {
+                        cardSubtotalAfterAllDiscounts * taxRate
+                    }
                 }
             }
             

@@ -51,11 +51,26 @@ class PricingSummaryUseCase @Inject constructor() {
             cashDiscountTotal + cashOrderDiscount
         }
 
-        // Calculate cash tax from cart items (sum of cashTax * quantity)
-        // Only include tax for items where chargeTaxOnThisProduct is true (not tax exempt)
-        val cashTax = cartItems
+        // Calculate cash discounted subtotal (after order-level discounts and cash discount)
+        val cashDiscountedSubtotal = cashSubtotal - totalCashDiscount
+
+        // Calculate cash tax on the discounted subtotal (not on original subtotal)
+        // Rule: Tax must be calculated on the discounted subtotal after order-level discounts
+        // First, calculate the effective tax rate from original cash subtotal and tax
+        val originalCashTax = cartItems
             .filter { it.chargeTaxOnThisProduct == true }
             .sumOf { it.cashTax * it.quantity }
+        val cashTaxRate = if (cashSubtotal > 0) {
+            originalCashTax / cashSubtotal
+        } else {
+            0.0
+        }
+        // Apply tax rate to discounted subtotal (if discounted subtotal is 0, tax is 0)
+        val cashTax = if (cashDiscountedSubtotal <= 0) {
+            0.0
+        } else {
+            cashDiscountedSubtotal * cashTaxRate
+        }
 
         // Calculate card subtotal (card prices with product discounts)
         val cardSubtotal = calculateSubtotalWithDiscounts(cartItems, useCashPrice = false)
@@ -63,11 +78,26 @@ class PricingSummaryUseCase @Inject constructor() {
         // Card discount is order discount
         val cardDiscount = orderDiscountTotal
 
-        // Calculate card tax from cart items (sum of cardTax * quantity)
-        // Only include tax for items where chargeTaxOnThisProduct is true (not tax exempt)
-        val cardTax = cartItems
+        // Calculate card discounted subtotal (after order-level discounts)
+        val cardDiscountedSubtotal = cardSubtotal - cardDiscount
+
+        // Calculate card tax on the discounted subtotal (not on original subtotal)
+        // Rule: Tax must be calculated on the discounted subtotal after order-level discounts
+        // First, calculate the effective tax rate from original card subtotal and tax
+        val originalCardTax = cartItems
             .filter { it.chargeTaxOnThisProduct == true }
             .sumOf { it.cardTax * it.quantity }
+        val cardTaxRate = if (cardSubtotal > 0) {
+            originalCardTax / cardSubtotal
+        } else {
+            0.0
+        }
+        // Apply tax rate to discounted subtotal (if discounted subtotal is 0, tax is 0)
+        val cardTax = if (cardDiscountedSubtotal <= 0) {
+            0.0
+        } else {
+            cardDiscountedSubtotal * cardTaxRate
+        }
 
         // Calculate correct totals: (subtotal - discount) + tax
         val cashTotal = (cashSubtotal - totalCashDiscount) + cashTax
