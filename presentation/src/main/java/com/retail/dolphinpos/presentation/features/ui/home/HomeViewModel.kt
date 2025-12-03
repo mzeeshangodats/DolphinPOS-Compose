@@ -1277,6 +1277,120 @@ class HomeViewModel @Inject constructor(
                 val finalOrderDiscount = _orderDiscountTotal.value
                 val finalTax = _tax.value
                 val finalTotal = _totalAmount.value
+                
+                // For cash payments, calculate cash-based values using PricingSummaryUseCase
+                val cashSummaryResult = if (paymentMethod == "cash") {
+                    pricingSummaryUseCase.calculatePricingSummary(
+                        cartItems = _cartItems.value,
+                        subtotal = finalSubtotal,
+                        cashDiscountTotal = finalCashDiscount,
+                        orderDiscountTotal = finalOrderDiscount,
+                        isCashSelected = true
+                    )
+                } else {
+                    null
+                }
+                
+                // Calculate tax base subtotal for store-level tax calculation
+                // For cash payments, use cash-based subtotal from PricingSummaryUseCase; for card, use card-based subtotal
+                val taxBaseSubtotal = if (paymentMethod == "cash") {
+                    // Use cash subtotal after all discounts (cashSubtotal - totalCashDiscount) for accurate tax calculation
+                    // Tax should be calculated on the subtotal after all discounts are applied
+                    cashSummaryResult?.let { it.cashSubtotal - it.totalCashDiscount } ?: run {
+                        // Fallback calculation if PricingSummaryUseCase result is not available
+                        val cashBaseSubtotal = _cartItems.value.sumOf { cartItem ->
+                            val hasProductDiscount =
+                                cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                            val discountedCashPrice = if (hasProductDiscount) {
+                                when (cartItem.discountType) {
+                                    DiscountType.PERCENTAGE -> {
+                                        cartItem.cashPrice - ((cartItem.cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                                    }
+                                    DiscountType.AMOUNT -> {
+                                        cartItem.cashPrice - (cartItem.discountValue ?: 0.0)
+                                    }
+                                    else -> cartItem.cashPrice
+                                }
+                            } else {
+                                cartItem.cashPrice
+                            }
+                            discountedCashPrice * (cartItem.quantity ?: 1)
+                        }
+                        var discountedCashSubtotal = cashBaseSubtotal
+                        for (discount in _orderLevelDiscounts.value) {
+                            discountedCashSubtotal = when (discount.type) {
+                                DiscountType.PERCENTAGE -> {
+                                    discountedCashSubtotal - (discountedCashSubtotal * discount.value / 100.0)
+                                }
+                                DiscountType.AMOUNT -> {
+                                    discountedCashSubtotal - discount.value
+                                }
+                            }
+                        }
+                        discountedCashSubtotal - finalCashDiscount
+                    }
+                } else {
+                    // For card payments, use the card-based finalSubtotal
+                    finalSubtotal
+                }
+                
+                // Calculate store-level tax details (needed for cash tax calculation)
+                val storeTaxDetails = try {
+                    val location = verifyPinRepository.getLocationByLocationID(locationId)
+                    location.taxDetails?.filter { it.isDefault == true }?.map { taxDetail ->
+                        // Calculate tax amount based on payment-method-specific subtotal
+                        val taxAmount = when (taxDetail.type?.lowercase()) {
+                            "percentage" -> {
+                                val rate = taxDetail.value / 100.0
+                                taxBaseSubtotal * rate
+                            }
+                            "fixed amount" -> taxDetail.value
+                            else -> {
+                                val rate = taxDetail.value / 100.0
+                                taxBaseSubtotal * rate
+                            }
+                        }
+                        // Return taxDetail with calculated amount
+                        TaxDetail(
+                            type = taxDetail.type,
+                            title = taxDetail.title,
+                            value = taxDetail.value,
+                            amount = taxAmount,
+                            isDefault = taxDetail.isDefault,
+                            refundedTax = taxDetail.refundedTax
+                        )
+                    } ?: emptyList()
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                
+                // Use cash values if payment is cash, otherwise use card values
+                // For cash: subtotal after all discounts, tax from store-level taxes, total = subtotal + tax
+                // For card: use existing values
+                val orderSubtotal = if (paymentMethod == "cash") {
+                    // Use cash subtotal after all discounts (cashSubtotal - totalCashDiscount)
+                    cashSummaryResult?.let { it.cashSubtotal - it.totalCashDiscount } ?: finalSubtotal
+                } else {
+                    finalSubtotal
+                }
+                
+                val orderTax = if (paymentMethod == "cash" && !_isTaxExempt.value) {
+                    // For cash payments, calculate tax from store-level tax details to ensure it matches taxDetails
+                    storeTaxDetails.sumOf { it.amount ?: 0.0 }
+                } else if (paymentMethod == "cash") {
+                    // If tax exempt, use 0
+                    0.0
+                } else {
+                    // For card payments, use the existing tax calculation
+                    finalTax
+                }
+                
+                val orderTotal = if (paymentMethod == "cash") {
+                    // Total = subtotal after discounts + tax
+                    orderSubtotal + orderTax
+                } else {
+                    finalTotal
+                }
 
                 // Convert cart items to CheckOutOrderItem list
                 val orderItems = _cartItems.value.map { cartItem ->
@@ -1353,8 +1467,15 @@ class HomeViewModel @Inject constructor(
                             else -> ""
                         },
                         cardPrice = cartItem.cardPrice,
-                        // Include product-level tax (totalTax = productTaxAmount per item)
-                        totalTax = cartItem.productTaxAmount.takeIf { it > 0.0 },
+                        // Include product-level tax (totalTax = cashTax or cardTax based on payment method)
+                        totalTax = if (paymentMethod == "cash") {
+                            // For cash payments, use cash tax value
+                            val cashTaxValue = cartItem.cashTax * (cartItem.quantity ?: 1)
+                            cashTaxValue.takeIf { it > 0.0 }
+                        } else {
+                            // For card payments, use productTaxAmount (which is calculated based on card price)
+                            cartItem.productTaxAmount.takeIf { it > 0.0 }
+                        },
                         // Include tax breakdown with calculated amounts based on item prices
                         appliedTaxes = itemTaxDetails
                     )
@@ -1375,80 +1496,7 @@ class HomeViewModel @Inject constructor(
                     )
                 }
 
-                // Calculate store-level tax details (default taxes only) for order-level breakdown
-                // For cash payments, use cash-based subtotal; for card, use card-based subtotal
-                val taxBaseSubtotal = if (paymentMethod == "cash") {
-                    // Calculate subtotal based on cash prices (same logic as when creating order items)
-                    val cashBaseSubtotal = _cartItems.value.sumOf { cartItem ->
-                        val hasProductDiscount =
-                            cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
-                        val discountedCashPrice = if (hasProductDiscount) {
-                            // Calculate discounted cash price using the same method as when creating order items
-                            when (cartItem.discountType) {
-                                DiscountType.PERCENTAGE -> {
-                                    cartItem.cashPrice - ((cartItem.cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
-                                }
-                                DiscountType.AMOUNT -> {
-                                    cartItem.cashPrice - (cartItem.discountValue ?: 0.0)
-                                }
-                                else -> cartItem.cashPrice
-                            }
-                        } else {
-                            cartItem.cashPrice
-                        }
-                        discountedCashPrice * (cartItem.quantity ?: 1)
-                    }
-
-                    // Apply order-level discounts (same as card calculation)
-                    var discountedCashSubtotal = cashBaseSubtotal
-                    for (discount in _orderLevelDiscounts.value) {
-                        discountedCashSubtotal = when (discount.type) {
-                            DiscountType.PERCENTAGE -> {
-                                discountedCashSubtotal - (discountedCashSubtotal * discount.value / 100.0)
-                            }
-                            DiscountType.AMOUNT -> {
-                                discountedCashSubtotal - discount.value
-                            }
-                        }
-                    }
-
-                    // Apply cash discount (cash discount is already applied, so just use the result)
-                    discountedCashSubtotal - finalCashDiscount
-                } else {
-                    // For card payments, use the card-based finalSubtotal
-                    finalSubtotal
-                }
-
                 Log.d("HomeViewModel", "Tax calculation base - Payment: $paymentMethod, Card subtotal: $finalSubtotal, Tax base subtotal: $taxBaseSubtotal")
-
-                val storeTaxDetails = try {
-                    val location = verifyPinRepository.getLocationByLocationID(locationId)
-                    location.taxDetails?.filter { it.isDefault == true }?.map { taxDetail ->
-                        // Calculate tax amount based on payment-method-specific subtotal
-                        val taxAmount = when (taxDetail.type?.lowercase()) {
-                            "percentage" -> {
-                                val rate = taxDetail.value / 100.0
-                                taxBaseSubtotal * rate
-                            }
-                            "fixed amount" -> taxDetail.value
-                            else -> {
-                                val rate = taxDetail.value / 100.0
-                                taxBaseSubtotal * rate
-                            }
-                        }
-                        // Return taxDetail with calculated amount
-                        TaxDetail(
-                            type = taxDetail.type,
-                            title = taxDetail.title,
-                            value = taxDetail.value,
-                            amount = taxAmount,
-                            isDefault = taxDetail.isDefault,
-                            refundedTax = taxDetail.refundedTax
-                        )
-                    } ?: emptyList()
-                } catch (_: Exception) {
-                    emptyList()
-                }
 
                 // Create order request using captured values
                 // If tax is exempt, set applyTax = false and taxDetails = emptyList()
@@ -1461,7 +1509,7 @@ class HomeViewModel @Inject constructor(
                 }
 
                 Log.d("HomeViewModel", "Creating order - Payment: $paymentMethod," +
-                        " Subtotal: $finalSubtotal, Tax: $finalTax, Total: $finalTotal")
+                        " Subtotal: $orderSubtotal, Tax: $orderTax, Total: $orderTotal")
                 Log.d("HomeViewModel", "Tax exempt: $isTaxExempt, ApplyTax: $orderApplyTax")
                 if (!isTaxExempt) {
                     Log.d("HomeViewModel", "Tax details count: ${orderTaxDetails.size}")
@@ -1484,10 +1532,10 @@ class HomeViewModel @Inject constructor(
                     isRedeemed = false,
                     source = "point-of-sale",
                     items = orderItems,
-                    subTotal = finalSubtotal,
-                    total = finalTotal,
+                    subTotal = orderSubtotal,  // Use cash subtotal for cash payments, card subtotal for card payments
+                    total = orderTotal,  // Use cash total for cash payments, card total for card payments
                     applyTax = orderApplyTax,  // Set to false if tax is exempt
-                    taxValue = finalTax,
+                    taxValue = orderTax,  // Use cash tax for cash payments, card tax for card payments
                     discountAmount = finalOrderDiscount,
                     cashDiscountAmount = finalCashDiscount,
                     rewardDiscount = 0.0,

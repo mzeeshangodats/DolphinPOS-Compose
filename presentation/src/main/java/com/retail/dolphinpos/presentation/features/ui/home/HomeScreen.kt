@@ -428,7 +428,15 @@ fun HomeScreen(
                             }, onAmountSet = { amount ->
                                 paymentAmount = viewModel.formatAmount(amount)
                             }, onExactAmount = {
-                                paymentAmount = viewModel.formatAmount(cardTotal)
+                                // Calculate card total using PricingSummaryUseCase to match the displayed value
+                                val summaryResult = viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                                    cartItems = cartItems,
+                                    subtotal = subtotal,
+                                    cashDiscountTotal = cashDiscountTotal,
+                                    orderDiscountTotal = orderDiscountTotal,
+                                    isCashSelected = viewModel.isCashSelected
+                                )
+                                paymentAmount = viewModel.formatAmount(summaryResult.cardTotal)
                             }, onCashSelected = {
                                 // Set cash as selected payment method
                                 viewModel.isCashSelected = true
@@ -450,8 +458,20 @@ fun HomeScreen(
                                     // Use small epsilon for floating point comparison
                                     val epsilon = 0.01
 
-                                    val cashTotalAmount = cashTotal
+                                    // Use PricingSummaryUseCase to get the correct cash total (matching displayed value)
+                                    val summaryResult = viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                                        cartItems = cartItems,
+                                        subtotal = subtotal,
+                                        cashDiscountTotal = cashDiscountTotal,
+                                        orderDiscountTotal = orderDiscountTotal,
+                                        isCashSelected = true // Cash is selected at this point
+                                    )
+                                    val cashTotalAmount = summaryResult.cashTotal
+                                    
                                     if (cashTotalAmount > 0 && currentPayment < 0.01) {
+                                        // Switch to card when payment amount is zero
+                                        viewModel.isCashSelected = false
+                                        viewModel.updateCartPrices()
                                         // Show error message only, don't auto-fill
                                         DialogHandler.showDialog(
                                             message = "Payment amount cannot be zero. Please enter the payment amount.",
