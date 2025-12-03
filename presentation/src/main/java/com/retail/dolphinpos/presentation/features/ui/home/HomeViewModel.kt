@@ -124,6 +124,9 @@ class HomeViewModel @Inject constructor(
 
     private val _isTaxExempt = MutableStateFlow(false)
     val isTaxExempt: StateFlow<Boolean> = _isTaxExempt.asStateFlow()
+    
+    // Store original chargeTaxOnThisProduct values for restoration when tax is applied again
+    private val originalTaxStatusMap = mutableMapOf<String, Boolean>()
 
     private val _categories =
         MutableStateFlow<List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData>>(
@@ -283,6 +286,17 @@ class HomeViewModel @Inject constructor(
             cartItemList[existingProduct] = updatedQuantity
         } else {
             // Add new product
+            val originalChargeTax = product.chargeTaxOnThisProduct ?: true
+            val newChargeTax = if (_isTaxExempt.value) {
+                // Store original value for restoration when tax is applied again
+                val key = "${product.id}_null"
+                if (!originalTaxStatusMap.containsKey(key)) {
+                    originalTaxStatusMap[key] = originalChargeTax
+                }
+                false  // If tax is exempt, set to false
+            } else {
+                originalChargeTax  // Otherwise use product's original value
+            }
             cartItemList.add(
                 CartItem(
                     productId = product.id,
@@ -292,7 +306,7 @@ class HomeViewModel @Inject constructor(
                     productVariantId = null,
                     cardPrice = product.cardPrice.toDouble(),
                     cashPrice = product.cashPrice.toDouble(),
-                    chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
+                    chargeTaxOnThisProduct = newChargeTax,
                     selectedPrice = product.cardPrice.toDouble(),  // Always add new products at card price
                     productTaxDetails = product.taxDetails,  // Include product tax details
                     cardTax = product.cardTax.toDouble(),
@@ -326,6 +340,17 @@ class HomeViewModel @Inject constructor(
             val variantCashPrice =
                 variant.cashPrice?.toDoubleOrNull() ?: product.cashPrice.toDouble()
 
+            val originalChargeTax = product.chargeTaxOnThisProduct ?: true
+            val newChargeTax = if (_isTaxExempt.value) {
+                // Store original value for restoration when tax is applied again
+                val key = "${product.id}_${variant.id}"
+                if (!originalTaxStatusMap.containsKey(key)) {
+                    originalTaxStatusMap[key] = originalChargeTax
+                }
+                false  // If tax is exempt, set to false
+            } else {
+                originalChargeTax  // Otherwise use product's original value
+            }
             cartItemList.add(
                 CartItem(
                     productId = product.id,
@@ -336,7 +361,7 @@ class HomeViewModel @Inject constructor(
                     productVariantId = variant.id,
                     cardPrice = variantCardPrice,
                     cashPrice = variantCashPrice,
-                    chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
+                    chargeTaxOnThisProduct = newChargeTax,
                     selectedPrice = variantCardPrice,  // Always add new products at card price
                     productTaxDetails = variant.taxDetails ?: product.taxDetails,  // Prefer variant tax details, fallback to product
                     cardTax = product.cardTax.toDouble(),  // Use product's cardTax for variants
@@ -466,16 +491,57 @@ class HomeViewModel @Inject constructor(
         Log.d("HomeViewModel", "=== TAX EXEMPT TOGGLE ===")
         Log.d("HomeViewModel", "Previous state: ${_isTaxExempt.value}")
         Log.d("HomeViewModel", "New state: $newValue")
+        
+        val cartItemList = _cartItems.value.toMutableList()
+        
+        if (newValue) {
+            // Exempting tax: Store original values and set all items to not charge tax
+            cartItemList.forEachIndexed { index, cartItem ->
+                // Create unique key for each cart item (productId + variantId if exists)
+                val key = if (cartItem.productVariantId != null) {
+                    "${cartItem.productId}_${cartItem.productVariantId}"
+                } else {
+                    "${cartItem.productId}_null"
+                }
+                
+                // Store original value if not already stored
+                if (!originalTaxStatusMap.containsKey(key)) {
+                    originalTaxStatusMap[key] = cartItem.chargeTaxOnThisProduct ?: true
+                }
+                
+                // Set chargeTaxOnThisProduct to false for all items
+                cartItemList[index] = cartItem.copy(chargeTaxOnThisProduct = false)
+            }
+        } else {
+            // Applying tax: Restore original values from the map
+            cartItemList.forEachIndexed { index, cartItem ->
+                val key = if (cartItem.productVariantId != null) {
+                    "${cartItem.productId}_${cartItem.productVariantId}"
+                } else {
+                    "${cartItem.productId}_null"
+                }
+                
+                // Restore original value if stored, otherwise default to true
+                val originalValue = originalTaxStatusMap[key] ?: true
+                cartItemList[index] = cartItem.copy(chargeTaxOnThisProduct = originalValue)
+            }
+            
+            // Clear the map after restoration
+            originalTaxStatusMap.clear()
+        }
+        
+        _cartItems.value = cartItemList
         _isTaxExempt.value = newValue
         Log.d("HomeViewModel", "Recalculating totals with tax exempt: $newValue")
         // Recalculate totals after toggling tax exempt status
-        calculateSubtotal(_cartItems.value)
+        calculateSubtotal(cartItemList)
     }
 
     fun clearCart() {
         _cartItems.value = emptyList()
         isCashSelected = false  // Set default to card when cart is cleared
         _isTaxExempt.value = false  // Reset tax exempt status when cart is cleared
+        originalTaxStatusMap.clear()  // Clear stored original tax status values
         resetOrderDiscountValues()  // Reset order discount values when cart is cleared
         calculateSubtotal(emptyList())
     }

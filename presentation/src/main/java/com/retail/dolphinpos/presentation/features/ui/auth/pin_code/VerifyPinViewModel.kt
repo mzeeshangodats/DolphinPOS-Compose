@@ -83,8 +83,21 @@ class VerifyPinViewModel @Inject constructor(
                         return@launch
                     }
                     
-                    val remoteBatchStatus = checkRemoteBatchStatus()
+                    val remoteBatchReport = checkRemoteBatchStatus()
+                    val remoteBatchStatus = remoteBatchReport?.data?.status
                     remoteBatchStatus?.let { preferenceManager.setBatchStatus(it) }
+
+                    // Check if register has been released (closingCashAmount != 0)
+                    val closingCashAmount = remoteBatchReport?.data?.closingCashAmount ?: 0.0
+                    if (closingCashAmount != 0.0) {
+                        // Clear batch number from preferences
+                        preferenceManager.clearBatchNo()
+                        _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                        _verifyPinUiEvent.emit(
+                            VerifyPinUiEvent.ShowRegisterReleasedDialog("Your register has been release by someone from portal")
+                        )
+                        return@launch
+                    }
 
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
 
@@ -254,15 +267,14 @@ class VerifyPinViewModel @Inject constructor(
         }
     }
 
-    private suspend fun checkRemoteBatchStatus(): String? {
+    private suspend fun checkRemoteBatchStatus(): com.retail.dolphinpos.domain.model.report.BatchReport? {
         val batchNo = preferenceManager.getBatchNo()
         if (batchNo.isBlank()) {
             return null
         }
         // Internet check is already done before calling this function
         return try {
-            val batchReport = batchReportRepository.getBatchReport(batchNo)
-            batchReport.data.status
+            batchReportRepository.getBatchReport(batchNo)
         } catch (e: NoConnectivityException) {
             Log.e(TAG, "No internet connection: ${e.message}")
             throw e // Re-throw to be caught by caller

@@ -124,6 +124,18 @@ fun PinCodeScreen(
                     }
                 }
 
+                is VerifyPinUiEvent.ShowRegisterReleasedDialog -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK",
+                    ) {
+                        pinValue = ""
+                        navController.navigate("selectRegister") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+
                 is VerifyPinUiEvent.NavigateToCashDenomination -> {
                     pinValue = ""
                     activeUserDetails?.let { details ->
@@ -137,6 +149,12 @@ fun PinCodeScreen(
                     navController.navigate(
                         "home"
                     )
+                }
+
+                is VerifyPinUiEvent.NavigateToSelectRegister -> {
+                    navController.navigate("selectRegister") {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             }
         }
