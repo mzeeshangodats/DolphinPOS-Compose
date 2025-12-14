@@ -2974,7 +2974,7 @@ fun AddCustomerDialog(
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = firstName,
                             onValueChange = {
@@ -2991,8 +2991,7 @@ fun AddCustomerDialog(
                             isError = firstNameError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
+                                .fillMaxWidth().height(25.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
@@ -3020,7 +3019,7 @@ fun AddCustomerDialog(
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = lastName,
                             onValueChange = {
@@ -3037,8 +3036,7 @@ fun AddCustomerDialog(
                             isError = lastNameError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
+                                .fillMaxWidth().height(25.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
@@ -3072,7 +3070,7 @@ fun AddCustomerDialog(
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
                             value = email,
                             onValueChange = {
@@ -3087,8 +3085,7 @@ fun AddCustomerDialog(
                             isError = emailError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
+                                .fillMaxWidth().height(25.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
@@ -3117,11 +3114,10 @@ fun AddCustomerDialog(
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
+                        Spacer(modifier = Modifier.height(5.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp)
+                                .fillMaxWidth().height(32.dp)
                                 .clickable { showDatePicker = true }
                                 .border(
                                     width = 1.dp,
