@@ -1,11 +1,14 @@
 package com.retail.dolphinpos.presentation.features.ui.orders
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.presentation.R
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
@@ -33,6 +36,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val ordersRepository: OrdersRepository,
     private val orderRepository: OrderRepositoryImpl,
     private val preferenceManager: PreferenceManager,
@@ -57,15 +61,45 @@ class OrdersViewModel @Inject constructor(
     private val _uiEvent = MutableSharedFlow<OrdersUiEvent>()
     val uiEvent: SharedFlow<OrdersUiEvent> = _uiEvent.asSharedFlow()
 
-    fun loadOrders(keyword: String? = null) {
+    private val _startDate = MutableStateFlow<String?>(null)
+    val startDate: StateFlow<String?> = _startDate.asStateFlow()
+
+    private val _endDate = MutableStateFlow<String?>(null)
+    val endDate: StateFlow<String?> = _endDate.asStateFlow()
+
+    fun setStartDate(date: String) {
+        _startDate.value = date
+    }
+
+    fun setEndDate(date: String) {
+        _endDate.value = date
+    }
+
+    fun loadOrders(keyword: String? = null, reset: Boolean = true) {
         viewModelScope.launch {
             _isLoading.value = true
             _uiEvent.emit(OrdersUiEvent.ShowLoading)
+            
+            // Clear orders when resetting to ensure clean refresh
+            if (reset) {
+                _orders.value = emptyList()
+            }
+            
+            // Check internet connection
+            if (!networkMonitor.isNetworkAvailable()) {
+                _isLoading.value = false
+                _uiEvent.emit(OrdersUiEvent.HideLoading)
+                _uiEvent.emit(
+                    OrdersUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
+                )
+                // Still load from local database for offline functionality
+                loadOrdersFromLocalDatabase(keyword)
+                return@launch
+            }
+            
             try {
                 // If internet is available, fetch orders from API and save to unified table
-                if (networkMonitor.isNetworkAvailable()) {
-                    loadOrdersFromApi(keyword)
-                }
+                loadOrdersFromApi(keyword)
                 
                 // Always load orders from unified table (works for both online and offline)
                 loadOrdersFromLocalDatabase(keyword)
@@ -81,25 +115,27 @@ class OrdersViewModel @Inject constructor(
 
     private suspend fun loadOrdersFromApi(keyword: String?) {
         try {
-            // Get date range (last 30 days by default)
-            val calendar = Calendar.getInstance()
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val calendar = Calendar.getInstance()
 
-            // End date is today
-            val endDate = dateFormat.format(calendar.time)
+            // Use selected dates, or default to last 1 day
+            val endDateStr = _endDate.value ?: run {
+                dateFormat.format(calendar.time)
+            }
 
-            // Start date is 30 days ago
-            calendar.add(Calendar.DAY_OF_YEAR, -30)
-            val startDate = dateFormat.format(calendar.time)
+            val startDateStr = _startDate.value ?: run {
+                calendar.add(Calendar.DAY_OF_YEAR, -1)
+                dateFormat.format(calendar.time)
+            }
 
             val storeId = preferenceManager.getStoreID()
 
             val result = ordersRepository.getOrdersDetails(
                 orderBy = "createdAt",
                 order = "desc",
-                startDate = startDate,
-                endDate = endDate,
-                limit = 100, // Load 100 orders at a time
+                startDate = startDateStr,
+                endDate = endDateStr,
+                limit = 10,
                 page = 1,
                 paginate = true,
                 storeId = storeId,
@@ -134,11 +170,52 @@ class OrdersViewModel @Inject constructor(
                 orderRepository.searchOrdersByStoreId(storeId, keyword)
             }
 
+            // Filter orders by date range
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val calendar = Calendar.getInstance()
+            
+            val startDateStr = _startDate.value
+            val endDateStr = _endDate.value
+            
+            val filteredOrders = if (startDateStr != null && endDateStr != null) {
+                try {
+                    // Parse start date (beginning of day: 00:00:00.000)
+                    val startDate = dateFormat.parse(startDateStr)
+                    calendar.time = startDate
+                    calendar.set(Calendar.HOUR_OF_DAY, 0)
+                    calendar.set(Calendar.MINUTE, 0)
+                    calendar.set(Calendar.SECOND, 0)
+                    calendar.set(Calendar.MILLISECOND, 0)
+                    val startTimestamp = calendar.timeInMillis
+                    
+                    // Parse end date (end of day: 23:59:59.999)
+                    val endDate = dateFormat.parse(endDateStr)
+                    calendar.time = endDate
+                    calendar.set(Calendar.HOUR_OF_DAY, 23)
+                    calendar.set(Calendar.MINUTE, 59)
+                    calendar.set(Calendar.SECOND, 59)
+                    calendar.set(Calendar.MILLISECOND, 999)
+                    val endTimestamp = calendar.timeInMillis
+                    
+                    // Filter orders within date range
+                    allOrders.filter { order ->
+                        order.createdAt >= startTimestamp && order.createdAt <= endTimestamp
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("OrdersViewModel", "Error parsing dates: ${e.message}")
+                    // If date parsing fails, return all orders
+                    allOrders
+                }
+            } else {
+                // If dates not set, return all orders
+                allOrders
+            }
+
             // Convert OrderEntity to OrderDetailList and group by isSynced status
             val completedList = mutableListOf<OrderDetailList>()
             val pendingList = mutableListOf<OrderDetailList>()
             
-            allOrders.forEach { entity ->
+            filteredOrders.forEach { entity ->
                 val orderDetail = convertOrderEntityToOrderDetailList(entity)
                 if (entity.isSynced) {
                     completedList.add(orderDetail)
@@ -147,7 +224,7 @@ class OrdersViewModel @Inject constructor(
                 }
             }
 
-            _orders.value = allOrders.map { convertOrderEntityToOrderDetailList(it) }
+            _orders.value = filteredOrders.map { convertOrderEntityToOrderDetailList(it) }
             _completedOrders.value = completedList
             _pendingOrders.value = pendingList
             _uiEvent.emit(OrdersUiEvent.HideLoading)
@@ -285,7 +362,23 @@ class OrdersViewModel @Inject constructor(
     }
 
     init {
+        // Initialize default dates: end date = today, start date = 1 day ago (yesterday)
+        initializeDefaultDates()
         loadOrders()
+    }
+
+    private fun initializeDefaultDates() {
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val calendar = Calendar.getInstance()
+
+        // End date = current date
+        val endDateStr = dateFormat.format(calendar.time)
+        _endDate.value = endDateStr
+
+        // Start date = 1 day ago
+        calendar.add(Calendar.DAY_OF_YEAR, -1)
+        val startDateStr = dateFormat.format(calendar.time)
+        _startDate.value = startDateStr
     }
 
     fun printOrder(order: OrderDetailList) {

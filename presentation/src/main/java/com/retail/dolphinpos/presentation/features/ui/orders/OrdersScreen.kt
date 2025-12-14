@@ -1,7 +1,9 @@
 package com.retail.dolphinpos.presentation.features.ui.orders
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.platform.LocalContext
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.fragment.app.FragmentActivity
+import com.google.android.material.datepicker.CalendarConstraints
+import com.google.android.material.datepicker.DateValidatorPointBackward
+import com.google.android.material.datepicker.MaterialDatePicker
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +51,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseButton
@@ -56,7 +65,9 @@ import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
+import java.util.TimeZone
 
 @Composable
 fun OrdersScreen(
@@ -66,9 +77,34 @@ fun OrdersScreen(
 ) {
     val orders by viewModel.orders.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val startDate by viewModel.startDate.collectAsState()
+    val endDate by viewModel.endDate.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var selectedOrder by remember { mutableStateOf<OrderDetailList?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val displayDateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+    val apiDateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    val dismiss = stringResource(id = R.string.dismiss)
+    val context = LocalContext.current
+
+    // Get activity for fragment manager
+    val activity = remember {
+        when {
+            context is FragmentActivity -> context
+            context is android.app.Activity -> {
+                try {
+                    context as? FragmentActivity
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            else -> null
+        }
+    }
+
+    // State to trigger date pickers
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     // Get username and clock-in status from preferences
     val userName = preferenceManager.getName()
@@ -95,6 +131,116 @@ fun OrdersScreen(
         }
     }
 
+    // Handle start date picker
+    LaunchedEffect(showStartDatePicker) {
+        if (showStartDatePicker && activity != null) {
+            try {
+                val constraints = CalendarConstraints.Builder()
+                    .setValidator(DateValidatorPointBackward.now())
+                    .build()
+
+                val datePicker = MaterialDatePicker.Builder.datePicker()
+                    .setTitleText("Select Start Date")
+                    .setCalendarConstraints(constraints)
+                    .build()
+
+                datePicker.addOnPositiveButtonClickListener { selectedDate ->
+                    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    calendar.timeInMillis = selectedDate
+                    val dateStr = apiDateFormat.format(calendar.time)
+                    
+                    // Validate: Start date should not be after end date
+                    val currentEndDate = endDate
+                    if (currentEndDate != null) {
+                        try {
+                            val selectedDateParsed = apiDateFormat.parse(dateStr)
+                            val endDateParsed = apiDateFormat.parse(currentEndDate)
+                            if (selectedDateParsed != null && endDateParsed != null && selectedDateParsed.after(endDateParsed)) {
+                                // Show error dialog
+                                DialogHandler.showDialog(
+                                    message = "Start date cannot be selected after end date",
+                                    buttonText = dismiss
+                                ) {}
+                                return@addOnPositiveButtonClickListener
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("OrdersScreen", "Error validating dates: ${e.message}")
+                        }
+                    }
+                    
+                    viewModel.setStartDate(dateStr)
+                }
+
+                datePicker.addOnDismissListener {
+                    showStartDatePicker = false
+                }
+
+                datePicker.show(activity.supportFragmentManager, "StartDatePicker")
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersScreen", "Error showing start date picker: ${e.message}")
+                showStartDatePicker = false
+            }
+        } else if (showStartDatePicker && activity == null) {
+            android.util.Log.e("OrdersScreen", "Activity is not FragmentActivity, cannot show date picker")
+            showStartDatePicker = false
+        }
+    }
+
+    // Handle end date picker
+    LaunchedEffect(showEndDatePicker) {
+        if (showEndDatePicker && activity != null) {
+            try {
+                val constraints = CalendarConstraints.Builder()
+                    .setValidator(DateValidatorPointBackward.now())
+                    .build()
+
+                val datePicker = MaterialDatePicker.Builder.datePicker()
+                    .setTitleText("Select End Date")
+                    .setCalendarConstraints(constraints)
+                    .build()
+
+                datePicker.addOnPositiveButtonClickListener { selectedDate ->
+                    val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    calendar.timeInMillis = selectedDate
+                    val dateStr = apiDateFormat.format(calendar.time)
+                    
+                    // Validate: End date should not be before start date
+                    val currentStartDate = startDate
+                    if (currentStartDate != null) {
+                        try {
+                            val selectedDateParsed = apiDateFormat.parse(dateStr)
+                            val startDateParsed = apiDateFormat.parse(currentStartDate)
+                            if (selectedDateParsed != null && startDateParsed != null && selectedDateParsed.before(startDateParsed)) {
+                                // Show error dialog
+                                DialogHandler.showDialog(
+                                    message = "End date cannot be selected before start date",
+                                    buttonText = dismiss
+                                ) {}
+                                return@addOnPositiveButtonClickListener
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("OrdersScreen", "Error validating dates: ${e.message}")
+                        }
+                    }
+                    
+                    viewModel.setEndDate(dateStr)
+                }
+
+                datePicker.addOnDismissListener {
+                    showEndDatePicker = false
+                }
+
+                datePicker.show(activity.supportFragmentManager, "EndDatePicker")
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersScreen", "Error showing end date picker: ${e.message}")
+                showEndDatePicker = false
+            }
+        } else if (showEndDatePicker && activity == null) {
+            android.util.Log.e("OrdersScreen", "Activity is not FragmentActivity, cannot show date picker")
+            showEndDatePicker = false
+        }
+    }
+
     // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -114,6 +260,13 @@ fun OrdersScreen(
                     when (event) {
                         is OrdersUiEvent.ShowLoading -> Loader.show("Loading...")
                         is OrdersUiEvent.HideLoading -> Loader.hide()
+                        is OrdersUiEvent.ShowNoInternetDialog -> {
+                            DialogHandler.showDialog(
+                                message = event.message,
+                                buttonText = dismiss,
+                                iconRes = R.drawable.no_internet_icon
+                            ) {}
+                        }
                         is OrdersUiEvent.ShowError -> {
                             DialogHandler.showDialog(
                                 message = event.message,
@@ -155,6 +308,110 @@ fun OrdersScreen(
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            // Date Range Selector
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Start Date
+                Column(modifier = Modifier.weight(0.8f)) {
+                    BaseText(
+                        text = "Start Date",
+                        fontSize = 12f,
+                        color = Color.Gray,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            ) {
+                                showStartDatePicker = true
+                            },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BaseText(
+                            text = startDate?.let {
+                                try {
+                                    val date = apiDateFormat.parse(it)
+                                    date?.let { displayDateFormat.format(it) } ?: it
+                                } catch (e: Exception) {
+                                    it
+                                }
+                            } ?: "Select Start Date",
+                            fontSize = 14f,
+                            color = if (startDate != null) Color.Black else Color.Gray,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+
+                // End Date
+                Column(modifier = Modifier.weight(0.8f)) {
+                    BaseText(
+                        text = "End Date",
+                        fontSize = 12f,
+                        color = Color.Gray,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
+                            .padding(12.dp)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                            ) {
+                                showEndDatePicker = true
+                            },
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        BaseText(
+                            text = endDate?.let {
+                                try {
+                                    val date = apiDateFormat.parse(it)
+                                    date?.let { displayDateFormat.format(it) } ?: it
+                                } catch (e: Exception) {
+                                    it
+                                }
+                            } ?: "Select End Date",
+                            fontSize = 14f,
+                            color = if (endDate != null) Color.Black else Color.Gray,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+
+                // Apply Button
+                BaseButton(
+                    text = "Apply",
+                    modifier = Modifier
+                        .width(120.dp)
+                        .padding(top = 20.dp),
+                    backgroundColor = colorResource(id = R.color.primary),
+                    textColor = Color.White,
+                    fontSize = 14,
+                    fontWeight = FontWeight.SemiBold,
+                    height = 40.dp,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    onClick = {
+                        viewModel.loadOrders(searchQuery, reset = true)
+                    }
+                )
+            }
+
             // Search Bar
             Row(
                 modifier = Modifier

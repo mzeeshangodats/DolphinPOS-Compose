@@ -49,6 +49,8 @@ import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
+import com.retail.dolphinpos.presentation.util.DialogHandler
+import androidx.compose.ui.res.stringResource
 import com.retail.dolphinpos.domain.model.TaxDetail
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -87,6 +89,7 @@ fun TransactionActivityContent(
     // Date format for display
     val displayDateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val apiDateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
+    val dismiss = stringResource(id = R.string.dismiss)
     
     val context = LocalContext.current
     
@@ -172,6 +175,26 @@ fun TransactionActivityContent(
                     val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
                     calendar.timeInMillis = selectedDate
                     val dateStr = apiDateFormat.format(calendar.time)
+                    
+                    // Validate: Start date should not be after end date
+                    val currentEndDate = endDate
+                    if (currentEndDate != null) {
+                        try {
+                            val selectedDateParsed = apiDateFormat.parse(dateStr)
+                            val endDateParsed = apiDateFormat.parse(currentEndDate)
+                            if (selectedDateParsed != null && endDateParsed != null && selectedDateParsed.after(endDateParsed)) {
+                                // Show error dialog
+                                DialogHandler.showDialog(
+                                    message = "Start date cannot be selected after end date",
+                                    buttonText = dismiss
+                                ) {}
+                                return@addOnPositiveButtonClickListener
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TransactionActivity", "Error validating dates: ${e.message}")
+                        }
+                    }
+                    
                     viewModel.setStartDate(dateStr)
                 }
                 
@@ -207,6 +230,26 @@ fun TransactionActivityContent(
                     val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
                     calendar.timeInMillis = selectedDate
                     val dateStr = apiDateFormat.format(calendar.time)
+                    
+                    // Validate: End date should not be before start date
+                    val currentStartDate = startDate
+                    if (currentStartDate != null) {
+                        try {
+                            val selectedDateParsed = apiDateFormat.parse(dateStr)
+                            val startDateParsed = apiDateFormat.parse(currentStartDate)
+                            if (selectedDateParsed != null && startDateParsed != null && selectedDateParsed.before(startDateParsed)) {
+                                // Show error dialog
+                                DialogHandler.showDialog(
+                                    message = "End date cannot be selected before start date",
+                                    buttonText = dismiss
+                                ) {}
+                                return@addOnPositiveButtonClickListener
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("TransactionActivity", "Error validating dates: ${e.message}")
+                        }
+                    }
+                    
                     viewModel.setEndDate(dateStr)
                 }
                 
