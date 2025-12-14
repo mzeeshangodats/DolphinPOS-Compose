@@ -64,7 +64,7 @@ fun PinCodeScreen(
     var activeUserDetails by remember { mutableStateOf<ActiveUserDetails?>(null) }
 
     val pleaseWait = stringResource(id = R.string.plz_wait)
-    val tryAgain = stringResource(id = R.string.try_again)
+    val dismiss = stringResource(id = R.string.dismiss)
 
     // Handle back button press - navigate to splash screen
     BackHandler {
@@ -99,7 +99,7 @@ fun PinCodeScreen(
                     } else {
                         DialogHandler.showDialog(
                             message = event.message,
-                            buttonText = tryAgain,
+                            buttonText = dismiss
                         ) {
                             pinValue = ""
                         }
@@ -154,6 +154,16 @@ fun PinCodeScreen(
                 is VerifyPinUiEvent.NavigateToSelectRegister -> {
                     navController.navigate("selectRegister") {
                         popUpTo(0) { inclusive = true }
+                    }
+                }
+
+                is VerifyPinUiEvent.ShowNoInternetDialog -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = dismiss,
+                        iconRes = R.drawable.no_internet_icon
+                    ) {
+                        pinValue = ""
                     }
                 }
             }

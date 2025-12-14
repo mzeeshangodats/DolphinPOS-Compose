@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.data.work
+package com.retail.dolphinpos.work_manager
 
 import android.content.Context
 import androidx.hilt.work.HiltWorkerFactory
@@ -30,17 +30,10 @@ object WorkManagerConfiguration {
         WorkManager.initialize(context, configuration)
         
         // Enqueue periodic sync work when internet is available
-        enqueueBatchSyncWork(context)
         enqueueOrderSyncWork(context)
         enqueueRegisterVerificationWork(context)
         enqueueTimeSlotSyncWork(context)
-    }
-
-    private fun enqueueBatchSyncWork(context: Context) {
-        enqueuePeriodicSyncWork<BatchSyncWorker>(
-            context = context,
-            tag = "BATCH_SYNC"
-        )
+        enqueueBatchStatusCheckWork(context)
     }
 
     private fun enqueueOrderSyncWork(context: Context) {
@@ -61,6 +54,13 @@ object WorkManagerConfiguration {
         enqueuePeriodicSyncWork<TimeSlotSyncWorker>(
             context = context,
             tag = "TIME_SLOT_SYNC"
+        )
+    }
+
+    private fun enqueueBatchStatusCheckWork(context: Context) {
+        enqueuePeriodicSyncWork<BatchStatusCheckWorker>(
+            context = context,
+            tag = "BATCH_STATUS_CHECK"
         )
     }
 

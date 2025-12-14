@@ -48,6 +48,7 @@ fun CashDenominationScreen(
     val currentCount by viewModel.currentCount.collectAsState()
 
     val currencyFormatter = remember { NumberFormat.getCurrencyInstance(Locale.US) }
+    val dismiss = stringResource(id = R.string.dismiss)
 
     // Handle UI events
     LaunchedEffect(Unit) {
@@ -59,7 +60,15 @@ fun CashDenominationScreen(
                 is CashDenominationUiEvent.ShowError -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = "OK"
+                        buttonText = dismiss,
+                    ) {}
+                }
+
+                is CashDenominationUiEvent.ShowNoInternetDialog -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = dismiss,
+                        iconRes = R.drawable.no_internet_icon
                     ) {}
                 }
             }

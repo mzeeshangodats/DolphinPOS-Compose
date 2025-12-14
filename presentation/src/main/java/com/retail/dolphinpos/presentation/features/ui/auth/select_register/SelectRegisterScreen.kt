@@ -71,16 +71,14 @@ fun SelectRegisterScreen(
 
     val locationError = stringResource(id = R.string.no_loc_found)
     val registerError = stringResource(id = R.string.no_register_found)
-
-    val pleaseWait = stringResource(id = R.string.plz_wait)
-    val tryAgain = stringResource(id = R.string.try_again)
+    val dismiss = stringResource(id = R.string.dismiss)
 
     // 🔹 Handle events from ViewModel
     LaunchedEffect(Unit) {
         viewModel.selectRegisterUiEvent.collectLatest { event ->
             when (event) {
                 is SelectRegisterUiEvent.ShowLoading -> {
-                    Loader.show(pleaseWait)
+                    Loader.show(event.message)
                 }
 
                 is SelectRegisterUiEvent.HideLoading -> {
@@ -90,7 +88,8 @@ fun SelectRegisterScreen(
                 is SelectRegisterUiEvent.ShowError -> {
                     DialogHandler.showDialog(
                         message = event.message,
-                        buttonText = tryAgain
+                        buttonText = dismiss,
+                        iconRes = R.drawable.no_internet_icon
                     ) {}
                 }
 

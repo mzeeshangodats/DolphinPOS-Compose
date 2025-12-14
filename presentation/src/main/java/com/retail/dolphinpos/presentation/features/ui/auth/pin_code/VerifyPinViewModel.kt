@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.auth.pin_code
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,12 +9,17 @@ import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
+import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.GetCurrentTimeUseCase
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.network.NoConnectivityException
+import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,11 +32,13 @@ import javax.inject.Inject
 
 @HiltViewModel
 class VerifyPinViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: VerifyPinRepository,
     private val preferenceManager: PreferenceManager,
     private val getCurrentTimeUseCase: GetCurrentTimeUseCase,
     private val batchReportRepository: BatchReportRepository,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val storeRegistersRepository: StoreRegistersRepository
 ) : ViewModel() {
     private val _currentTime = MutableStateFlow("")
     val currentTime: StateFlow<String> = _currentTime
@@ -73,30 +81,103 @@ class VerifyPinViewModel @Inject constructor(
                             repository.getActiveUserDetailsByPin(pin)
                         )
                     )
-                    
+
                     // Check internet before batch status API call
                     if (!networkMonitor.isNetworkAvailable()) {
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                         _verifyPinUiEvent.emit(
-                            VerifyPinUiEvent.ShowDialog("No Internet\nPlease Connect with an Active Internet")
+                            VerifyPinUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
                         )
                         return@launch
                     }
-                    
-                    val remoteBatchReport = checkRemoteBatchStatus()
-                    val remoteBatchStatus = remoteBatchReport?.data?.status
-                    remoteBatchStatus?.let { preferenceManager.setBatchStatus(it) }
 
-                    // Check if register has been released (closingCashAmount != 0)
-                    val closingCashAmount = remoteBatchReport?.data?.closingCashAmount ?: 0.0
-                    if (closingCashAmount != 0.0) {
-                        // Clear batch number from preferences
+                    val batchReport = checkBatchStatus()
+                    val batchStatus = batchReport?.data?.status
+                    batchStatus?.let { preferenceManager.setBatchStatus(it) }
+
+                    // If batch status is closed, show dialog then navigate to cash denomination screen
+                    if (batchStatus?.equals("closed", ignoreCase = true) == true) {
                         preferenceManager.clearBatchNo()
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                         _verifyPinUiEvent.emit(
-                            VerifyPinUiEvent.ShowRegisterReleasedDialog("Your register has been release by someone from portal")
+                            VerifyPinUiEvent.ShowBatchClosedDialog("Your batch has been closed by someone from portal")
                         )
                         return@launch
+                    }
+
+                    // Verify register status after batch status check
+                    val storeId = preferenceManager.getStoreID()
+                    val locationId = preferenceManager.getOccupiedLocationID()
+                    val storeRegisterId = preferenceManager.getOccupiedRegisterID()
+
+                    if (storeId != 0 && locationId != 0 && storeRegisterId != 0) {
+                        try {
+                            val verifyRequest = VerifyRegisterRequest(
+                                storeId = storeId,
+                                locationId = locationId,
+                                storeRegisterId = storeRegisterId
+                            )
+
+                            val verifyResponse =
+                                storeRegistersRepository.verifyStoreRegister(verifyRequest)
+                            val registerStatus = verifyResponse.data.status.lowercase()
+
+                            // Check if register is NOT occupied (active/free)
+                            if (registerStatus != "occupied") {
+                                Log.w(TAG, "Register status is not occupied: $registerStatus")
+
+                                // Close batch if there's an open batch
+                                val batchNo = preferenceManager.getBatchNo()
+                                try {
+                                    val batchDetails = batchReportRepository.getBatchDetails()
+                                    val userId = preferenceManager.getUserID()
+                                    val closingCashAmount = batchDetails.startingCashAmount
+
+                                    val batchCloseRequest = BatchCloseRequest(
+                                        cashierId = userId,
+                                        closedBy = userId,
+                                        closingCashAmount = closingCashAmount,
+                                        locationId = locationId,
+                                        orders = emptyList(),
+                                        paxBatchNo = "",
+                                        storeId = storeId
+                                    )
+
+                                    val closeResult =
+                                        batchReportRepository.batchClose(batchNo, batchCloseRequest)
+
+                                    // Properly handle the Result
+                                    if (closeResult.isSuccess) {
+                                        closeResult.getOrNull()?.let {
+                                            Log.d(
+                                                TAG,
+                                                "Batch closed successfully after register release"
+                                            )
+                                            preferenceManager.setBatchStatus("closed")
+                                            preferenceManager.clearBatchNo()
+                                        }
+                                    } else {
+                                        val exception = closeResult.exceptionOrNull()
+                                        Log.e(
+                                            TAG,
+                                            "Failed to close batch: ${exception?.message ?: "Unknown error"}"
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error closing batch: ${e.message}", e)
+                                }
+
+                                preferenceManager.setRegister(false)
+                                _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
+                                _verifyPinUiEvent.emit(
+                                    VerifyPinUiEvent.ShowRegisterReleasedDialog("Your register has been release by someone from portal")
+                                )
+                                return@launch
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error verifying register status: ${e.message}", e)
+                            // Continue with normal flow if verification fails
+                        }
                     }
 
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
@@ -104,11 +185,11 @@ class VerifyPinViewModel @Inject constructor(
                     // Determine navigation based on remote batch status
                     when {
                         // If batch is already active (open), proceed to home
-                        remoteBatchStatus?.equals("active", ignoreCase = true) == true -> {
+                        batchStatus?.equals("active", ignoreCase = true) == true -> {
                             _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
                         }
                         // If batch status is closed, redirect to Cash Denomination to start a new batch
-                        remoteBatchStatus?.equals("closed", ignoreCase = true) == true -> {
+                        batchStatus?.equals("closed", ignoreCase = true) == true -> {
                             _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
                         }
                         // If remote status is null, check local preference
@@ -242,12 +323,16 @@ class VerifyPinViewModel @Inject constructor(
                 )
             } catch (e: Exception) {
                 _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
-                _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(e.message ?: "Clock In/Out failed"))
+                _verifyPinUiEvent.emit(
+                    VerifyPinUiEvent.ShowDialog(
+                        e.message ?: "Clock In/Out failed"
+                    )
+                )
             }
         }
     }
 
-    fun getClockInOutHistory(pin: String){
+    fun getClockInOutHistory(pin: String) {
         viewModelScope.launch {
             try {
                 val locationId = preferenceManager.getOccupiedLocationID()
@@ -267,7 +352,7 @@ class VerifyPinViewModel @Inject constructor(
         }
     }
 
-    private suspend fun checkRemoteBatchStatus(): com.retail.dolphinpos.domain.model.report.BatchReport? {
+    private suspend fun checkBatchStatus(): com.retail.dolphinpos.domain.model.report.BatchReport? {
         val batchNo = preferenceManager.getBatchNo()
         if (batchNo.isBlank()) {
             return null

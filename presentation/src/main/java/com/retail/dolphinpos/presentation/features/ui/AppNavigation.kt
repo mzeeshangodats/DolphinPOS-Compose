@@ -25,8 +25,16 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
     val navController = rememberNavController()
     
     // Determine start destination: show splash only on first launch
+    // But check login status - if not logged in, always show splash or login
     val startDestination = if (preferenceManager.isSplashScreenShown()) {
-        "pinCode"  // Skip splash after first time
+        // Check if user is logged in before going to pinCode
+        val isLoggedIn = preferenceManager.isLogin()
+        val hasRegister = preferenceManager.getRegister()
+        when {
+            !isLoggedIn -> "login"  // Redirect to login if not logged in
+            !hasRegister -> "selectRegister"  // Redirect to select register if no register
+            else -> "pinCode"  // Only go to pinCode if logged in and has register
+        }
     } else {
         "splash"   // Show splash on first launch
     }

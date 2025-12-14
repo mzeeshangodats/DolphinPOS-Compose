@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.auth.cash_denomination
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -10,8 +11,10 @@ import com.retail.dolphinpos.domain.model.auth.cash_denomination.Denomination
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationType
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +27,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CashDenominationViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: CashDenominationRepository,
     private val preferenceManager: PreferenceManager,
     private val networkMonitor: NetworkMonitor
@@ -145,12 +149,9 @@ class CashDenominationViewModel @Inject constructor(
                 
                 // Batch/open API requires internet connection - check before proceeding
                 if (!networkMonitor.isNetworkAvailable()) {
-                    Log.e("Batch", "No internet connection. Cannot open batch without internet.")
-                    // Hide progress dialog
                     Loader.hide()
-                    // Show error and don't navigate to home
                     _cashDenominationUiEvent.emit(
-                        CashDenominationUiEvent.ShowError("No Internet\nPlease Connect with an Active Internet")
+                        CashDenominationUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
                     )
                     return@launch
                 }
@@ -158,7 +159,7 @@ class CashDenominationViewModel @Inject constructor(
                 // Save batch number to SharedPreferences
                 preferenceManager.setBatchNo(batchNo)
                 // Set batch status to "open"
-                preferenceManager.setBatchStatus("open")
+                preferenceManager.setBatchStatus("active")
                 
                 val batch = Batch(
                     batchNo = batchNo,

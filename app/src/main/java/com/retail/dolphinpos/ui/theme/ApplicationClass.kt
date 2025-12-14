@@ -3,7 +3,7 @@ package com.retail.dolphinpos.ui.theme
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import com.retail.dolphinpos.data.work.WorkManagerConfiguration
+import com.retail.dolphinpos.work_manager.WorkManagerConfiguration
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp

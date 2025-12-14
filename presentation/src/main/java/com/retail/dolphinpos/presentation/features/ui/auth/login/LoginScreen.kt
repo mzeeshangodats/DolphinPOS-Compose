@@ -52,7 +52,7 @@ fun LoginScreen(
     val isButtonEnabled = username.isNotBlank() && password.isNotBlank()
 
     val pleaseWait = stringResource(id = R.string.plz_wait)
-    val tryAgain = stringResource(id = R.string.try_again)
+    val dismiss = stringResource(id = R.string.dismiss)
 
     LaunchedEffect(viewModel.loginUiEvent) {
         when (val event = viewModel.loginUiEvent) {
@@ -60,7 +60,7 @@ fun LoginScreen(
             is LoginUiEvent.HideLoading -> Loader.hide()
             is LoginUiEvent.ShowError -> {
                 Loader.hide()
-                DialogHandler.showDialog(message = event.message, buttonText = tryAgain)
+                DialogHandler.showDialog(message = event.message, buttonText = dismiss)
             }
 
             is LoginUiEvent.NavigateToRegister -> {
@@ -69,6 +69,13 @@ fun LoginScreen(
             }
 
             null -> Unit
+            is LoginUiEvent.ShowNoInternetDialog -> {
+                DialogHandler.showDialog(
+                    message = event.message,
+                    buttonText = dismiss,
+                    iconRes = R.drawable.no_internet_icon
+                )
+            }
         }
     }
 

@@ -7,8 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
+import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
@@ -18,7 +20,8 @@ import javax.inject.Inject
 open class LoginViewModel @Inject constructor(
     @ApplicationContext val context: Context,
     private val repository: LoginRepository,
-    private val preferenceManager: PreferenceManager
+    private val preferenceManager: PreferenceManager,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     // 🔹 Compose state
@@ -32,6 +35,15 @@ open class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             isLoading = true
             loginUiEvent = LoginUiEvent.ShowLoading
+            
+            // Check internet connection before attempting login
+            if (!networkMonitor.isNetworkAvailable()) {
+                isLoading = false
+                loginUiEvent = LoginUiEvent.HideLoading
+                loginUiEvent = LoginUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
+                return@launch
+            }
+            
             try {
                 val response = repository.login(LoginRequest(username, password))
                 isLoading = false

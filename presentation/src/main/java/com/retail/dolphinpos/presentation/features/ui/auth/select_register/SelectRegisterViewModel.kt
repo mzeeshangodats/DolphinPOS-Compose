@@ -29,7 +29,7 @@ class SelectRegisterViewModel @Inject constructor(
 
     fun getStoreLocations() {
         viewModelScope.launch {
-            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
+            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading())
             try {
                 val response = storeRegistersRepository.getLocations(preferenceManager.getStoreID())
                 _selectRegisterUiEvent.emit(SelectRegisterUiEvent.HideLoading)
@@ -56,7 +56,7 @@ class SelectRegisterViewModel @Inject constructor(
 
     fun getStoreRegisters(locationID: Int) {
         viewModelScope.launch {
-            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
+            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading())
             try {
                 val response =
                     storeRegistersRepository.getRegistersByLocationID(locationID)
@@ -76,7 +76,7 @@ class SelectRegisterViewModel @Inject constructor(
 
     fun updateStoreRegister(locationID: Int, storeRegisterID: Int) {
         viewModelScope.launch {
-            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
+            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading())
             try {
                 val response = storeRegistersRepository.updateStoreRegister(
                     UpdateStoreRegisterRequest(
@@ -107,7 +107,7 @@ class SelectRegisterViewModel @Inject constructor(
 
     fun getProducts(locationID: Int, storeRegisterID: Int, selectedRegister: com.retail.dolphinpos.domain.model.auth.login.response.Registers) {
         viewModelScope.launch {
-            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
+            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading("Fetching products… Please wait. "))
             try {
                 // Save the selected register to database
                 storeRegistersRepository.insertRegisterIntoLocalDB(selectedRegister)
@@ -203,7 +203,7 @@ class SelectRegisterViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading)
+            _selectRegisterUiEvent.emit(SelectRegisterUiEvent.ShowLoading())
             try {
                 val response = storeRegistersRepository.logout()
                 response.message.let {

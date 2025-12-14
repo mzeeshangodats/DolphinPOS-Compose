@@ -230,7 +230,7 @@ class PreferenceManager @Inject constructor(
     }
 
     fun isBatchOpen(): Boolean {
-        return getBatchStatus() == "open"
+        return getBatchStatus() == "active"
     }
 
     // Customer Display methods
