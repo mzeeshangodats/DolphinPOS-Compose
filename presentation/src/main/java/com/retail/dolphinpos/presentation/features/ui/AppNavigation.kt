@@ -141,17 +141,17 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
 
         // Batch Report Screen
         composable("batch_report") {
-            BatchReportScreen(navController = navController)
+            BatchReportScreen(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Batch History Screen
         composable("batch_history") {
-            BatchHistoryScreen(navController = navController)
+            BatchHistoryScreen(navController = navController, preferenceManager = preferenceManager)
         }
 
         // Transaction Activity Screen
         composable("transaction_activity") {
-            TransactionActivityScreen(navController = navController)
+            TransactionActivityScreen(navController = navController, preferenceManager = preferenceManager)
         }
     }
 }

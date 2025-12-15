@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,8 +46,10 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
+import com.retail.dolphinpos.common.components.HeaderAppBar
+import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
@@ -55,18 +58,28 @@ import java.util.Locale
 
 @Composable
 fun BatchReportScreen(
-    navController: NavController, viewModel: BatchReportViewModel = hiltViewModel()
+    navController: NavController, 
+    viewModel: BatchReportViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
-    BatchReportContent(navController = navController, viewModel = viewModel)
+    BatchReportContent(navController = navController, viewModel = viewModel, preferenceManager = preferenceManager)
 }
 
 @Composable
 fun BatchReportContent(
-    navController: NavController, viewModel: BatchReportViewModel = hiltViewModel()
+    navController: NavController, 
+    viewModel: BatchReportViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     val batchReport by viewModel.batchReport.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val showClosingCashDialog by viewModel.showClosingCashDialog.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
+    // Get username and clock-in status from preferences
+    val userName = preferenceManager.getName()
+    val isClockedIn = preferenceManager.isClockedIn()
+    val clockInTime = preferenceManager.getClockInTime()
 
     // Clean up loader when leaving screen
     DisposableEffect(Unit) {
@@ -123,16 +136,15 @@ fun BatchReportContent(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        HeaderAppBarWithBack(
-            title = "Batch Report", onBackClick = {
-                navController.navigate("home") {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        saveState = true
-                    }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            })
+        HeaderAppBar(
+            title = "Batch Report",
+            onLogout = {
+                showLogoutDialog = true
+            },
+            userName = userName,
+            isClockedIn = isClockedIn,
+            clockInTime = clockInTime
+        )
 
         // Show content when not loading (Loader is shown via uiEvent)
         if (!isLoading) {
@@ -149,7 +161,7 @@ fun BatchReportContent(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 0.dp),
                         horizontalArrangement = Arrangement.End
                     ) {
                         BaseButton(
@@ -158,7 +170,7 @@ fun BatchReportContent(
                             enabled = !isLoading,
                             backgroundColor = colorResource(R.color.primary),
                             textColor = Color.White,
-                            modifier = Modifier.width(140.dp)
+                            modifier = Modifier.wrapContentWidth()
                         )
                     }
 
@@ -288,6 +300,20 @@ fun BatchReportContent(
                 },
                 defaultAmount = defaultClosingAmount,
                 batchStatus = batchReport?.status
+            )
+        }
+
+        // Logout Confirmation Dialog
+        if (showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onConfirm = {
+                    showLogoutDialog = false
+                    // Handle logout - navigate to login
+                    navController.navigate("pinCode") {
+                        popUpTo(0) { inclusive = false }
+                    }
+                },
+                onDismiss = { showLogoutDialog = false }
             )
         }
     }

@@ -149,7 +149,7 @@ fun MainLayout(
                 "reports" -> {
                     // Use key to force recomposition when navigating to reports
                     androidx.compose.runtime.key(currentDestination?.id ?: "reports") {
-                        ReportsScreen(navController = navController)
+                        ReportsScreen(navController = navController, preferenceManager = preferenceManager)
                     }
                 }
                 "setup" -> HardwareSetupScreen(navController = navController)

@@ -2965,6 +2965,7 @@ fun AddCustomerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+
                     // First Name
                     Column(modifier = Modifier.weight(1f)) {
                         BaseText(
@@ -2984,20 +2985,23 @@ fun AddCustomerDialog(
                             placeholder = {
                                 BaseText(
                                     text = "Enter First Name",
-                                    fontSize = 13f,
+                                    fontSize = 12f,
                                     fontFamily = GeneralSans
                                 )
                             },
                             isError = firstNameError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth().height(25.dp),
+                                .fillMaxWidth()
+                                .height(48.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
                             ),
                             textStyle = TextStyle(
-                                fontSize = 13.sp, fontFamily = GeneralSans
+                                fontSize = 12.sp,
+                                fontFamily = GeneralSans,
+                                lineHeight = 14.sp
                             )
                         )
                         if (firstNameError.isNotEmpty()) {
@@ -3029,20 +3033,23 @@ fun AddCustomerDialog(
                             placeholder = {
                                 BaseText(
                                     text = "Enter Last Name",
-                                    fontSize = 13f,
+                                    fontSize = 12f,
                                     fontFamily = GeneralSans
                                 )
                             },
                             isError = lastNameError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth().height(25.dp),
+                                .fillMaxWidth()
+                                .height(48.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
                             ),
                             textStyle = TextStyle(
-                                fontSize = 13.sp, fontFamily = GeneralSans
+                                fontSize = 12.sp,
+                                fontFamily = GeneralSans,
+                                lineHeight = 14.sp
                             )
                         )
                         if (lastNameError.isNotEmpty()) {
@@ -3079,20 +3086,23 @@ fun AddCustomerDialog(
                             },
                             placeholder = {
                                 BaseText(
-                                    text = "Enter Email", fontSize = 13f, fontFamily = GeneralSans
+                                    text = "Enter Email", fontSize = 12f, fontFamily = GeneralSans
                                 )
                             },
                             isError = emailError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
-                                .fillMaxWidth().height(25.dp),
+                                .fillMaxWidth()
+                                .height(48.dp),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
                             ),
                             textStyle = TextStyle(
-                                fontSize = 13.sp, fontFamily = GeneralSans
+                                fontSize = 12.sp,
+                                fontFamily = GeneralSans,
+                                lineHeight = 14.sp
                             )
                         )
                         if (emailError.isNotEmpty()) {
@@ -3114,10 +3124,10 @@ fun AddCustomerDialog(
                             fontFamily = GeneralSans,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(modifier = Modifier.height(5.dp))
+                        Spacer(modifier = Modifier.height(7.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth().height(32.dp)
+                                .fillMaxWidth().height(48.dp)
                                 .clickable { showDatePicker = true }
                                 .border(
                                     width = 1.dp,

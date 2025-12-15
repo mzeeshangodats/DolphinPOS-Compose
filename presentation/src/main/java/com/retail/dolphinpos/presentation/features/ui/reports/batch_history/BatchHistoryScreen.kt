@@ -19,6 +19,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
@@ -28,8 +31,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
+import com.retail.dolphinpos.common.components.HeaderAppBar
+import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
 import java.text.SimpleDateFormat
@@ -38,18 +43,26 @@ import java.util.Locale
 @Composable
 fun BatchHistoryScreen(
     navController: NavController,
-    viewModel: BatchHistoryViewModel = hiltViewModel()
+    viewModel: BatchHistoryViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
-    BatchHistoryContent(navController = navController, viewModel = viewModel)
+    BatchHistoryContent(navController = navController, viewModel = viewModel, preferenceManager = preferenceManager)
 }
 
 @Composable
 fun BatchHistoryContent(
     navController: NavController,
-    viewModel: BatchHistoryViewModel = hiltViewModel()
+    viewModel: BatchHistoryViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     val batches by viewModel.batches.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
+    // Get username and clock-in status from preferences
+    val userName = preferenceManager.getName()
+    val isClockedIn = preferenceManager.isClockedIn()
+    val clockInTime = preferenceManager.getClockInTime()
 
     LaunchedEffect(Unit) {
         viewModel.loadBatchHistory()
@@ -77,15 +90,14 @@ fun BatchHistoryContent(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        HeaderAppBarWithBack(
+        HeaderAppBar(
             title = "Batch History",
-            onBackClick = { navController.navigate("home") {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            } }
+            onLogout = {
+                showLogoutDialog = true
+            },
+            userName = userName,
+            isClockedIn = isClockedIn,
+            clockInTime = clockInTime
         )
 
         if (isLoading) {
@@ -130,6 +142,20 @@ fun BatchHistoryContent(
                     }
                 }
             }
+        }
+
+        // Logout Confirmation Dialog
+        if (showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onConfirm = {
+                    showLogoutDialog = false
+                    // Handle logout - navigate to login
+                    navController.navigate("pinCode") {
+                        popUpTo(0) { inclusive = false }
+                    }
+                },
+                onDismiss = { showLogoutDialog = false }
+            )
         }
     }
 }

@@ -14,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BottomNavigationBar
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportContent
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryContent
@@ -22,7 +23,8 @@ import com.retail.dolphinpos.presentation.features.ui.reports.transaction_activi
 @Composable
 fun ReportsScreen(
     navController: NavController,
-    viewModel: ReportsViewModel = hiltViewModel()
+    viewModel: ReportsViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     val menus by viewModel.menus.collectAsStateWithLifecycle()
     val selectedIndex by viewModel.selectedMenuIndex.collectAsStateWithLifecycle()
@@ -39,23 +41,23 @@ fun ReportsScreen(
             when (selectedIndex) {
                 1 -> {
                     // Show Batch Report Screen inline
-                    BatchReportContent(navController = navController)
+                    BatchReportContent(navController = navController, preferenceManager = preferenceManager)
                 }
                 2 -> {
                     // Show Batch History Screen inline
-                    BatchHistoryContent(navController = navController)
+                    BatchHistoryContent(navController = navController, preferenceManager = preferenceManager)
                 }
                 3 -> {
                     // Show Transaction Activity Screen inline
-                    TransactionActivityContent(navController = navController)
+                    TransactionActivityContent(navController = navController, preferenceManager = preferenceManager)
                 }
                 0 -> {
                     // If Home is selected, show Batch Report as default
-                    BatchReportContent(navController = navController)
+                    BatchReportContent(navController = navController, preferenceManager = preferenceManager)
                 }
                 else -> {
                     // Default to Batch Report if index is invalid
-                    BatchReportContent(navController = navController)
+                    BatchReportContent(navController = navController, preferenceManager = preferenceManager)
                 }
             }
         }

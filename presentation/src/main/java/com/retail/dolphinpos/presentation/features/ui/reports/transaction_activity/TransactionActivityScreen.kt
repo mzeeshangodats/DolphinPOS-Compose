@@ -45,8 +45,10 @@ import com.google.android.material.datepicker.DateValidatorPointBackward
 import com.google.android.material.datepicker.MaterialDatePicker
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
+import com.retail.dolphinpos.common.components.HeaderAppBar
+import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
+import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
 import com.retail.dolphinpos.presentation.util.DialogHandler
@@ -66,15 +68,17 @@ private data class TaxDetailWithAmount(
 @Composable
 fun TransactionActivityScreen(
     navController: NavController,
-    viewModel: TransactionActivityViewModel = hiltViewModel()
+    viewModel: TransactionActivityViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
-    TransactionActivityContent(navController = navController, viewModel = viewModel)
+    TransactionActivityContent(navController = navController, viewModel = viewModel, preferenceManager = preferenceManager)
 }
 
 @Composable
 fun TransactionActivityContent(
     navController: NavController,
-    viewModel: TransactionActivityViewModel = hiltViewModel()
+    viewModel: TransactionActivityViewModel = hiltViewModel(),
+    preferenceManager: PreferenceManager
 ) {
     val transactions by viewModel.transactions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -83,6 +87,12 @@ fun TransactionActivityContent(
     val startDate by viewModel.startDate.collectAsState()
     val endDate by viewModel.endDate.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
+    // Get username and clock-in status from preferences
+    val userName = preferenceManager.getName()
+    val isClockedIn = preferenceManager.isClockedIn()
+    val clockInTime = preferenceManager.getClockInTime()
     
     val listState = rememberLazyListState()
     
@@ -271,15 +281,14 @@ fun TransactionActivityContent(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        HeaderAppBarWithBack(
+        HeaderAppBar(
             title = "Transaction Activity",
-            onBackClick = { navController.navigate("home") {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
-                }
-                launchSingleTop = true
-                restoreState = true
-            } }
+            onLogout = {
+                showLogoutDialog = true
+            },
+            userName = userName,
+            isClockedIn = isClockedIn,
+            clockInTime = clockInTime
         )
         
         // Date Range Selector
@@ -448,6 +457,20 @@ fun TransactionActivityContent(
                     }
                 }
             }
+        }
+
+        // Logout Confirmation Dialog
+        if (showLogoutDialog) {
+            LogoutConfirmationDialog(
+                onConfirm = {
+                    showLogoutDialog = false
+                    // Handle logout - navigate to login
+                    navController.navigate("pinCode") {
+                        popUpTo(0) { inclusive = false }
+                    }
+                },
+                onDismiss = { showLogoutDialog = false }
+            )
         }
     }
 }
