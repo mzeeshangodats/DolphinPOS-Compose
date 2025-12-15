@@ -1,10 +1,13 @@
 package com.retail.dolphinpos.presentation.features.ui.reports.batch_report
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,8 +32,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -68,7 +74,7 @@ fun BatchReportContent(
             Loader.hide()
         }
     }
-    
+
     // Use isLoading state directly to show/hide loader for batch report loading
     LaunchedEffect(isLoading) {
         if (isLoading) {
@@ -102,8 +108,7 @@ fun BatchReportContent(
                 is BatchReportUiEvent.ShowError -> {
                     Loader.hide()
                     DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = "OK"
+                        message = event.message, buttonText = "OK"
                     ) {}
                 }
 
@@ -131,83 +136,137 @@ fun BatchReportContent(
 
         // Show content when not loading (Loader is shown via uiEvent)
         if (!isLoading) {
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .background(colorResource(id = R.color.light_grey))
             ) {
-                batchReport?.let { report ->
-                    // Batch Report Card - Showing only requested fields
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(4.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            BaseText(
-                                text = "Batch Report",
-                                fontSize = 18f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            HorizontalDivider(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.LightGray,
-                                thickness = 1.dp
-                            )
-
-                            InfoRow("Batch No", report.batchNo)
-                            InfoRow("Status", report.status ?: "N/A")
-                            InfoRow("Start Amount", formatCurrency(report.startingCashAmount.toDouble()))
-                            InfoRow("End Amount", formatCurrency(report.closingCashAmount.toDouble()))
-                            InfoRow("Cash", formatCurrencyString(report.totalCashAmount))
-                            InfoRow("Card", formatCurrencyString(report.totalCardAmount))
-                            InfoRow("Online Sales", formatCurrencyString(report.totalOnlineSales))
-                            InfoRow("Discount", formatCurrencyString(report.totalDiscount))
-                            InfoRow("Tax", formatCurrencyString(report.totalTax))
-                            InfoRow("PayIn", formatCurrencyAny(report.totalPayIn))
-                            InfoRow("PayOut", formatCurrencyAny(report.totalPayOut))
-                            InfoRow("Refund", "$0.00") // Refund field - set to 0.00 if not available
-//                            InfoRow("Service Charges", formatCurrency(report.totalTip.toDouble()))
-                            InfoRow("Total Sales", formatCurrencyAny(report.totalSales))
-                            InfoRow("Abandon Carts", report.totalAbandonOrders.toString())
-                            InfoRow("Transactions", report.totalTransactions.toString())
-                        }
-                    }
-
-                    // End of Batch Button
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // End Of Batch Button - positioned below header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.End
                     ) {
                         BaseButton(
-                            text = "End of Batch",
+                            text = "End Of Batch",
                             onClick = { viewModel.showClosingCashDialog() },
                             enabled = !isLoading,
                             backgroundColor = colorResource(R.color.primary),
-                            modifier = Modifier.width(250.dp)
+                            textColor = Color.White,
+                            modifier = Modifier.width(140.dp)
                         )
                     }
-                } ?: run {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        BaseText(
-                            text = "No batch report available",
-                            color = Color.Gray,
-                            fontSize = 16f,
-                            fontFamily = GeneralSans
-                        )
+
+                    // Batch Report Card with background image - centered
+                    batchReport?.let { report ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Container Box for image and content - same size
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(0.5f)
+                                    .fillMaxHeight(0.95f)
+                            ) {
+                                // Background image
+                                Image(
+                                    painter = painterResource(id = R.drawable.batch_report_bg),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.FillBounds,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                // Content overlay positioned inside the image bounds
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 60.dp, vertical = 30.dp)
+                                ) {
+                                    Spacer(modifier = Modifier.height(15.dp))
+
+                                    // Batch Number with blue underlined text
+                                    Column {
+                                        BaseText(
+                                            text = "Batch Number: ${report.batchNo}",
+                                            fontSize = 15f,
+                                            fontFamily = GeneralSans,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = colorResource(R.color.primary),
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(15.dp))
+
+                                    // Financial Details List - scrollable if needed
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        InfoRow(
+                                            "Start Amount:",
+                                            formatCurrency(report.startingCashAmount)
+                                        )
+                                        InfoRow(
+                                            "End Amount:",
+                                            formatCurrency(report.closingCashAmount.toDouble())
+                                        )
+                                        InfoRow(
+                                            "Cash", formatCurrencyString(report.totalCashAmount)
+                                        )
+                                        InfoRow(
+                                            "Card", formatCurrencyString(report.totalCardAmount)
+                                        )
+                                        InfoRow(
+                                            "Online sale",
+                                            formatCurrencyString(report.totalOnlineSales)
+                                        )
+                                        InfoRow(
+                                            "Discount", formatCurrencyString(report.totalDiscount)
+                                        )
+                                        InfoRow("Tax", formatCurrencyString(report.totalTax))
+                                        InfoRow("Pay In", formatCurrencyAny(report.totalPayIn))
+                                        InfoRow("Pay Out", formatCurrencyAny(report.totalPayOut))
+                                        InfoRow("Refund", "$0.00")
+                                        InfoRow(
+                                            "Service Charges",
+                                            formatCurrency(report.totalTip.toDouble())
+                                        )
+                                        InfoRow("Gift Card", "$0.00")
+                                        InfoRow("Gift Card Redemption", "$0.00")
+                                        InfoRow("Total Sale", formatCurrencyAny(report.totalSales))
+                                        InfoRow(
+                                            "Abandoned Carts", report.totalAbandonOrders.toString()
+                                        )
+                                        InfoRow("Transactions", report.totalTransactions.toString())
+                                    }
+                                }
+                            }
+                        }
+                    } ?: run {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            BaseText(
+                                text = "No batch report available",
+                                color = Color.Gray,
+                                fontSize = 16f,
+                                fontFamily = GeneralSans
+                            )
+                        }
                     }
                 }
             }
@@ -237,22 +296,26 @@ fun BatchReportContent(
 @Composable
 fun InfoRow(label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
         BaseText(
             text = label,
             fontSize = 14f,
             fontFamily = GeneralSans,
             fontWeight = FontWeight.Medium,
-            color = Color.Gray
+            color = colorResource(R.color.grey_text_colour)
         )
+        Spacer(modifier = Modifier.weight(1f))
         BaseText(
             text = value,
             fontSize = 14f,
             fontFamily = GeneralSans,
-            fontWeight = FontWeight.Medium,
-            color = Color.Black
+            fontWeight = FontWeight.SemiBold,
+            color = colorResource(R.color.grey_text_colour)
         )
     }
 }
@@ -293,8 +356,7 @@ fun ClosingCashAmountDialog(
     var closingCashAmount by remember(defaultAmount, batchStatus) {
         mutableStateOf(
             if (defaultAmount > 0) String.format(
-                "%.2f",
-                defaultAmount
+                "%.2f", defaultAmount
             ) else ""
         )
     }
@@ -305,8 +367,7 @@ fun ClosingCashAmountDialog(
     LaunchedEffect(batchStatus) {
         if (batchStatus?.lowercase() == "closed") {
             closingCashAmount = if (defaultAmount > 0) String.format(
-                "%.2f",
-                defaultAmount
+                "%.2f", defaultAmount
             ) else ""
             errorMessage = null
             shouldClosePaxBatch = true // Reset to checked
@@ -336,16 +397,13 @@ fun ClosingCashAmountDialog(
                 )
 
                 BaseOutlinedEditText(
-                    value = closingCashAmount,
-                    onValueChange = { newValue ->
+                    value = closingCashAmount, onValueChange = { newValue ->
                         // Allow only numbers and one decimal point
                         if (newValue.matches(Regex("^\\d*\\.?\\d*$"))) {
                             closingCashAmount = newValue
                             errorMessage = null
                         }
-                    },
-                    placeholder = "0.00",
-                    modifier = Modifier.fillMaxWidth()
+                    }, placeholder = "0.00", modifier = Modifier.fillMaxWidth()
                 )
 
                 // PAX Batch Close Checkbox
@@ -356,8 +414,7 @@ fun ClosingCashAmountDialog(
                 ) {
                     Checkbox(
                         checked = shouldClosePaxBatch,
-                        onCheckedChange = { shouldClosePaxBatch = it }
-                    )
+                        onCheckedChange = { shouldClosePaxBatch = it })
                     Spacer(modifier = Modifier.width(4.dp))
                     BaseText(
                         text = "Close Pax Batch (must be on the same network with BroadPOS running)",

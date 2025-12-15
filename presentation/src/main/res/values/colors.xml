@@ -12,6 +12,7 @@
     <color name="green_success">#09AA29</color>
     <color name="red_error">#F44336</color>
     <color name="orange">#F2A356</color>
+    <color name="grey_text_colour">#494949</color>
     <color name="colorHint">#3E3E3E</color>
     <color name="colorTextLightMode">#2E2E2E</color>
     <color name="gray_neutral">#494949</color>
