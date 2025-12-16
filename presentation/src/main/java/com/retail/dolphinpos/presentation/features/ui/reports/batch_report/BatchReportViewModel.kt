@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
+import retrofit2.HttpException
 import javax.inject.Inject
 
 sealed class BatchReportUiEvent {
@@ -31,6 +32,7 @@ sealed class BatchReportUiEvent {
     object HideLoading : BatchReportUiEvent()
     data class ShowError(val message: String) : BatchReportUiEvent()
     object NavigateToPinCode : BatchReportUiEvent()
+    object NavigateToCashDenomination : BatchReportUiEvent()
 }
 
 @HiltViewModel
@@ -85,14 +87,35 @@ class BatchReportViewModel @Inject constructor(
 
                 _isLoading.value = false
                 _uiEvent.emit(BatchReportUiEvent.HideLoading)
+            } catch (e: retrofit2.HttpException) {
+                _isLoading.value = false
+                _uiEvent.emit(BatchReportUiEvent.HideLoading)
+                
+                // Handle 404 error - redirect to CashDenominationScreen
+                if (e.code() == 404) {
+                    _uiEvent.emit(BatchReportUiEvent.NavigateToCashDenomination)
+                } else {
+                    _uiEvent.emit(
+                        BatchReportUiEvent.ShowError(
+                            e.message ?: "Failed to load batch report"
+                        )
+                    )
+                }
             } catch (e: Exception) {
                 _isLoading.value = false
                 _uiEvent.emit(BatchReportUiEvent.HideLoading)
-                _uiEvent.emit(
-                    BatchReportUiEvent.ShowError(
-                        e.message ?: "Failed to load batch report"
+                
+                // Check if the cause is HttpException with 404
+                val cause = e.cause
+                if (cause is retrofit2.HttpException && cause.code() == 404) {
+                    _uiEvent.emit(BatchReportUiEvent.NavigateToCashDenomination)
+                } else {
+                    _uiEvent.emit(
+                        BatchReportUiEvent.ShowError(
+                            e.message ?: "Failed to load batch report"
+                        )
                     )
-                )
+                }
             }
         }
     }

@@ -429,13 +429,14 @@ fun HomeScreen(
                                 paymentAmount = viewModel.formatAmount(amount)
                             }, onExactAmount = {
                                 // Calculate card total using PricingSummaryUseCase to match the displayed value
-                                val summaryResult = viewModel.pricingSummaryUseCase.calculatePricingSummary(
-                                    cartItems = cartItems,
-                                    subtotal = subtotal,
-                                    cashDiscountTotal = cashDiscountTotal,
-                                    orderDiscountTotal = orderDiscountTotal,
-                                    isCashSelected = viewModel.isCashSelected
-                                )
+                                val summaryResult =
+                                    viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                                        cartItems = cartItems,
+                                        subtotal = subtotal,
+                                        cashDiscountTotal = cashDiscountTotal,
+                                        orderDiscountTotal = orderDiscountTotal,
+                                        isCashSelected = viewModel.isCashSelected
+                                    )
                                 paymentAmount = viewModel.formatAmount(summaryResult.cardTotal)
                             }, onCashSelected = {
                                 // Set cash as selected payment method
@@ -459,15 +460,16 @@ fun HomeScreen(
                                     val epsilon = 0.01
 
                                     // Use PricingSummaryUseCase to get the correct cash total (matching displayed value)
-                                    val summaryResult = viewModel.pricingSummaryUseCase.calculatePricingSummary(
-                                        cartItems = cartItems,
-                                        subtotal = subtotal,
-                                        cashDiscountTotal = cashDiscountTotal,
-                                        orderDiscountTotal = orderDiscountTotal,
-                                        isCashSelected = true // Cash is selected at this point
-                                    )
+                                    val summaryResult =
+                                        viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                                            cartItems = cartItems,
+                                            subtotal = subtotal,
+                                            cashDiscountTotal = cashDiscountTotal,
+                                            orderDiscountTotal = orderDiscountTotal,
+                                            isCashSelected = true // Cash is selected at this point
+                                        )
                                     val cashTotalAmount = summaryResult.cashTotal
-                                    
+
                                     if (cashTotalAmount > 0 && currentPayment < 0.01) {
                                         // Switch to card when payment amount is zero
                                         viewModel.isCashSelected = false
@@ -643,15 +645,9 @@ fun HomeScreen(
         if (showAddCustomerDialog) {
             AddCustomerDialog(
                 onDismiss = { showAddCustomerDialog = false },
-                onSaveCustomer = { firstName, lastName, email, birthday ->
-                    viewModel.saveCustomer(firstName, lastName, email, birthday)
+                onSaveCustomer = { firstName, lastName, email, phoneNumber, birthday ->
+                    viewModel.saveCustomer(firstName, lastName, email, phoneNumber, birthday)
                     showAddCustomerDialog = false
-                    DialogHandler.showDialog(
-                        message = "Customer Added Successfully",
-                        buttonText = "OK",
-                        iconRes = R.drawable.add_customer_icon_blue,
-                        cancellable = true
-                    )
                 })
         }
 
@@ -902,15 +898,16 @@ fun PricingSummary(
     pricingSummaryUseCase: PricingSummaryUseCase
 ) {
     // Calculate pricing summary using use case
-    val summaryResult = remember(cartItems, subtotal, cashDiscountTotal, orderDiscountTotal, isCashSelected) {
-        pricingSummaryUseCase.calculatePricingSummary(
-            cartItems = cartItems,
-            subtotal = subtotal,
-            cashDiscountTotal = cashDiscountTotal,
-            orderDiscountTotal = orderDiscountTotal,
-            isCashSelected = isCashSelected
-        )
-    }
+    val summaryResult =
+        remember(cartItems, subtotal, cashDiscountTotal, orderDiscountTotal, isCashSelected) {
+            pricingSummaryUseCase.calculatePricingSummary(
+                cartItems = cartItems,
+                subtotal = subtotal,
+                cashDiscountTotal = cashDiscountTotal,
+                orderDiscountTotal = orderDiscountTotal,
+                isCashSelected = isCashSelected
+            )
+        }
 
     Row(
         modifier = Modifier
@@ -1815,7 +1812,7 @@ fun ProductsPanel(
     val bottomNavMenus by viewModel.menus.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
-    
+
     // Determine current selected index based on current destination
     val selectedIndex = remember(currentDestination) {
         val route = currentDestination?.route
@@ -1829,7 +1826,7 @@ fun ProductsPanel(
             else -> 0
         }
     }
-    
+
     Column(
         modifier = modifier
             .fillMaxHeight()
@@ -1862,7 +1859,7 @@ fun ProductsPanel(
         )
 
         Spacer(modifier = Modifier.height(20.dp))
-        
+
         // Navigation Buttons - Fixed at bottom (2 rows)
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -1907,7 +1904,7 @@ fun ProductsPanel(
                     )
                 }
             }
-            
+
             // Row 2 - Remaining 4 navigation buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -2038,72 +2035,72 @@ fun ActionButtonsPanel(
     Column(
         modifier = modifier
     ) {
-            // Row 1
-            ActionButtonRow(
-                rowIndex = 0,
-                buttons = listOf(
-                    ActionButton("EBT"),
-                    ActionButton("Split"),
-                    ActionButton("Add Customer"),
-                    ActionButton("Discount"),
-                ), onActionClick = { action ->
-                    when (action) {
-                        "Discount" -> {
-                            onShowOrderDiscountDialog()
-                        }
-
-                        "Add Customer" -> {
-                            onShowAddCustomerDialog()
-                        }
-
-                        else -> {
-                            showComingSoonDialog()
-                        }
+        // Row 1
+        ActionButtonRow(
+            rowIndex = 0,
+            buttons = listOf(
+                ActionButton("EBT"),
+                ActionButton("Split"),
+                ActionButton("Add Customer"),
+                ActionButton("Discount"),
+            ), onActionClick = { action ->
+                when (action) {
+                    "Discount" -> {
+                        onShowOrderDiscountDialog()
                     }
-                })
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Row 2
-            ActionButtonRow(
-                rowIndex = 1,
-                buttons = listOf(
-                    ActionButton("Custom Sales"),
-                    ActionButton("PLU Search"),
-                    ActionButton("Pay In/Out"),
-                    ActionButton("Refund"),
-                ), onActionClick = { action ->
-                    when (action) {
-                        else -> {
-                            showComingSoonDialog()
-                        }
+                    "Add Customer" -> {
+                        onShowAddCustomerDialog()
                     }
-                })
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Row 3
-            ActionButtonRow(
-                rowIndex = 2,
-                buttons = listOf(
-                    ActionButton("Weight Scale"),
-                    ActionButton("Rewards"),
-                    ActionButton(
-                        if (isTaxExempt) "Apply Tax" else "Tax-Exempt"
-                    ),
-                    ActionButton("Void")
-
-                ), onActionClick = { action ->
-                    when (action) {
-                        "Tax-Exempt", "Apply Tax" -> {
-                            viewModel.toggleTaxExempt()
-                        }
-
-                        else -> {
-                            showComingSoonDialog()
-                        }
+                    else -> {
+                        showComingSoonDialog()
                     }
-                })
+                }
+            })
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Row 2
+        ActionButtonRow(
+            rowIndex = 1,
+            buttons = listOf(
+                ActionButton("Custom Sales"),
+                ActionButton("PLU Search"),
+                ActionButton("Pay In/Out"),
+                ActionButton("Refund"),
+            ), onActionClick = { action ->
+                when (action) {
+                    else -> {
+                        showComingSoonDialog()
+                    }
+                }
+            })
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Row 3
+        ActionButtonRow(
+            rowIndex = 2,
+            buttons = listOf(
+                ActionButton("Weight Scale"),
+                ActionButton("Rewards"),
+                ActionButton(
+                    if (isTaxExempt) "Apply Tax" else "Tax-Exempt"
+                ),
+                ActionButton("Void")
+
+            ), onActionClick = { action ->
+                when (action) {
+                    "Tax-Exempt", "Apply Tax" -> {
+                        viewModel.toggleTaxExempt()
+                    }
+
+                    else -> {
+                        showComingSoonDialog()
+                    }
+                }
+            })
     }
 }
 
@@ -2126,11 +2123,12 @@ fun ActionButtonRow(
     ) {
         buttons.forEachIndexed { buttonIndex, button ->
             // Use custom red color background for Discount, Refund, Void, and Tax-Exempt buttons, default blue for others
-            val backgroundColor = if (button.label == "Discount" || 
-                button.label == "Refund" || 
-                button.label == "Void" || 
-                button.label == "Tax-Exempt" || 
-                button.label == "Apply Tax") {
+            val backgroundColor = if (button.label == "Discount" ||
+                button.label == "Refund" ||
+                button.label == "Void" ||
+                button.label == "Tax-Exempt" ||
+                button.label == "Apply Tax"
+            ) {
                 Color(0xFFDC3E42)
             } else {
                 Color(0xFF043E7F)
@@ -2180,7 +2178,7 @@ fun NavigationButton(
     } else {
         colorResource(id = R.color.nav_bar_button_clr)
     }
-    
+
     val textColor = if (isSelected) {
         Color.White
     } else {
@@ -2912,11 +2910,12 @@ fun OrderLevelDiscountDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddCustomerDialog(
-    onDismiss: () -> Unit, onSaveCustomer: (String, String, String, String) -> Unit
+    onDismiss: () -> Unit, onSaveCustomer: (String, String, String, String, String) -> Unit
 ) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("") }
     var birthday by remember { mutableStateOf("Select Birthday") }
     var showDatePicker by remember { mutableStateOf(false) }
     var firstNameError by remember { mutableStateOf("") }
@@ -3063,15 +3062,62 @@ fun AddCustomerDialog(
                     }
                 }
 
-                // Email and Birthday Row
+                // Email
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    BaseText(
+                        text = "Email",
+                        color = colorResource(id = R.color.primary),
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            emailError = ""
+                        },
+                        placeholder = {
+                            BaseText(
+                                text = "Enter Email", fontSize = 12f, fontFamily = GeneralSans
+                            )
+                        },
+                        isError = emailError.isNotEmpty(),
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colorResource(id = R.color.primary),
+                            unfocusedBorderColor = Color.Gray
+                        ),
+                        textStyle = TextStyle(
+                            fontSize = 12.sp,
+                            fontFamily = GeneralSans,
+                            lineHeight = 14.sp
+                        )
+                    )
+                    if (emailError.isNotEmpty()) {
+                        BaseText(
+                            text = emailError,
+                            color = Color.Red,
+                            fontSize = 10f,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                }
+
+                // Mobile Number and Birthday Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Email
+                    // Mobile Number
                     Column(modifier = Modifier.weight(1f)) {
                         BaseText(
-                            text = "Email",
+                            text = "Mobile Number",
                             color = colorResource(id = R.color.primary),
                             fontSize = 12f,
                             fontFamily = GeneralSans,
@@ -3079,22 +3125,20 @@ fun AddCustomerDialog(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         OutlinedTextField(
-                            value = email,
+                            value = phoneNumber,
                             onValueChange = {
-                                email = it
-                                emailError = ""
+                                phoneNumber = it
                             },
                             placeholder = {
                                 BaseText(
-                                    text = "Enter Email", fontSize = 12f, fontFamily = GeneralSans
+                                    text = "Enter Mobile Number", fontSize = 12f, fontFamily = GeneralSans
                                 )
                             },
-                            isError = emailError.isNotEmpty(),
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(48.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = colorResource(id = R.color.primary),
                                 unfocusedBorderColor = Color.Gray
@@ -3105,14 +3149,6 @@ fun AddCustomerDialog(
                                 lineHeight = 14.sp
                             )
                         )
-                        if (emailError.isNotEmpty()) {
-                            BaseText(
-                                text = emailError,
-                                color = Color.Red,
-                                fontSize = 10f,
-                                fontFamily = GeneralSans
-                            )
-                        }
                     }
 
                     // Birthday
@@ -3127,7 +3163,8 @@ fun AddCustomerDialog(
                         Spacer(modifier = Modifier.height(7.dp))
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth().height(48.dp)
+                                .fillMaxWidth()
+                                .height(48.dp)
                                 .clickable { showDatePicker = true }
                                 .border(
                                     width = 1.dp,
@@ -3189,6 +3226,7 @@ fun AddCustomerDialog(
                                 firstName.trim(),
                                 lastName.trim(),
                                 email.trim(),
+                                phoneNumber.trim(),
                                 if (birthday == "Select Birthday") "" else birthday
                             )
                         }

@@ -99,9 +99,7 @@ class VerifyPinViewModel @Inject constructor(
                     if (batchStatus?.equals("closed", ignoreCase = true) == true) {
                         preferenceManager.clearBatchNo()
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
-                        _verifyPinUiEvent.emit(
-                            VerifyPinUiEvent.ShowBatchClosedDialog("Your batch has been closed by someone from portal")
-                        )
+                        _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
                         return@launch
                     }
 

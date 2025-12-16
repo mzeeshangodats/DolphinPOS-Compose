@@ -129,6 +129,17 @@ fun BatchReportContent(
                     Loader.hide()
                     navController.navigate("pinCode")
                 }
+
+                is BatchReportUiEvent.NavigateToCashDenomination -> {
+                    Loader.hide()
+                    // Get required IDs for navigation
+                    val userId = preferenceManager.getUserID()
+                    val storeId = preferenceManager.getStoreID()
+                    val registerId = preferenceManager.getOccupiedRegisterID()
+                    navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             }
         }
     }
@@ -186,8 +197,8 @@ fun BatchReportContent(
                             // Container Box for image and content - same size
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.5f)
-                                    .fillMaxHeight(0.95f)
+                                    .fillMaxWidth(0.45f)
+                                    .fillMaxHeight(1f)
                             ) {
                                 // Background image
                                 Image(

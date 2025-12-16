@@ -13,6 +13,7 @@ import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseReque
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseResponse
 import com.retail.dolphinpos.domain.model.report.BatchReport
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
+import retrofit2.HttpException
 
 class BatchReportRepositoryImpl(
     private val apiService: ApiService,
@@ -47,6 +48,60 @@ class BatchReportRepositoryImpl(
                 }
                 
                 apiResponse
+            } catch (e: HttpException) {
+                // Handle 404 error - don't fall back to local, let it propagate so ViewModel can handle navigation
+                if (e.code() == 404) {
+                    throw e
+                }
+                // For other HTTP errors, try to get from local database
+                val localEntity = batchReportDao.getBatchReportByBatchNo(batchNo)
+                if (localEntity != null) {
+                    BatchReport(
+                        data = BatchReportMapper.toBatchReportData(localEntity)
+                    )
+                } else {
+                    // Return empty/default response if nothing found
+                    BatchReport(
+                        data = com.retail.dolphinpos.domain.model.report.BatchReportData(
+                            batchNo = "",
+                            closed = null,
+                            closedBy = 0,
+                            closingCashAmount = 0.0,
+                            closingTime = null,
+                            createdAt = null,
+                            id = 0,
+                            locationId = 0,
+                            openTime = null,
+                            opened = null,
+                            openedBy = 0,
+                            payInCard = 0,
+                            payInCash = 0,
+                            payOutCard = 0,
+                            payOutCash = 0,
+                            startingCashAmount = 0.0,
+                            status = null,
+                            storeId = 0,
+                            storeRegisterId = 0,
+                            totalAbandonOrders = 0,
+                            totalAmount = null,
+                            totalCardAmount = null,
+                            totalCashAmount = null,
+                            totalCashDiscount = null,
+                            totalDiscount = null,
+                            totalOnlineSales = null,
+                            totalPayIn = 0,
+                            totalPayOut = 0,
+                            totalRewardDiscount = null,
+                            totalSales = 0,
+                            totalTax = null,
+                            totalTip = 0,
+                            totalTipCard = 0,
+                            totalTipCash = 0,
+                            totalTransactions = 0,
+                            updatedAt = null
+                        )
+                    )
+                }
             } catch (e: Exception) {
                 // If API call fails, try to get from local database
                 val localEntity = batchReportDao.getBatchReportByBatchNo(batchNo)

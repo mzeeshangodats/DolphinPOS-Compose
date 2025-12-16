@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.repositories.home
 
+import com.google.gson.Gson
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
@@ -10,8 +11,10 @@ import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.home.customer.CustomerErrorResponse
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import retrofit2.HttpException
 
 class HomeRepositoryImpl(
     private val productsDao: ProductsDao,
@@ -268,12 +271,47 @@ class HomeRepositoryImpl(
                 ?: return Result.failure(Exception("Customer not found"))
             
             val addCustomerRequest = CustomerMapper.toAddCustomerRequest(customerEntity)
-            val result = safeApiCallResult(
-                apiCall = { 
-                    apiService.addCustomer(addCustomerRequest)
-                },
-                defaultMessage = "Customer sync failed"
-            )
+            
+            // Try to sync with server and handle structured errors
+            val result = try {
+                val response = apiService.addCustomer(addCustomerRequest)
+                Result.success(response)
+            } catch (e: HttpException) {
+                // Parse structured error response
+                val errorMessage = try {
+                    val errorBody = e.response()?.errorBody()?.string()
+                    if (errorBody != null) {
+                        val gson = Gson()
+                        val errorResponse: CustomerErrorResponse? = 
+                            gson.fromJson(errorBody, CustomerErrorResponse::class.java)
+                        
+                        errorResponse?.let { error ->
+                            buildString {
+                                // Add main message if available
+                                error.message?.let { 
+                                    append(it)
+                                    if (error.errors != null) append("\n")
+                                }
+                                
+                                // Format field-specific errors
+                                error.errors?.let { errors ->
+                                    if (errors.email != null) append("Email: ${errors.email}\n")
+                                    if (errors.phoneNumber != null) append("Phone Number: ${errors.phoneNumber}\n")
+                                    if (errors.firstName != null) append("First Name: ${errors.firstName}\n")
+                                    if (errors.lastName != null) append("Last Name: ${errors.lastName}\n")
+                                }
+                            }.trim().takeIf { it.isNotEmpty() } ?: "Customer sync failed"
+                        } ?: "Customer sync failed"
+                    } else {
+                        "Customer sync failed"
+                    }
+                } catch (parseException: Exception) {
+                    "Customer sync failed"
+                }
+                Result.failure(Exception(errorMessage))
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
             
             // Update customer as synced on success
             result.onSuccess { response ->
