@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.repositories.auth
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
 import com.retail.dolphinpos.domain.model.auth.login.response.Locations

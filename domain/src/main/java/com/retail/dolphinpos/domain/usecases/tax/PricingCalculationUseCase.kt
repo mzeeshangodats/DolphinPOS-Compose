@@ -1,7 +1,7 @@
 package com.retail.dolphinpos.domain.usecases.tax
 
 import android.util.Log
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.applyTax
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice

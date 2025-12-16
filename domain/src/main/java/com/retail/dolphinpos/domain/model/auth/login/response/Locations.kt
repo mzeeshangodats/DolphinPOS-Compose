@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.model.auth.login.response
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 
 data class Locations(
     val id: Int,

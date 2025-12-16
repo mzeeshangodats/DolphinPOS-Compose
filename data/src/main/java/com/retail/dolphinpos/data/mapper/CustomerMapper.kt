@@ -13,6 +13,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.model.home.catrgories_products.VariantImage
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Vendor
+import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
 import com.retail.dolphinpos.domain.model.home.customer.Customer
 
 object CustomerMapper {
@@ -22,16 +23,25 @@ object CustomerMapper {
     // -------------------------
 
     fun toCustomerEntity(customer: Customer): CustomerEntity {
+        // Parse birthday to get month and year if needed
+        val birthdayString = if (customer.birthMonth.isNotEmpty() && customer.birthYear.isNotEmpty()) {
+            "01/${customer.birthMonth}/${customer.birthYear}" // Format: day/month/year
+        } else {
+            ""
+        }
+        
         return CustomerEntity(
-            userId = customer.userId,
+            userId = customer.storeId, // Note: Customer domain model doesn't have userId, using storeId as fallback
             storeId = customer.storeId,
-            locationId = customer.locationId,
+            locationId = customer.storeId, // Note: Customer domain model doesn't have locationId, using storeId as fallback
             firstName = customer.firstName,
             lastName = customer.lastName,
             email = customer.email,
-            birthday = customer.birthday,
-            createdAt = customer.createdAt,
-            updatedAt = customer.updatedAt
+            phoneNumber = customer.phoneNumber,
+            birthday = birthdayString,
+            createdAt = customer.createdAt.toLongOrNull() ?: System.currentTimeMillis(),
+            updatedAt = customer.updatedAt,
+            isSynced = false
         )
     }
 
@@ -44,17 +54,74 @@ object CustomerMapper {
     ): List<Customer> {
         return customerEntity.map { customer ->
             Customer(
-                id = customer.id,
-                userId = customer.userId,
+                id = customer.serverId ?: customer.id,
                 storeId = customer.storeId,
-                locationId = customer.locationId,
                 firstName = customer.firstName,
                 lastName = customer.lastName,
                 email = customer.email,
-                birthday = customer.birthday,
-                createdAt = customer.createdAt,
-                updatedAt = customer.updatedAt
+                phoneNumber = customer.phoneNumber,
+                birthMonth = parseBirthMonth(customer.birthday),
+                birthYear = parseBirthYear(customer.birthday),
+                createdAt = customer.createdAt.toString(),
+                updatedAt = customer.updatedAt,
+                agreedToMarketingEmails = false,
+                agreedToMarketingSMS = false,
+                deletedAt = "",
+                pointsEarned = 0
             )
+        }
+    }
+
+    /**
+     * Convert CustomerEntity to AddCustomerRequest for API sync
+     */
+    fun toAddCustomerRequest(customerEntity: CustomerEntity): AddCustomerRequest {
+        return AddCustomerRequest(
+            firstName = customerEntity.firstName,
+            lastName = customerEntity.lastName,
+            email = customerEntity.email,
+            phoneNumber = customerEntity.phoneNumber,
+            birthMonth = parseBirthMonth(customerEntity.birthday),
+            birthYear = parseBirthYear(customerEntity.birthday),
+            storeId = customerEntity.storeId
+        )
+    }
+
+    /**
+     * Parse birthday string (format: "day/month/year") to extract month
+     */
+    private fun parseBirthMonth(birthday: String): String {
+        if (birthday.isEmpty() || birthday == "Select Birthday") {
+            return ""
+        }
+        return try {
+            val parts = birthday.split("/")
+            if (parts.size >= 2) {
+                parts[1].trim()
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            ""
+        }
+    }
+
+    /**
+     * Parse birthday string (format: "day/month/year") to extract year
+     */
+    private fun parseBirthYear(birthday: String): String {
+        if (birthday.isEmpty() || birthday == "Select Birthday") {
+            return ""
+        }
+        return try {
+            val parts = birthday.split("/")
+            if (parts.size >= 3) {
+                parts[2].trim()
+            } else {
+                ""
+            }
+        } catch (e: Exception) {
+            ""
         }
     }
 

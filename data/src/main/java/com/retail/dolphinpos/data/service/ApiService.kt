@@ -18,6 +18,8 @@ import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRe
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
+import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
+import com.retail.dolphinpos.domain.model.home.customer.AddCustomerResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
 import com.retail.dolphinpos.domain.model.report.BatchReport
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
@@ -73,6 +75,9 @@ interface ApiService {
         @Query("endDate") endDate: String,
         @Query("order") order: String = "desc"
     ): TransactionResponse
+
+    @POST("customer")
+    suspend fun addCustomer(@Body addCustomerRequest: AddCustomerRequest): AddCustomerResponse
 
     @POST("batch/open")
     suspend fun batchOpen(@Body batchOpenRequest: BatchOpenRequest): BatchOpenResponse

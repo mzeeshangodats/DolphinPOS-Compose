@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.model.order
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions

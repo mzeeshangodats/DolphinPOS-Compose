@@ -14,7 +14,7 @@ import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.domain.model.order.PendingOrder
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import java.lang.reflect.Type
 
 class OrderRepositoryImpl(

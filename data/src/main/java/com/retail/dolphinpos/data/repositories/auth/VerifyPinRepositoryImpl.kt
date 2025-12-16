@@ -6,7 +6,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 import com.retail.dolphinpos.data.mapper.UserMapper
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest

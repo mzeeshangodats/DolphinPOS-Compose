@@ -7,7 +7,7 @@ import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
 import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCall
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.transaction.Transaction
 import com.retail.dolphinpos.domain.model.transaction.TransactionItem
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse

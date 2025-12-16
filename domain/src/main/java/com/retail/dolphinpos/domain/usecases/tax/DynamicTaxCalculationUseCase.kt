@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.usecases.tax
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import javax.inject.Inject
 
 data class TaxCalculationResult(

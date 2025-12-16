@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.model.home.cart
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.home.catrgories_products.VariantImage
 
 data class CartItem(

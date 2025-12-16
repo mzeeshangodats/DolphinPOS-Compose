@@ -31,6 +31,7 @@ object WorkManagerConfiguration {
         
         // Enqueue periodic sync work when internet is available
         enqueueOrderSyncWork(context)
+        enqueueCustomerSyncWork(context)
         enqueueRegisterVerificationWork(context)
         enqueueTimeSlotSyncWork(context)
         enqueueBatchStatusCheckWork(context)
@@ -40,6 +41,13 @@ object WorkManagerConfiguration {
         enqueuePeriodicSyncWork<OrderSyncWorker>(
             context = context,
             tag = "ORDER_SYNC"
+        )
+    }
+
+    private fun enqueueCustomerSyncWork(context: Context) {
+        enqueuePeriodicSyncWork<CustomerSyncWorker>(
+            context = context,
+            tag = "CUSTOMER_SYNC"
         )
     }
 

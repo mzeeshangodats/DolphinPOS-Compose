@@ -12,7 +12,7 @@ import com.retail.dolphinpos.data.entities.user.StoreEntity
 import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
 import com.retail.dolphinpos.data.entities.user.TaxDetailEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.batch.Batch
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers

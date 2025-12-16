@@ -1,7 +1,7 @@
 package com.retail.dolphinpos.domain.model.transaction
 
 import com.google.gson.annotations.SerializedName
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 
 data class TransactionResponse(
     val data: TransactionData?

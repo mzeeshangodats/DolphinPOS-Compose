@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.transaction.Transaction
 import com.retail.dolphinpos.domain.repositories.transaction.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,7 +27,7 @@ data class TransactionActivityItemData(
     val amount: Double,
     val tax: Double?,
     val createdAt: Long,
-    val taxDetails: List<com.retail.dolphinpos.domain.model.TaxDetail>? = null,  // Tax breakdown
+    val taxDetails: List<TaxDetail>? = null,  // Tax breakdown
     val taxExempt: Boolean = false  // Tax exempt status
 )
 

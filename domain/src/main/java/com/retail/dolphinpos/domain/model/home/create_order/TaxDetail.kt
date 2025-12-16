@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.domain.model
+package com.retail.dolphinpos.domain.model.home.create_order
 
 data class TaxDetail(
     val type: String?,
@@ -8,4 +8,3 @@ data class TaxDetail(
     val isDefault: Boolean? = false,
     val refundedTax: Double? = null
 )
-

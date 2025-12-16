@@ -6,9 +6,10 @@ import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.CustomerMapper
 import com.retail.dolphinpos.data.mapper.ProductMapper
 import com.retail.dolphinpos.data.mapper.UserMapper
+import com.retail.dolphinpos.data.service.ApiService
+import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
-import com.retail.dolphinpos.domain.model.home.customer.Customer
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 
@@ -16,7 +17,8 @@ class HomeRepositoryImpl(
     private val productsDao: ProductsDao,
     private val customerDao: CustomerDao,
     private val userDao: UserDao,
-    private val storeRegistersRepository: StoreRegistersRepository
+    private val storeRegistersRepository: StoreRegistersRepository,
+    private val apiService: ApiService
 ) : HomeRepository {
 
     override suspend fun getCategories(): List<CategoryData> {
@@ -230,16 +232,67 @@ class HomeRepositoryImpl(
         return null
     }
 
-    override suspend fun insertCustomerDetailsIntoLocalDB(customer: Customer): Long {
-            try {
-                return customerDao.insertCustomer(
-                    CustomerMapper.toCustomerEntity(
-                        customer
-                    )
+    override suspend fun insertCustomerDetailsIntoLocalDB(
+        userId: Int,
+        storeId: Int,
+        locationId: Int,
+        firstName: String,
+        lastName: String,
+        email: String,
+        phoneNumber: String,
+        birthday: String
+    ): Long {
+        try {
+            val customerEntity = com.retail.dolphinpos.data.entities.customer.CustomerEntity(
+                userId = userId,
+                storeId = storeId,
+                locationId = locationId,
+                firstName = firstName,
+                lastName = lastName,
+                email = email,
+                phoneNumber = phoneNumber,
+                birthday = birthday,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis().toString(),
+                isSynced = false
+            )
+            return customerDao.insertCustomer(customerEntity)
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    override suspend fun syncCustomerToServer(customerId: Int): Result<com.retail.dolphinpos.domain.model.home.customer.AddCustomerResponse> {
+        return try {
+            val customerEntity = customerDao.getCustomerById(customerId)
+                ?: return Result.failure(Exception("Customer not found"))
+            
+            val addCustomerRequest = CustomerMapper.toAddCustomerRequest(customerEntity)
+            val result = safeApiCallResult(
+                apiCall = { 
+                    apiService.addCustomer(addCustomerRequest)
+                },
+                defaultMessage = "Customer sync failed"
+            )
+            
+            // Update customer as synced on success
+            result.onSuccess { response ->
+                val updatedEntity = customerEntity.copy(
+                    isSynced = true,
+                    serverId = response.customer.id,
+                    updatedAt = System.currentTimeMillis().toString()
                 )
-            } catch (e: Exception) {
-                throw e
+                customerDao.updateCustomer(updatedEntity)
             }
+            
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getUnsyncedCustomers(): List<Int> {
+        return customerDao.getUnsyncedCustomers().map { it.id }
     }
 
     override suspend fun deductProductQuantity(productId: Int, quantityToDeduct: Int) {

@@ -22,7 +22,6 @@ import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountAmount
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
-import com.retail.dolphinpos.domain.model.home.customer.Customer
 import com.retail.dolphinpos.domain.model.home.order_discount.OrderDiscount
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
@@ -39,7 +38,7 @@ import com.retail.dolphinpos.domain.usecases.tax.PricingSummaryUseCase
 import com.retail.dolphinpos.domain.usecases.tax.DynamicTaxCalculationUseCase
 import com.retail.dolphinpos.domain.usecases.tax.DiscountOrder
 import com.retail.dolphinpos.domain.usecases.tax.PricingConfiguration
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.home.cart.applyTax
 import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
@@ -1098,19 +1097,56 @@ class HomeViewModel @Inject constructor(
 
     fun saveCustomer(firstName: String, lastName: String, email: String, birthday: String) {
         viewModelScope.launch {
-            val customer = Customer(
-                userId = preferenceManager.getUserID(),
-                storeId = preferenceManager.getStoreID(),
-                locationId = preferenceManager.getOccupiedLocationID(),
-                firstName = firstName,
-                lastName = lastName,
-                email = email,
-                birthday = birthday
-            )
-            val customerId = homeRepository.insertCustomerDetailsIntoLocalDB(customer)
-            // Save customer ID to preferences for later use in orders
-            preferenceManager.setCustomerID(customerId.toInt())
-            _homeUiEvent.emit(HomeUiEvent.HoldCartSuccess("Customer Added: $firstName $lastName"))
+            try {
+                _homeUiEvent.emit(HomeUiEvent.ShowLoading)
+                
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val locationId = preferenceManager.getOccupiedLocationID()
+                
+                // Save customer to local database (always save locally first)
+                val customerId = homeRepository.insertCustomerDetailsIntoLocalDB(
+                    userId = userId,
+                    storeId = storeId,
+                    locationId = locationId,
+                    firstName = firstName,
+                    lastName = lastName,
+                    email = email,
+                    phoneNumber = "", // Phone number not collected in dialog, using empty string
+                    birthday = birthday
+                )
+                
+                // Save customer ID to preferences for later use in orders
+                preferenceManager.setCustomerID(customerId.toInt())
+                
+                // Try to sync with server if internet is available
+                if (networkMonitor.isNetworkAvailable()) {
+                    try {
+                        val syncResult = homeRepository.syncCustomerToServer(customerId.toInt())
+                        syncResult.onSuccess { response ->
+                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Customer Added: $firstName $lastName"))
+                        }.onFailure { e ->
+                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                            Log.e("HomeViewModel", "Failed to sync customer: ${e.message}")
+                            // Customer saved locally, will sync when internet is available
+                            _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Customer saved locally. Will sync when internet is available."))
+                        }
+                    } catch (e: Exception) {
+                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                        Log.e("HomeViewModel", "Error syncing customer: ${e.message}")
+                        _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Customer saved locally. Will sync when internet is available."))
+                    }
+                } else {
+                    // No internet - customer saved locally, will sync when internet is restored
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.ShowSuccess("Customer saved locally. Will sync when internet is available."))
+                }
+            } catch (e: Exception) {
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                Log.e("HomeViewModel", "Error saving customer: ${e.message}")
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Failed to save customer: ${e.message}"))
+            }
         }
     }
 

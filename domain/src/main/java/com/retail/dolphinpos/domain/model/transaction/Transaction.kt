@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.model.transaction
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 
 data class Transaction(
     val id: Long = 0,

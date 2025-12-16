@@ -1,14 +1,18 @@
 package com.retail.dolphinpos.domain.model.home.customer
 
 data class Customer(
-    val id: Int = 0,
-    val userId: Int,
-    val storeId: Int,
-    val locationId: Int,
-    val firstName: String,
-    val lastName: String,
+    val agreedToMarketingEmails: Boolean,
+    val agreedToMarketingSMS: Boolean,
+    val birthMonth: String,
+    val birthYear: String,
+    val createdAt: String,
+    val deletedAt: Any,
     val email: String,
-    val birthday: String = "",
-    val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: String = ""
+    val firstName: String,
+    val id: Int,
+    val lastName: String,
+    val phoneNumber: String,
+    val pointsEarned: Int,
+    val storeId: Int,
+    val updatedAt: String
 )

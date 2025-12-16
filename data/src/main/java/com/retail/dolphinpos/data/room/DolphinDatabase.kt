@@ -50,7 +50,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -81,7 +81,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -370,6 +370,18 @@ abstract class DolphinDatabase : RoomDatabase() {
                 
                 // Create index on locationId for faster lookups
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_tax_details_location_id ON tax_details(locationId)")
+            }
+        }
+
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add new columns to customer table for sync support
+                db.execSQL("ALTER TABLE customer ADD COLUMN phone_number TEXT DEFAULT ''")
+                db.execSQL("ALTER TABLE customer ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE customer ADD COLUMN server_id INTEGER")
+                
+                // Create index on is_synced for faster queries of unsynced customers
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_is_synced ON customer(is_synced)")
             }
         }
 

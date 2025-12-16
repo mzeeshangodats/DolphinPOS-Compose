@@ -1,6 +1,6 @@
 package com.retail.dolphinpos.domain.model.home.catrgories_products
 
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 
 data class Variant(
     val attributes: Attributes?,

@@ -53,7 +53,7 @@ import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import androidx.compose.ui.res.stringResource
-import com.retail.dolphinpos.domain.model.TaxDetail
+import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
