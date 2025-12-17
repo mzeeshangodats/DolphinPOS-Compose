@@ -56,6 +56,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -142,6 +143,7 @@ fun HomeScreen(
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showPaymentSuccessDialog by remember { mutableStateOf(false) }
+    var showPLUSearchDialog by remember { mutableStateOf(false) }
     var paymentSuccessAmount by remember { mutableStateOf("0.00") }
     var amountTendered by remember { mutableStateOf(0.0) }
     var selectedProductForVariant by remember { mutableStateOf<Products?>(null) }
@@ -157,6 +159,8 @@ fun HomeScreen(
     val orderLevelDiscounts by viewModel.orderLevelDiscounts.collectAsStateWithLifecycle()
     val searchResults by viewModel.searchProductResults.collectAsStateWithLifecycle()
     val holdCartCount by viewModel.holdCartCount.collectAsStateWithLifecycle()
+    val pluSearchResult by viewModel.pluSearchResult.collectAsStateWithLifecycle()
+    val isSearchingPLU by viewModel.isSearchingPLU.collectAsStateWithLifecycle()
 
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
@@ -596,6 +600,9 @@ fun HomeScreen(
                     onShowAddCustomerDialog = {
                         showAddCustomerDialog = true
                     },
+                    onShowPLUSearchDialog = {
+                        showPLUSearchDialog = true
+                    },
                     onProductClick = { product ->
                         val variants = product.variants
                         if (variants != null && variants.isNotEmpty()) {
@@ -652,6 +659,34 @@ fun HomeScreen(
         }
 
         // Hold Cart List Dialog
+        if (showPLUSearchDialog) {
+            PLUSearchDialog(
+                onDismiss = {
+                    showPLUSearchDialog = false
+                    viewModel.clearPLUSearchResult()
+                },
+                onProductSelected = { product ->
+                    val success = viewModel.addToCart(product)
+                    if (success) {
+                        showPLUSearchDialog = false
+                        viewModel.clearPLUSearchResult()
+                    } else {
+                        DialogHandler.showDialog(
+                            message = "Cannot add product to cart. Cash discount may be applied.",
+                            buttonText = "OK"
+                        ) {}
+                    }
+                },
+                pluSearchResult = pluSearchResult,
+                isSearchingPLU = isSearchingPLU,
+                onPLUChanged = { plu ->
+                    if (plu.length == 4) {
+                        viewModel.searchProductByPLU(plu)
+                    }
+                }
+            )
+        }
+
         if (showHoldCartDialog) {
             HoldCartListDialog(
                 onDismiss = { showHoldCartDialog = false },
@@ -1807,7 +1842,8 @@ fun ProductsPanel(
     viewModel: HomeViewModel,
     onProductClick: (Products) -> Unit,
     onShowOrderDiscountDialog: () -> Unit,
-    onShowAddCustomerDialog: () -> Unit
+    onShowAddCustomerDialog: () -> Unit,
+    onShowPLUSearchDialog: () -> Unit
 ) {
     val bottomNavMenus by viewModel.menus.collectAsStateWithLifecycle()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -1855,6 +1891,7 @@ fun ProductsPanel(
             cartItems = cartItems,
             onShowOrderDiscountDialog = onShowOrderDiscountDialog,
             onShowAddCustomerDialog = onShowAddCustomerDialog,
+            onShowPLUSearchDialog = onShowPLUSearchDialog,
             viewModel = viewModel
         )
 
@@ -2029,6 +2066,7 @@ fun ActionButtonsPanel(
     cartItems: List<CartItem>,
     onShowOrderDiscountDialog: () -> Unit,
     onShowAddCustomerDialog: () -> Unit,
+    onShowPLUSearchDialog: () -> Unit,
     viewModel: HomeViewModel
 ) {
     val isTaxExempt by viewModel.isTaxExempt.collectAsStateWithLifecycle()
@@ -2071,6 +2109,10 @@ fun ActionButtonsPanel(
                 ActionButton("Refund"),
             ), onActionClick = { action ->
                 when (action) {
+                    "PLU Search" -> {
+                        onShowPLUSearchDialog()
+                    }
+
                     else -> {
                         showComingSoonDialog()
                     }
@@ -3131,7 +3173,9 @@ fun AddCustomerDialog(
                             },
                             placeholder = {
                                 BaseText(
-                                    text = "Enter Mobile Number", fontSize = 12f, fontFamily = GeneralSans
+                                    text = "Enter Mobile Number",
+                                    fontSize = 12f,
+                                    fontFamily = GeneralSans
                                 )
                             },
                             singleLine = true,
@@ -3486,3 +3530,274 @@ fun PaymentSuccessUI(
     }
 }
 
+@Composable
+fun PLUSearchDialog(
+    onDismiss: () -> Unit,
+    onProductSelected: (Products) -> Unit,
+    pluSearchResult: Products?,
+    isSearchingPLU: Boolean,
+    onPLUChanged: (String) -> Unit
+) {
+    var pluInput by remember { mutableStateOf("") }
+    val pluFocusRequester = remember { FocusRequester() }
+
+    // Reset input when dialog is dismissed
+    DisposableEffect(Unit) {
+        onDispose {
+            pluInput = ""
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .fillMaxSize(0.7f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BaseText(
+                        text = "PLU Search",
+                        fontSize = 20f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.close_icon),
+                            contentDescription = "Close",
+                            tint = Color.Gray
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // PLU Input Field
+                OutlinedTextField(
+                    value = pluInput,
+                    onValueChange = { newValue ->
+                        // Only allow numeric input and limit to 4 digits
+                        if (newValue.length <= 4 && newValue.all { it.isDigit() }) {
+                            pluInput = newValue
+                            onPLUChanged(newValue)
+                        }
+                    },
+                    label = {
+                        BaseText(
+                            text = "Enter 4-digit PLU",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(pluFocusRequester),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colorResource(id = R.color.primary),
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    textStyle = TextStyle(
+                        fontSize = 18.sp,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Progress Indicator or Result
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    when {
+                        isSearchingPLU -> {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(48.dp),
+                                    color = colorResource(id = R.color.primary)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                BaseText(
+                                    text = "Searching...",
+                                    fontSize = 16f,
+                                    fontFamily = GeneralSans,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+
+                        pluSearchResult != null -> {
+                            // Show product result
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Product Card
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            onProductSelected(pluSearchResult)
+                                        },
+                                    shape = RoundedCornerShape(12.dp),
+                                    elevation = CardDefaults.cardElevation(4.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Product Image
+                                        val productImages = pluSearchResult.images
+                                        if (productImages != null && productImages.isNotEmpty()) {
+                                            AsyncImage(
+                                                model = productImages[0].fileURL,
+                                                contentDescription = pluSearchResult.name,
+                                                modifier = Modifier
+                                                    .size(80.dp)
+                                                    .clip(RoundedCornerShape(8.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(80.dp)
+                                                    .background(
+                                                        Color.LightGray,
+                                                        RoundedCornerShape(8.dp)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                BaseText(
+                                                    text = "No Image",
+                                                    fontSize = 12f,
+                                                    fontFamily = GeneralSans,
+                                                    color = Color.Gray
+                                                )
+                                            }
+                                        }
+
+                                        // Product Details
+                                        Column(
+                                            modifier = Modifier.weight(1f),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            BaseText(
+                                                text = pluSearchResult.name ?: "Unknown Product",
+                                                fontSize = 16f,
+                                                fontFamily = GeneralSans,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color.Black
+                                            )
+                                            BaseText(
+                                                text = "PLU: $pluInput",
+                                                fontSize = 14f,
+                                                fontFamily = GeneralSans,
+                                                color = Color.Gray
+                                            )
+                                            BaseText(
+                                                text = "$${
+                                                    String.format(
+                                                        "%.2f",
+                                                        pluSearchResult.cashPrice.toDoubleOrNull() ?: 0.0
+                                                    )
+                                                }",
+                                                fontSize = 18f,
+                                                fontFamily = GeneralSans,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = colorResource(id = R.color.primary)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Instruction Text
+                                BaseText(
+                                    text = "Click on the product to add it to cart",
+                                    fontSize = 14f,
+                                    fontFamily = GeneralSans,
+                                    color = Color.Gray,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+
+                        pluInput.length == 4 && !isSearchingPLU -> {
+                            BaseText(
+                                text = "No product found for PLU: $pluInput",
+                                fontSize = 16f,
+                                fontFamily = GeneralSans,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        else -> {
+                            BaseText(
+                                text = "Enter a 4-digit PLU number",
+                                fontSize = 16f,
+                                fontFamily = GeneralSans,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Close Button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    BaseText(
+                        text = "Close",
+                        fontSize = 16f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+
+    // Auto-focus PLU input when dialog opens
+    LaunchedEffect(Unit) {
+        pluFocusRequester.requestFocus()
+    }
+}

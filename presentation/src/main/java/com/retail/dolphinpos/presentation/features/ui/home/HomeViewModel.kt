@@ -270,6 +270,48 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private val _pluSearchResult = MutableStateFlow<Products?>(null)
+    val pluSearchResult: StateFlow<Products?> = _pluSearchResult.asStateFlow()
+
+    private val _isSearchingPLU = MutableStateFlow(false)
+    val isSearchingPLU: StateFlow<Boolean> = _isSearchingPLU.asStateFlow()
+
+    fun searchProductByPLU(plu: String) {
+        viewModelScope.launch {
+            if (plu.length != 4) {
+                _pluSearchResult.value = null
+                return@launch
+            }
+
+            _isSearchingPLU.value = true
+            _pluSearchResult.value = null
+
+            try {
+                val storeId = preferenceManager.getStoreID()
+                val locationId = preferenceManager.getOccupiedLocationID()
+
+                val result = homeRepository.searchProductByPLU(plu, storeId, locationId)
+                result.onSuccess { product ->
+                    _pluSearchResult.value = product
+                    _isSearchingPLU.value = false
+                    if (product == null) {
+                        _homeUiEvent.emit(HomeUiEvent.ShowError("No product found for PLU: $plu"))
+                    }
+                }.onFailure { error ->
+                    _isSearchingPLU.value = false
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Error searching PLU: ${error.message}"))
+                }
+            } catch (e: Exception) {
+                _isSearchingPLU.value = false
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Error searching PLU: ${e.message}"))
+            }
+        }
+    }
+
+    fun clearPLUSearchResult() {
+        _pluSearchResult.value = null
+    }
+
     fun addToCart(product: Products): Boolean {
         if (hasCashDiscountApplied()) {
             return false  // Cannot add products after cash discount is applied

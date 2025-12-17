@@ -11,6 +11,9 @@ import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.home.catrgories_products.PLUProductResponse
+import com.retail.dolphinpos.domain.model.home.catrgories_products.PLUProduct
+import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductImage
 import com.retail.dolphinpos.domain.model.home.customer.CustomerErrorResponse
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
@@ -233,6 +236,80 @@ class HomeRepositoryImpl(
         }
         
         return null
+    }
+
+    override suspend fun searchProductByPLU(plu: String, storeId: Int, locationId: Int): Result<Products?> {
+        return safeApiCallResult(
+            apiCall = {
+                val response = apiService.searchProductByPLU(plu, storeId, locationId)
+                if (response.success) {
+                    response.data?.products?.let { productsList ->
+                        if (productsList.isNotEmpty()) {
+                            val pluProduct = productsList[0]
+                            // Convert PLUProduct to Products domain model
+                            convertPLUProductToProducts(pluProduct)
+                        } else {
+                            null
+                        }
+                    } ?: null
+                } else {
+                    null
+                }
+            },
+            defaultMessage = "Failed to search product by PLU"
+        )
+    }
+
+    private fun convertPLUProductToProducts(pluProduct: PLUProduct): Products {
+        // Convert images
+        val productImages = pluProduct.images?.map { image ->
+            ProductImage(
+                fileURL = image.fileURL ?: "",
+                originalName = image.originalName ?: ""
+            )
+        } ?: emptyList()
+
+        // Convert vendor
+        val vendor = pluProduct.vendor?.let {
+            com.retail.dolphinpos.domain.model.home.catrgories_products.Vendor(
+                id = it.id ?: 0,
+                title = it.title ?: ""
+            )
+        }
+
+        return Products(
+            id = pluProduct.id,
+            name = pluProduct.name,
+            description = pluProduct.description,
+            status = pluProduct.status,
+            price = pluProduct.price ?: "",
+            compareAtPrice = pluProduct.compareAtPrice,
+            costPrice = pluProduct.costPrice,
+            continueSellingWhenOutOfStock = pluProduct.continueSellingWhenOutOfStock ?: false,
+            createdAt = "",
+            currentVendorId = pluProduct.currentVendorId ?: 0,
+            categoryId = pluProduct.categoryId ?: 0,
+            storeId = pluProduct.storeId ?: 0,
+            locationId = pluProduct.locationId ?: 0,
+            quantity = pluProduct.quantity ?: 0,
+            cashPrice = pluProduct.cashPrice ?: pluProduct.price ?: "0.00",
+            cardPrice = pluProduct.cardPrice ?: pluProduct.price ?: "0.00",
+            barCode = pluProduct.barCode,
+            chargeTaxOnThisProduct = pluProduct.chargeTaxOnThisProduct ?: false,
+            isEBTEligible = pluProduct.isEBTEligible ?: false,
+            isHSTEligible = pluProduct.isHSTEligible ?: false,
+            isIDRequired = pluProduct.isIDRequired ?: false,
+            isProductBarCode = pluProduct.isProductBarCode ?: false,
+            trackQuantity = pluProduct.trackQuantity ?: false,
+            images = productImages,
+            variants = emptyList(), // Variants would need to be converted if available
+            vendor = vendor,
+            secondaryBarcodes = null,
+            cardTax = 0.0, // Would need to calculate from taxDetails if available
+            cashTax = 0.0,
+            taxAmount = pluProduct.taxAmount,
+            taxDetails = pluProduct.taxDetails
+        )
     }
 
     override suspend fun insertCustomerDetailsIntoLocalDB(

@@ -16,6 +16,7 @@ import com.retail.dolphinpos.domain.model.auth.select_registers.request.UpdateSt
 import com.retail.dolphinpos.domain.model.auth.select_registers.reponse.VerifyRegisterResponse
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
+import com.retail.dolphinpos.domain.model.home.catrgories_products.PLUProductResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
@@ -65,6 +66,13 @@ interface ApiService {
     suspend fun getProducts(
         @Query("storeId") storeId: Int, @Query("locationId") locationId: Int
     ): ProductsResponse
+
+    @GET("product")
+    suspend fun searchProductByPLU(
+        @Query("plu") plu: String,
+        @Query("storeId") storeId: Int,
+        @Query("locationId") locationId: Int
+    ): PLUProductResponse
 
     @GET("transaction")
     suspend fun getTransactions(
