@@ -21,8 +21,11 @@ import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
-import com.retail.dolphinpos.domain.model.report.BatchReport
+import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryData
+import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryResponse
+import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -92,6 +95,20 @@ interface ApiService {
         @Path("batchNo") batchNo: String,
         @Body batchCloseRequest: BatchCloseRequest
     ): BatchCloseResponse
+
+    @GET("batch")
+    suspend fun getBatchReportHistory(
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String,
+        @Query("status") status: String,
+        @Query("storeId") storeId: Int,
+        @Query("page") page: Int,
+        @Query("limit") limit: Int,
+        @Query("paginate") paginate: Boolean = true,
+        @Query("orderBy") orderBy: String = "createdAt",
+        @Query("order") order: String = "desc",
+        @Query("keyword") keyword: String? = null
+    ): Response<BatchReportHistoryResponse>
 
     @POST("order")
     suspend fun createOrder(@Body createOrderRequest: CreateOrderRequest): CreateOrderResponse

@@ -126,4 +126,26 @@ interface UserDao {
 
     @Query("DELETE FROM tax_details")
     suspend fun deleteAllTaxDetails()
+
+    // -----------------------------
+    // Batch History DAO
+    // -----------------------------
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatchHistory(batchHistoryEntity: com.retail.dolphinpos.data.entities.user.BatchHistoryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBatchHistoryList(batchHistoryList: List<com.retail.dolphinpos.data.entities.user.BatchHistoryEntity>)
+
+    @Query("SELECT * FROM batch_history WHERE storeId = :storeId ORDER BY createdAt DESC")
+    suspend fun getBatchHistoryByStoreId(storeId: Int): List<com.retail.dolphinpos.data.entities.user.BatchHistoryEntity>
+
+    @Query("SELECT * FROM batch_history WHERE storeId = :storeId AND substr(createdAt, 1, 10) >= :startDate AND substr(createdAt, 1, 10) <= :endDate ORDER BY createdAt DESC")
+    suspend fun getBatchHistoryByStoreIdAndDateRange(
+        storeId: Int,
+        startDate: String,
+        endDate: String
+    ): List<com.retail.dolphinpos.data.entities.user.BatchHistoryEntity>
+
+    @Query("DELETE FROM batch_history WHERE storeId = :storeId")
+    suspend fun deleteBatchHistoryByStoreId(storeId: Int)
 }

@@ -35,6 +35,7 @@ import com.retail.dolphinpos.data.entities.products.VendorEntity
 import com.retail.dolphinpos.data.entities.report.BatchReportEntity
 import com.retail.dolphinpos.data.entities.user.ActiveUserDetailsEntity
 import com.retail.dolphinpos.data.entities.user.BatchEntity
+import com.retail.dolphinpos.data.entities.user.BatchHistoryEntity
 import com.retail.dolphinpos.data.entities.user.LocationEntity
 import com.retail.dolphinpos.data.entities.user.RegisterEntity
 import com.retail.dolphinpos.data.entities.user.RegisterStatusEntity
@@ -46,11 +47,11 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
 
 @Database(
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
-        ActiveUserDetailsEntity::class, BatchEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
+        ActiveUserDetailsEntity::class, BatchEntity::class, BatchHistoryEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 @TypeConverters(PaymentMethodConverter::class)
@@ -81,7 +82,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -382,6 +383,38 @@ abstract class DolphinDatabase : RoomDatabase() {
                 
                 // Create index on is_synced for faster queries of unsynced customers
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_is_synced ON customer(is_synced)")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Create batch_history table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS batch_history (
+                        id INTEGER PRIMARY KEY NOT NULL,
+                        batchNo TEXT NOT NULL,
+                        startingCashAmount REAL NOT NULL,
+                        closingCashAmount REAL,
+                        openTime TEXT NOT NULL,
+                        closingTime TEXT,
+                        status TEXT NOT NULL,
+                        storeId INTEGER NOT NULL,
+                        locationId INTEGER NOT NULL,
+                        storeRegisterId INTEGER NOT NULL,
+                        openedBy INTEGER NOT NULL,
+                        closedBy INTEGER,
+                        totalSales TEXT,
+                        totalTax TEXT,
+                        totalDiscount TEXT,
+                        totalTransactions INTEGER NOT NULL,
+                        createdAt TEXT NOT NULL,
+                        updatedAt TEXT NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Create indexes for faster queries
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_store_id ON batch_history(storeId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_created_at ON batch_history(createdAt)")
             }
         }
 

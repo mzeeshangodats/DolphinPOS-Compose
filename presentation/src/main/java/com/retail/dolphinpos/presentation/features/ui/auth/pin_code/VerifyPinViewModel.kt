@@ -17,6 +17,7 @@ import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.GetCurrentTimeUseCase
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.network.NoConnectivityException
+import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -350,7 +351,7 @@ class VerifyPinViewModel @Inject constructor(
         }
     }
 
-    private suspend fun checkBatchStatus(): com.retail.dolphinpos.domain.model.report.BatchReport? {
+    private suspend fun checkBatchStatus(): BatchReport? {
         val batchNo = preferenceManager.getBatchNo()
         if (batchNo.isBlank()) {
             return null

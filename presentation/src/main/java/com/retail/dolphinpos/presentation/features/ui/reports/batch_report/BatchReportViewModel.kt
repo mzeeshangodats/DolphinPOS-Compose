@@ -5,9 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.dao.UserDao
-import com.retail.dolphinpos.domain.model.auth.cash_denomination.AbandonCart
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
-import com.retail.dolphinpos.domain.model.report.BatchReportData
+import com.retail.dolphinpos.domain.model.report.batch_report.BatchReportData
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
@@ -24,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
-import retrofit2.HttpException
 import javax.inject.Inject
 
 sealed class BatchReportUiEvent {

@@ -16,6 +16,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
 import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportScreen
+import com.retail.dolphinpos.presentation.features.ui.reports.batch_summary.BatchSummaryScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.transaction_activity.TransactionActivityScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
@@ -147,6 +148,26 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Batch History Screen
         composable("batch_history") {
             BatchHistoryScreen(navController = navController, preferenceManager = preferenceManager)
+        }
+
+        // Batch Summary Screen
+        composable(
+            route = "batchSummary/{batchNo}",
+            arguments = listOf(
+                navArgument("batchNo") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val encodedBatchNo = backStackEntry.arguments?.getString("batchNo") ?: ""
+            val batchNo = try {
+                java.net.URLDecoder.decode(encodedBatchNo, "UTF-8")
+            } catch (e: Exception) {
+                encodedBatchNo
+            }
+            BatchSummaryScreen(
+                navController = navController,
+                batchNo = batchNo,
+                preferenceManager = preferenceManager
+            )
         }
 
         // Transaction Activity Screen

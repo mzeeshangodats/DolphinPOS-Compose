@@ -4,9 +4,9 @@ import com.google.gson.Gson
 import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.retail.dolphinpos.data.entities.report.BatchReportEntity
-import com.retail.dolphinpos.domain.model.report.BatchReportData
-import com.retail.dolphinpos.domain.model.report.Closed
-import com.retail.dolphinpos.domain.model.report.Opened
+import com.retail.dolphinpos.domain.model.report.batch_report.BatchReportData
+import com.retail.dolphinpos.domain.model.report.batch_report.Closed
+import com.retail.dolphinpos.domain.model.report.batch_report.Opened
 
 object BatchReportMapper {
     
