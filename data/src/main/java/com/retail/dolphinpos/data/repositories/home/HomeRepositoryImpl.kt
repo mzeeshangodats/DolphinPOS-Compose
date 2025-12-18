@@ -15,6 +15,7 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.PLUProductRes
 import com.retail.dolphinpos.domain.model.home.catrgories_products.PLUProduct
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductImage
 import com.retail.dolphinpos.domain.model.home.customer.CustomerErrorResponse
+import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import retrofit2.HttpException
@@ -24,7 +25,8 @@ class HomeRepositoryImpl(
     private val customerDao: CustomerDao,
     private val userDao: UserDao,
     private val storeRegistersRepository: StoreRegistersRepository,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val networkMonitor: NetworkMonitor
 ) : HomeRepository {
 
     override suspend fun getCategories(): List<CategoryData> {
@@ -58,6 +60,7 @@ class HomeRepositoryImpl(
                 cashPrice = productEntity.cashPrice,
                 cardPrice = productEntity.cardPrice,
                 barCode = productEntity.barCode,
+                plu = productEntity.plu,
                 locationId = productEntity.locationId,
                 chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
                 vendor = null,
@@ -146,6 +149,7 @@ class HomeRepositoryImpl(
                 cashPrice = productEntity.cashPrice,
                 cardPrice = productEntity.cardPrice,
                 barCode = productEntity.barCode,
+                plu = productEntity.plu,
                 locationId = productEntity.locationId,
                 chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
                 vendor = null,
@@ -239,6 +243,54 @@ class HomeRepositoryImpl(
     }
 
     override suspend fun searchProductByPLU(plu: String, storeId: Int, locationId: Int): Result<Products?> {
+        // If offline, search from local database
+        if (!networkMonitor.isNetworkAvailable()) {
+            return try {
+                val productEntity = productsDao.searchProductByPLU(plu, storeId, locationId)
+                if (productEntity != null) {
+                    // Get product images with local paths
+                    val productImages = storeRegistersRepository.getProductImagesWithLocalPaths(productEntity.id)
+                    
+                    // Get variants for this product
+                    val variantEntities = productsDao.getVariantsByProductId(productEntity.id)
+                    val variants = variantEntities.map { variantEntity ->
+                        // Get variant images with local cached paths
+                        val variantImages = storeRegistersRepository.getVariantImagesWithLocalPaths(variantEntity.id)
+                        ProductMapper.toVariant(variantEntity, variantImages)
+                    }
+                    
+                    // Convert to domain model
+                    val product = Products(
+                        id = productEntity.id,
+                        categoryId = productEntity.categoryId,
+                        storeId = productEntity.storeId,
+                        name = productEntity.name,
+                        description = productEntity.description,
+                        quantity = productEntity.quantity,
+                        status = productEntity.status,
+                        cashPrice = productEntity.cashPrice,
+                        cardPrice = productEntity.cardPrice,
+                        barCode = productEntity.barCode,
+                        plu = productEntity.plu,
+                        locationId = productEntity.locationId,
+                        chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
+                        vendor = null,
+                        variants = variants,
+                        images = productImages,
+                        secondaryBarcodes = null,
+                        cardTax = productEntity.cardTax,
+                        cashTax = productEntity.cashTax
+                    )
+                    Result.success(product)
+                } else {
+                    Result.success(null)
+                }
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+        
+        // If online, search from API
         return safeApiCallResult(
             apiCall = {
                 val response = apiService.searchProductByPLU(plu, storeId, locationId)
@@ -295,6 +347,7 @@ class HomeRepositoryImpl(
             cashPrice = pluProduct.cashPrice ?: pluProduct.price ?: "0.00",
             cardPrice = pluProduct.cardPrice ?: pluProduct.price ?: "0.00",
             barCode = pluProduct.barCode,
+            plu = pluProduct.plu,
             chargeTaxOnThisProduct = pluProduct.chargeTaxOnThisProduct ?: false,
             isEBTEligible = pluProduct.isEBTEligible ?: false,
             isHSTEligible = pluProduct.isHSTEligible ?: false,

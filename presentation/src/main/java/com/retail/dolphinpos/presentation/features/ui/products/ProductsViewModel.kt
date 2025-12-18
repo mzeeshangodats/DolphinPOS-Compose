@@ -80,7 +80,9 @@ class ProductsViewModel @Inject constructor(
                         // Insert products
                         storeRegistersRepository.insertProductsIntoLocalDB(
                             listOf(product),
-                            category.id
+                            category.id,
+                            storeID,
+                            locationID
                         )
                         // Insert product images
                         storeRegistersRepository.insertProductImagesIntoLocalDB(

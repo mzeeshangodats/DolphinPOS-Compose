@@ -188,12 +188,14 @@ class StoreRegisterRepositoryImpl(
         }
     }
 
-    override suspend fun insertProductsIntoLocalDB(productList: List<Products>, categoryId: Int) {
+    override suspend fun insertProductsIntoLocalDB(productList: List<Products>, categoryId: Int, storeId: Int, locationId: Int) {
         try {
             val productEntities = productList.map { product ->
                 ProductMapper.toProductEntity(
                     products = product,
-                    categoryId = categoryId
+                    categoryId = categoryId,
+                    storeId = storeId,
+                    locationId = locationId
                 )
             }
             productsDao.insertProducts(productEntities)

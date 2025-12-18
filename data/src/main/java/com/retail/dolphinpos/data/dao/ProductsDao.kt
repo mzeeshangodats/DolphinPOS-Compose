@@ -51,8 +51,14 @@ interface ProductsDao {
     @Query("SELECT * FROM products WHERE barCode = :barcode LIMIT 1")
     suspend fun searchProductByBarcode(barcode: String): ProductsEntity?
 
+    @Query("SELECT * FROM products WHERE plu = :plu AND storeId = :storeId AND locationId = :locationId LIMIT 1")
+    suspend fun searchProductByPLU(plu: String, storeId: Int, locationId: Int): ProductsEntity?
+
     @Query("SELECT * FROM variants WHERE sku = :sku LIMIT 1")
     suspend fun searchVariantBySku(sku: String): VariantsEntity?
+
+    @Query("SELECT * FROM variants WHERE plu = :plu LIMIT 1")
+    suspend fun searchVariantByPLU(plu: String): VariantsEntity?
 
     @Query("SELECT * FROM variants WHERE sku LIKE '%' || :query || '%'")
     suspend fun searchVariantsBySku(query: String): List<VariantsEntity>

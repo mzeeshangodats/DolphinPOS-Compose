@@ -12,6 +12,7 @@ data class Variant(
     val price: String?,
     val quantity: Int,
     val sku: String?,
+    val plu: String? = null,
     val title: String?,
     val taxAmount: Double? = null,
     val taxDetails: List<TaxDetail>? = null

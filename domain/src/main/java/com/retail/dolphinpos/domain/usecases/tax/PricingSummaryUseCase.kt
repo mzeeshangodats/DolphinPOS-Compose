@@ -52,7 +52,8 @@ class PricingSummaryUseCase @Inject constructor() {
         }
 
         // Calculate cash discounted subtotal (after order-level discounts and cash discount)
-        val cashDiscountedSubtotal = cashSubtotal - totalCashDiscount
+        // Cap at 0.0 to prevent negative subtotals
+        val cashDiscountedSubtotal = (cashSubtotal - totalCashDiscount).coerceAtLeast(0.0)
 
         // Calculate cash tax on the discounted subtotal (not on original subtotal)
         // Rule: Tax must be calculated on the discounted subtotal after order-level discounts
@@ -79,7 +80,8 @@ class PricingSummaryUseCase @Inject constructor() {
         val cardDiscount = orderDiscountTotal
 
         // Calculate card discounted subtotal (after order-level discounts)
-        val cardDiscountedSubtotal = cardSubtotal - cardDiscount
+        // Cap at 0.0 to prevent negative subtotals
+        val cardDiscountedSubtotal = (cardSubtotal - cardDiscount).coerceAtLeast(0.0)
 
         // Calculate card tax on the discounted subtotal (not on original subtotal)
         // Rule: Tax must be calculated on the discounted subtotal after order-level discounts
@@ -100,8 +102,9 @@ class PricingSummaryUseCase @Inject constructor() {
         }
 
         // Calculate correct totals: (subtotal - discount) + tax
-        val cashTotal = (cashSubtotal - totalCashDiscount) + cashTax
-        val cardTotal = (cardSubtotal - cardDiscount) + cardTax
+        // Use capped discounted subtotals to ensure totals don't go negative
+        val cashTotal = cashDiscountedSubtotal + cashTax
+        val cardTotal = cardDiscountedSubtotal + cardTax
 
         return PricingSummaryResult(
             cashSubtotal = cashSubtotal,
@@ -118,6 +121,7 @@ class PricingSummaryUseCase @Inject constructor() {
 
     /**
      * Calculate subtotal with product-level discounts applied
+     * Caps discounted price at 0.0 to prevent negative subtotals
      */
     private fun calculateSubtotalWithDiscounts(
         cartItems: List<CartItem>,
@@ -127,10 +131,10 @@ class PricingSummaryUseCase @Inject constructor() {
             val basePrice = if (useCashPrice) cartItem.cashPrice else cartItem.cardPrice
             val discountedPrice = when (cartItem.discountType) {
                 DiscountType.PERCENTAGE -> {
-                    basePrice - ((basePrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    (basePrice - ((basePrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                 }
                 DiscountType.AMOUNT -> {
-                    basePrice - (cartItem.discountValue ?: 0.0)
+                    (basePrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                 }
                 else -> basePrice
             }

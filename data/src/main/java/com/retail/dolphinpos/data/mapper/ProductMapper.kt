@@ -28,7 +28,7 @@ object ProductMapper {
         )
     }
 
-    fun toProductEntity(products: Products, categoryId: Int): ProductsEntity {
+    fun toProductEntity(products: Products, categoryId: Int, storeId: Int, locationId: Int): ProductsEntity {
         return ProductsEntity(
             id = products.id,
             categoryId = categoryId,
@@ -39,8 +39,9 @@ object ProductMapper {
             cashPrice = products.cashPrice,
             cardPrice = products.cardPrice,
             barCode = products.barCode,
-            storeId = products.storeId,
-            locationId = products.locationId,
+            plu = products.plu,
+            storeId = storeId,
+            locationId = locationId,
             chargeTaxOnThisProduct = products.chargeTaxOnThisProduct,
             cardTax = products.cardTax,
             cashTax = products.cashTax
@@ -63,7 +64,8 @@ object ProductMapper {
             cashPrice = variants.cashPrice,
             quantity = variants.quantity,
             title = variants.title,
-            sku = variants.sku
+            sku = variants.sku,
+            plu = variants.plu
         )
     }
 
@@ -116,6 +118,7 @@ object ProductMapper {
                 cashPrice = product.cashPrice,
                 cardPrice = product.cardPrice,
                 barCode = product.barCode,
+                plu = product.plu,
                 locationId = product.locationId,
                 chargeTaxOnThisProduct = product.chargeTaxOnThisProduct,
                 vendor = null,
@@ -143,6 +146,7 @@ object ProductMapper {
             price = null,
             quantity = variantsEntity.quantity,
             sku = variantsEntity.sku,
+            plu = variantsEntity.plu,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
             barCode = null,
@@ -158,6 +162,7 @@ object ProductMapper {
             price = null,
             quantity = variantsEntity.quantity,
             sku = variantsEntity.sku,
+            plu = variantsEntity.plu,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
             barCode = null,

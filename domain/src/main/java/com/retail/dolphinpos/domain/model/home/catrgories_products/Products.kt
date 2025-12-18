@@ -4,6 +4,7 @@ import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 
 data class Products(
     val barCode: String?,
+    val plu: String? = null,
     val cardPrice: String,
     val cashPrice: String,
     val categoryId: Int,

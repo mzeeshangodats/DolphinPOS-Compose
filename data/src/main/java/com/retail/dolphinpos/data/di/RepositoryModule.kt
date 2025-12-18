@@ -86,9 +86,10 @@ object RepositoryModule {
         customerDao: CustomerDao,
         userDao: UserDao,
         storeRegistersRepository: StoreRegistersRepository,
-        apiService: ApiService
+        apiService: ApiService,
+        networkMonitor: NetworkMonitor
     ): HomeRepository {
-        return HomeRepositoryImpl(productsDao, customerDao, userDao, storeRegistersRepository, apiService)
+        return HomeRepositoryImpl(productsDao, customerDao, userDao, storeRegistersRepository, apiService, networkMonitor)
     }
 
     @Provides

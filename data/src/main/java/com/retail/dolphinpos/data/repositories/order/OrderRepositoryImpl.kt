@@ -213,7 +213,7 @@ class OrderRepositoryImpl(
             storeId = apiOrder.storeId,
             locationId = apiOrder.locationId,
             storeRegisterId = apiOrder.storeRegisterId,
-            batchNo = apiOrder.batchId.toString().takeIf { it != "null" && it.isNotEmpty() },
+            batchNo = apiOrder.batchId?.toString()?.takeIf { it != "null" && it.isNotEmpty() },
             paymentMethod = apiOrder.paymentMethod,
             isRedeemed = apiOrder.isRedeemed,
             source = apiOrder.source,

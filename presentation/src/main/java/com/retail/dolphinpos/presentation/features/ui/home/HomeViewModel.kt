@@ -609,7 +609,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun printLatestOnlineOrder() {
+    fun printLatestOrder() {
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
             try {
@@ -659,15 +659,16 @@ class HomeViewModel @Inject constructor(
 
         if (isCashSelected) {
             // Calculate cash discount as the difference between card-based subtotal and cash-based subtotal
+            // Cap discounted price at 0.0 to prevent negative subtotals
             val cardBasedSubtotal = cartItems.sumOf { cartItem ->
                 val cardPrice = cartItem.cardPrice
                 val discountedCardPrice = when (cartItem.discountType) {
                     DiscountType.PERCENTAGE -> {
-                        cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                        (cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                     }
 
                     DiscountType.AMOUNT -> {
-                        cardPrice - (cartItem.discountValue ?: 0.0)
+                        (cardPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                     }
 
                     else -> cardPrice
@@ -679,11 +680,11 @@ class HomeViewModel @Inject constructor(
                 val cashPrice = cartItem.cashPrice
                 val discountedCashPrice = when (cartItem.discountType) {
                     DiscountType.PERCENTAGE -> {
-                        cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                        (cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                     }
 
                     DiscountType.AMOUNT -> {
-                        cashPrice - (cartItem.discountValue ?: 0.0)
+                        (cashPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                     }
 
                     else -> cashPrice
@@ -742,15 +743,16 @@ class HomeViewModel @Inject constructor(
             cartItems.sumOf { it.cardPrice * it.quantity }
 
             // Calculate product-level discounts using card prices (subtotal always shows card prices)
+            // Cap discounted price at 0.0 to prevent negative subtotals
             val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
                 val cardPrice = cartItem.cardPrice
                 val discountedPrice = when (cartItem.discountType) {
                     DiscountType.PERCENTAGE -> {
-                        cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                        (cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                     }
 
                     DiscountType.AMOUNT -> {
-                        cardPrice - (cartItem.discountValue ?: 0.0)
+                        (cardPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                     }
 
                     else -> cardPrice
@@ -794,7 +796,8 @@ class HomeViewModel @Inject constructor(
             }
 
             // 5️⃣ Apply cash discount (after order-level discounts)
-            val finalSubtotal = discountedSubtotal - currentCashDiscount
+            // Cap at 0.0 to prevent negative subtotals
+            val finalSubtotal = (discountedSubtotal - currentCashDiscount).coerceAtLeast(0.0)
 
             // 6️⃣ Tax calculation using PricingCalculationUseCase (supports fixed and percentage tax)
             var taxValue: Double
@@ -1013,15 +1016,16 @@ class HomeViewModel @Inject constructor(
 
             // 8️⃣ Calculate cash and card totals separately for display
             // Calculate cash-based subtotal (using cash prices)
+            // Cap discounted price at 0.0 to prevent negative subtotals
             val cashBasedProductDiscountedSubtotal = cartItems.sumOf { cartItem ->
                 val cashPrice = cartItem.cashPrice
                 val discountedCashPrice = when (cartItem.discountType) {
                     DiscountType.PERCENTAGE -> {
-                        cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                        (cashPrice - ((cashPrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                     }
 
                     DiscountType.AMOUNT -> {
-                        cashPrice - (cartItem.discountValue ?: 0.0)
+                        (cashPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                     }
 
                     else -> cashPrice
@@ -1050,7 +1054,8 @@ class HomeViewModel @Inject constructor(
             if (cashDiscountedSubtotal <= 0) {
                 currentCashDiscountForCash = 0.0
             }
-            val cashSubtotalAfterAllDiscounts = cashDiscountedSubtotal - currentCashDiscountForCash
+            // Cap at 0.0 to prevent negative subtotals
+            val cashSubtotalAfterAllDiscounts = (cashDiscountedSubtotal - currentCashDiscountForCash).coerceAtLeast(0.0)
 
             // Calculate card-based subtotal (using card prices) - already calculated as productDiscountedSubtotal
             var cardDiscountedSubtotal = productDiscountedSubtotal
@@ -1066,7 +1071,8 @@ class HomeViewModel @Inject constructor(
                 }
             }
             // Card doesn't have cash discount, so cardSubtotalAfterAllDiscounts = cardDiscountedSubtotal
-            val cardSubtotalAfterAllDiscounts = cardDiscountedSubtotal
+            // Cap at 0.0 to prevent negative subtotals
+            val cardSubtotalAfterAllDiscounts = cardDiscountedSubtotal.coerceAtLeast(0.0)
 
             // Calculate tax for cash scenario
             // Rule: Calculate tax directly on the discounted subtotal (after order-level discounts and cash discount)
@@ -1144,7 +1150,7 @@ class HomeViewModel @Inject constructor(
 
             withContext(Dispatchers.Main) {
                 _subtotal.value =
-                    subtotal   // subtotal shows card prices minus product-level discounts only
+                    subtotal.coerceAtLeast(0.0)   // subtotal shows card prices minus product-level discounts only, capped at 0.0
                 _orderDiscountTotal.value = totalOrderDiscount
                 _tax.value = taxValue
                 _totalAmount.value = totalAmount
@@ -1259,15 +1265,16 @@ class HomeViewModel @Inject constructor(
         val cartItems = _cartItems.value
 
         // Calculate product-level discounted subtotal
+        // Cap discounted price at 0.0 to prevent negative subtotals
         val productDiscountedSubtotal = cartItems.sumOf { cartItem ->
             val cardPrice = cartItem.cardPrice
             val discountedPrice = when (cartItem.discountType) {
                 DiscountType.PERCENTAGE -> {
-                    cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)
+                    (cardPrice - ((cardPrice * (cartItem.discountValue ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                 }
 
                 DiscountType.AMOUNT -> {
-                    cardPrice - (cartItem.discountValue ?: 0.0)
+                    (cardPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                 }
 
                 else -> cardPrice
@@ -1478,15 +1485,16 @@ class HomeViewModel @Inject constructor(
                         val cashBaseSubtotal = _cartItems.value.sumOf { cartItem ->
                             val hasProductDiscount =
                                 cartItem.discountType != null && cartItem.discountValue != null && cartItem.discountValue!! > 0.0
+                            // Cap discounted price at 0.0 to prevent negative subtotals
                             val discountedCashPrice = if (hasProductDiscount) {
                                 when (cartItem.discountType) {
                                     DiscountType.PERCENTAGE -> {
-                                        cartItem.cashPrice - ((cartItem.cashPrice * (cartItem.discountValue
-                                            ?: 0.0)) / 100.0)
+                                        (cartItem.cashPrice - ((cartItem.cashPrice * (cartItem.discountValue
+                                            ?: 0.0)) / 100.0)).coerceAtLeast(0.0)
                                     }
 
                                     DiscountType.AMOUNT -> {
-                                        cartItem.cashPrice - (cartItem.discountValue ?: 0.0)
+                                        (cartItem.cashPrice - (cartItem.discountValue ?: 0.0)).coerceAtLeast(0.0)
                                     }
 
                                     else -> cartItem.cashPrice
