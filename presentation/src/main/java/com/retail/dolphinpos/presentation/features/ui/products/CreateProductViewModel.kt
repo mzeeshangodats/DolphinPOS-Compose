@@ -540,6 +540,10 @@ class CreateProductViewModel @Inject constructor(
                 _uiEvent.emit(CreateProductUiEvent.ShowError("Please enter Cost Per Item"))
                 return@launch
             }
+            if (state.productImages.isEmpty()) {
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Please add at least one product image"))
+                return@launch
+            }
             
             _uiState.value = _uiState.value.copy(isLoading = true)
             
@@ -609,11 +613,18 @@ class CreateProductViewModel @Inject constructor(
 //                    uploadedImages
 //                }
                 
-                // Step 2: Update state with uploaded image URLs
+                // Step 2: Validate that at least one image is present
+                if (uploadedImages.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _uiEvent.emit(CreateProductUiEvent.ShowError("Please add at least one product image"))
+                    return@launch
+                }
+                
+                // Step 3: Update state with uploaded image URLs
                 val updatedState = state.copy(productImages = uploadedImages)
                 _uiState.value = updatedState
                 
-                // Step 3: Create product with uploaded image URLs
+                // Step 4: Create product with uploaded image URLs
                 val request = buildCreateProductRequest()
                 val result = createProductUseCase(request)
                 
