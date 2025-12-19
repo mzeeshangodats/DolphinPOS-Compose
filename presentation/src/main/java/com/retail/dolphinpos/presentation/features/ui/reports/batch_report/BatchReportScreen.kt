@@ -217,12 +217,16 @@ fun BatchReportContent(
                                     Spacer(modifier = Modifier.height(15.dp))
 
                                     // Financial Details List - scrollable if needed
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .verticalScroll(rememberScrollState()),
-                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    val scrollState = rememberScrollState()
+                                    Box(
+                                        modifier = Modifier.weight(1f)
                                     ) {
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .verticalScroll(scrollState),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
                                         InfoRow(
                                             "Start Amount:",
                                             formatCurrency(report.startingCashAmount)
@@ -259,6 +263,7 @@ fun BatchReportContent(
                                             "Abandoned Carts", report.totalAbandonOrders.toString()
                                         )
                                         InfoRow("Transactions", report.totalTransactions.toString())
+                                        }
                                     }
                                 }
                             }

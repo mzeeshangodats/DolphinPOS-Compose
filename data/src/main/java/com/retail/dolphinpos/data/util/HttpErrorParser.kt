@@ -7,7 +7,8 @@ import retrofit2.HttpException
  * Data class to represent error responses from the server
  */
 data class ErrorResponse(
-    val message: String?
+    val message: String?,
+    val errors: Map<String, Any>? = null
 )
 
 /**
@@ -21,9 +22,56 @@ fun HttpException.getErrorMessage(): String {
             try {
                 val gson = Gson()
                 val errorResponse: ErrorResponse = gson.fromJson(errorBody, ErrorResponse::class.java)
-                errorResponse.message ?: "Unknown error occurred"
+                
+                // Build error message from both message and errors fields
+                val errorMessages = mutableListOf<String>()
+                
+                // Add main message if available
+                errorResponse.message?.let { errorMessages.add(it) }
+                
+                // Add field-specific errors
+                errorResponse.errors?.forEach { (field, value) ->
+                    val errorValue = when (value) {
+                        is List<*> -> value.joinToString(", ")
+                        is String -> value
+                        else -> value.toString()
+                    }
+                    errorMessages.add("$field: $errorValue")
+                }
+                
+                errorMessages.joinToString("\n").ifEmpty { "Unknown error occurred" }
             } catch (parseException: Exception) {
-                "Failed to parse error response"
+                // If parsing as ErrorResponse fails, try to parse as generic map
+                try {
+                    val gson = Gson()
+                    val errorMap = gson.fromJson(errorBody, Map::class.java) as? Map<*, *>
+                    val errorMessages = mutableListOf<String>()
+                    
+                    // Add main message if available
+                    (errorMap?.get("message") as? String)?.let { errorMessages.add(it) }
+                    
+                    // Parse errors field
+                    val errorsField = errorMap?.get("errors")
+                    when (errorsField) {
+                        is Map<*, *> -> {
+                            errorsField.forEach { (field, value) ->
+                                val errorValue = when (value) {
+                                    is List<*> -> value.joinToString(", ")
+                                    is String -> value
+                                    else -> value.toString()
+                                }
+                                errorMessages.add("$field: $errorValue")
+                            }
+                        }
+                        is String -> {
+                            errorMessages.add(errorsField)
+                        }
+                    }
+                    
+                    errorMessages.joinToString("\n").ifEmpty { "Unknown error occurred" }
+                } catch (e: Exception) {
+                    "Failed to parse error response"
+                }
             }
         } else {
             "Unknown error occurred"
@@ -83,9 +131,9 @@ inline fun <reified T> handleApiErrorResult(
 ): Result<T> {
     val errorResponse: T? = httpException.parseErrorResponse<T>()
     val errorMessage = if (errorResponse != null) {
-        messageExtractor(errorResponse) ?: defaultMessage
+        messageExtractor(errorResponse) ?: httpException.getErrorMessage().takeIf { it.isNotBlank() } ?: defaultMessage
     } else {
-        defaultMessage
+        httpException.getErrorMessage().takeIf { it.isNotBlank() } ?: defaultMessage
     }
     return Result.failure(Exception(errorMessage))
 }

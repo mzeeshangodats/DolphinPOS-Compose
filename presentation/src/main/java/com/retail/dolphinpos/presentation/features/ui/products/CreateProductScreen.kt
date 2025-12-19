@@ -84,11 +84,6 @@ fun CreateProductScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // Get username and clock-in status from preferences
-    val userName = preferenceManager.getName()
-    val isClockedIn = preferenceManager.isClockedIn()
-    val clockInTime = preferenceManager.getClockInTime()
-
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
@@ -268,15 +263,22 @@ fun CreateProductScreen(
                         .width(180.dp)
                         .height(48.dp)
                         .background(
-                            color = colorResource(id = R.color.primary),
+                            color = if (uiState.isLoading) 
+                                colorResource(id = R.color.primary).copy(alpha = 0.6f)
+                            else 
+                                colorResource(id = R.color.primary),
                             shape = RoundedCornerShape(8.dp)
                         )
-                        .clickable { viewModel.createProduct() },
+                        .clickable(enabled = !uiState.isLoading) { 
+                            if (!uiState.isLoading) {
+                                viewModel.createProduct()
+                            }
+                        },
                     contentAlignment = Alignment.Center,
 
                 ) {
                     BaseText(
-                        text = "Save Product",
+                        text = if (uiState.isLoading) "Saving..." else "Save Product",
                         fontSize = 16f,
                         fontWeight = FontWeight.Medium,
                         fontFamily = GeneralSans,
@@ -587,7 +589,7 @@ fun VariantsSection(
     // Variant Type Dropdown using DropdownSelector
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.width(642.dp)
+        modifier = Modifier.padding(start = 8.dp)
     ) {
         DropdownSelector(
             label = "Add Variant",
@@ -600,6 +602,7 @@ fun VariantsSection(
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(start = 8.dp)
     ) {
 
         // Size Section - Show only if active
@@ -621,7 +624,7 @@ fun VariantsSection(
                         value = sizeInput,
                         onValueChange = { sizeInput = it },
                         placeholder = "Enter size",
-                        modifier = Modifier.width(642.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier
@@ -682,7 +685,7 @@ fun VariantsSection(
                         value = colorInput,
                         onValueChange = { colorInput = it },
                         placeholder = "Enter color",
-                        modifier = Modifier.width(642.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier
@@ -743,13 +746,13 @@ fun VariantsSection(
                         value = customNameInput,
                         onValueChange = { customNameInput = it },
                         placeholder = "New",
-                        modifier = Modifier.width(321.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     BaseOutlinedEditText(
                         value = customValueInput,
                         onValueChange = { customValueInput = it },
                         placeholder = "Value",
-                        modifier = Modifier.width(321.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier

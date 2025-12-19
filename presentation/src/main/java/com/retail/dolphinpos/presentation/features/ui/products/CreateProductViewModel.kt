@@ -187,8 +187,10 @@ class CreateProductViewModel @Inject constructor(
     }
 
     fun updatePrice(price: String) {
+        // Limit price to 8 characters
+        val limitedPrice = if (price.length > 8) price.take(8) else price
         val currentState = _uiState.value
-        val priceValue = price.toDoubleOrNull()
+        val priceValue = limitedPrice.toDoubleOrNull()
         
         // Calculate Dual Price Card using dualPricePercentage from location table
         val compareAtPrice = if (priceValue != null && priceValue > 0) {
@@ -215,7 +217,7 @@ class CreateProductViewModel @Inject constructor(
         }
         
         _uiState.value = currentState.copy(
-            price = price,
+            price = limitedPrice,
             compareAtPrice = compareAtPrice,
             profit = profit,
             margin = markup
@@ -455,15 +457,18 @@ class CreateProductViewModel @Inject constructor(
         val currentVariants = _uiState.value.variants.toMutableList()
         val index = currentVariants.indexOfFirst { it.id == variant.id }
         if (index >= 0) {
+            // Limit price to 8 characters
+            val limitedPrice = if (variant.price.length > 8) variant.price.take(8) else variant.price
+            
             // Calculate dual price for variant when price changes
-            val priceValue = variant.price.toDoubleOrNull()
+            val priceValue = limitedPrice.toDoubleOrNull()
             val calculatedDualPrice = if (priceValue != null && priceValue > 0) {
                 val multiplier = 1.0 + (dualPricePercentage / 100.0)
                 String.format("%.2f", priceValue * multiplier)
             } else {
                 ""
             }
-            val updatedVariant = variant.copy(dualPrice = calculatedDualPrice)
+            val updatedVariant = variant.copy(price = limitedPrice, dualPrice = calculatedDualPrice)
             currentVariants[index] = updatedVariant
             _uiState.value = _uiState.value.copy(variants = currentVariants)
         }
@@ -540,6 +545,10 @@ class CreateProductViewModel @Inject constructor(
                 _uiEvent.emit(CreateProductUiEvent.ShowError("Please enter Cost Per Item"))
                 return@launch
             }
+            if (state.productImages.isEmpty()) {
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Please add at least one product image"))
+                return@launch
+            }
             
             _uiState.value = _uiState.value.copy(isLoading = true)
             
@@ -612,6 +621,13 @@ class CreateProductViewModel @Inject constructor(
                 // Step 2: Update state with uploaded image URLs
                 val updatedState = state.copy(productImages = uploadedImages)
                 _uiState.value = updatedState
+                
+                // Validate that we have at least one image after upload
+                if (uploadedImages.isEmpty()) {
+                    _uiState.value = _uiState.value.copy(isLoading = false)
+                    _uiEvent.emit(CreateProductUiEvent.ShowError("Please add at least one product image"))
+                    return@launch
+                }
                 
                 // Step 3: Create product with uploaded image URLs
                 val request = buildCreateProductRequest()

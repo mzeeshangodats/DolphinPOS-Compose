@@ -28,9 +28,8 @@ data class VariantsEntity(
     val quantity: Int,
     val sku: String?,
     val plu: String?,
-    val title: String?
     val title: String?,
-    @ColumnInfo(name = "bar_code") val barCode: String?=null,
+    @ColumnInfo(name = "bar_code") val barCode: String? = null,
     @ColumnInfo(name = "attributes") val attributes: String? = null, // JSON string Map<String, String>
     @ColumnInfo(name = "location_id") val locationId: Int? = null,
     @ColumnInfo(name = "is_synced") val isSynced: Boolean = false, // Sync status for offline-first

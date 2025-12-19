@@ -209,6 +209,7 @@ object ProductMapper {
             compareAtPrice = null, // Can be added if needed
             costPrice = request.costPrice,
             barCode = request.barCode,
+            plu = null, // PLU not available in CreateProductRequest yet
             secondaryBarCodes = if (request.secondaryBarCodes.isEmpty()) null else gson.toJson(request.secondaryBarCodes),
             chargeTaxOnThisProduct = true, // Default
             locationId = request.locationId,
@@ -246,6 +247,7 @@ object ProductMapper {
             costPrice = variant.costPrice,
             quantity = variant.quantity,
             sku = variant.sku,
+            plu = null, // PLU not available in ProductVariantRequest yet
             title = variant.title,
             barCode = variant.barCode,
             locationId = variant.locationId,

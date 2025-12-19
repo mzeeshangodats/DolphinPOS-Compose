@@ -22,18 +22,11 @@ data class ProductsEntity(
     val chargeTaxOnThisProduct: Boolean?,
     val locationId: Int,
     val cardTax: Double = 0.0,
-    val cashTax: Double = 0.0
-    val cashPrice: String, // Keep existing column name
-    val cardPrice: String, // Keep existing column name
+    val cashTax: Double = 0.0,
     val price: String? = null, // Base price
     @ColumnInfo(name = "compare_at_price") val compareAtPrice: String? = null,
     @ColumnInfo(name = "cost_price") val costPrice: String? = null,
-    val barCode: String?, // Keep existing column name
     @ColumnInfo(name = "secondary_bar_codes") val secondaryBarCodes: String? = null, // JSON string
-    val chargeTaxOnThisProduct: Boolean?, // Keep existing column name
-    val locationId: Int, // Keep existing column name
-    val cardTax: Double = 0.0, // Keep existing column name
-    val cashTax: Double = 0.0, // Keep existing column name
     @ColumnInfo(name = "track_quantity") val trackQuantity: Boolean = false,
     @ColumnInfo(name = "continue_selling_when_out_of_stock") val continueSellingWhenOutOfStock: Boolean = false,
     @ColumnInfo(name = "product_vendor_id") val productVendorId: Int? = null,

@@ -1,15 +1,16 @@
 package com.retail.dolphinpos.presentation.features.ui
 
+import android.app.Activity
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -44,10 +44,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.BottomNavigationBar
 import com.retail.dolphinpos.common.utils.PreferenceManager
+import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.features.ui.home.HomeScreen
 import com.retail.dolphinpos.presentation.features.ui.home.HomeViewModel
 import com.retail.dolphinpos.presentation.features.ui.inventory.InventoryScreen
@@ -56,8 +56,7 @@ import com.retail.dolphinpos.presentation.features.ui.products.ProductsScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.ReportsScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.HardwareSetupScreen
 import com.retail.dolphinpos.presentation.util.DialogHandler
-import android.app.Activity
-import com.retail.dolphinpos.presentation.features.ui.products.CreateProductScreen
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,6 +144,7 @@ fun MainLayout(
             when (currentDestination?.route) {
                 "home" -> HomeScreen(navController = navController, preferenceManager = preferenceManager)
                 "products" -> ProductsScreen(navController = navController, preferenceManager = preferenceManager)
+                "orders" -> OrdersScreen(navController = navController, preferenceManager = preferenceManager)
                 "inventory" -> InventoryScreen(navController = navController, preferenceManager = preferenceManager)
                 "reports" -> {
                     // Use key to force recomposition when navigating to reports
@@ -156,7 +156,7 @@ fun MainLayout(
                 "cash_drawer" -> {
                     // Handle cash drawer route if navigated to directly (fallback)
                     // Normally handled by button click, but keep this as safety
-                    LaunchedEffect(currentDestination?.id) {
+                    LaunchedEffect(currentDestination.id) {
                         homeViewModel.openCashDrawer("Manual Open")
                         navController.navigate("home") {
                             popUpTo(navController.graph.findStartDestination().id) {
