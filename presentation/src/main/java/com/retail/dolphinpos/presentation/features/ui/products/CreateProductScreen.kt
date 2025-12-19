@@ -193,8 +193,10 @@ fun CreateProductScreen(
                             categoryName = uiState.categoryName,
                             categoryId = uiState.categoryId,
                             categories = uiState.categories,
+                            selectedVariantType = uiState.selectedVariantType,
                             onProductVendorChange = { viewModel.updateProductVendor(it) },
-                            onCategoryChange = { viewModel.updateCategory(it) }
+                            onCategoryChange = { viewModel.updateCategory(it) },
+                            onVariantTypeSelected = { viewModel.setSelectedVariantType(it) }
                         )
                     }
 
@@ -233,13 +235,11 @@ fun CreateProductScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         VariantsSection(
-                            selectedVariantType = uiState.selectedVariantType,
                             activeVariantTypes = uiState.activeVariantTypes,
                             sizeValues = uiState.sizeValues,
                             colorValues = uiState.colorValues,
                             customAttributes = uiState.customAttributes,
                             variants = uiState.variants,
-                            onVariantTypeSelected = { viewModel.setSelectedVariantType(it) },
                             onSizeValueAdded = { viewModel.addSizeValue(it) },
                             onSizeValueRemoved = { viewModel.removeSizeValue(it) },
                             onColorValueAdded = { viewModel.addColorValue(it) },
@@ -530,9 +530,13 @@ fun ProductOrganizationSection(
     categoryName: String,
     categoryId: Int,
     categories: List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData>,
+    selectedVariantType: String?,
     onProductVendorChange: (Int?) -> Unit,
-    onCategoryChange: (Int?) -> Unit
+    onCategoryChange: (Int?) -> Unit,
+    onVariantTypeSelected: (String?) -> Unit
 ) {
+    val variantTypeOptions = listOf("Size", "Color", "Custom")
+    
     Column(
         modifier = Modifier.padding(start = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -554,18 +558,25 @@ fun ProductOrganizationSection(
                 onCategoryChange(categories[index].id)
             }
         )
+
+        DropdownSelector(
+            label = "Add Variant",
+            items = variantTypeOptions,
+            selectedText = selectedVariantType ?: "--select--",
+            onItemSelected = { index ->
+                onVariantTypeSelected(variantTypeOptions[index])
+            }
+        )
     }
 }
 
 @Composable
 fun VariantsSection(
-    selectedVariantType: String?,
     activeVariantTypes: Set<String>,
     sizeValues: List<String>,
     colorValues: List<String>,
     customAttributes: List<Pair<String, String>>,
     variants: List<ProductVariantData>,
-    onVariantTypeSelected: (String?) -> Unit,
     onSizeValueAdded: (String) -> Unit,
     onSizeValueRemoved: (String) -> Unit,
     onColorValueAdded: (String) -> Unit,
@@ -583,23 +594,9 @@ fun VariantsSection(
     var customNameInput by remember { mutableStateOf("") }
     var customValueInput by remember { mutableStateOf("") }
 
-    val variantTypeOptions = listOf("Size", "Color", "Custom")
-    // Variant Type Dropdown using DropdownSelector
     Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.width(642.dp)
-    ) {
-        DropdownSelector(
-            label = "Add Variant",
-            items = variantTypeOptions,
-            selectedText = selectedVariantType ?: "--select--",
-            onItemSelected = { index ->
-                onVariantTypeSelected(variantTypeOptions[index])
-            },
-        )
-    }
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(start = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
 
         // Size Section - Show only if active
@@ -621,7 +618,7 @@ fun VariantsSection(
                         value = sizeInput,
                         onValueChange = { sizeInput = it },
                         placeholder = "Enter size",
-                        modifier = Modifier.width(642.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier
@@ -682,7 +679,7 @@ fun VariantsSection(
                         value = colorInput,
                         onValueChange = { colorInput = it },
                         placeholder = "Enter color",
-                        modifier = Modifier.width(642.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier
@@ -743,13 +740,13 @@ fun VariantsSection(
                         value = customNameInput,
                         onValueChange = { customNameInput = it },
                         placeholder = "New",
-                        modifier = Modifier.width(321.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     BaseOutlinedEditText(
                         value = customValueInput,
                         onValueChange = { customValueInput = it },
                         placeholder = "Value",
-                        modifier = Modifier.width(321.dp)
+                        modifier = Modifier.weight(1f)
                     )
                     Box(
                         modifier = Modifier

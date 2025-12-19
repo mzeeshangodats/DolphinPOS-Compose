@@ -154,8 +154,6 @@ fun MainLayout(
                 }
                 "setup" -> HardwareSetupScreen(navController = navController)
                 "cash_drawer" -> {
-                    // Handle cash drawer route if navigated to directly (fallback)
-                    // Normally handled by button click, but keep this as safety
                     LaunchedEffect(currentDestination?.id) {
                         homeViewModel.openCashDrawer("Manual Open")
                         navController.navigate("home") {
@@ -190,7 +188,6 @@ fun MainLayout(
                         val route = when (menu.destinationId) {
                             R.id.homeScreen -> "home"
                             R.id.productsScreen -> "products"
-//                            R.id.productsScreen -> "create_product"
                             R.id.ordersScreen -> "orders"
                             R.id.inventoryScreen -> "inventory"
                             R.id.reportsScreen -> "reports"

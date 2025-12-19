@@ -227,7 +227,7 @@ fun ProductsScreen(
                     )
                 ) {
                     BaseText(
-                        text = "Add Products",
+                        text = "Add Product",
                         fontSize = 14f,
                         color = Color.White,
                         fontFamily = GeneralSans,

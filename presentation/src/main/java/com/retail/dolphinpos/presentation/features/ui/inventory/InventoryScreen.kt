@@ -185,7 +185,7 @@ fun InventoryScreen(
                                 Box {
                                     if (searchQuery.isEmpty()) {
                                         BaseText(
-                                            text = "Search by product name or barcode",
+                                            text = "Search by product name",
                                             fontSize = 14f,
                                             color = Color.Gray,
                                             fontFamily = GeneralSans
@@ -196,6 +196,23 @@ fun InventoryScreen(
                             }
                         )
                     }
+                }
+
+                // Add Products Button
+                Button(
+                    onClick = { navController.navigate("create_product") },
+                    modifier = Modifier.height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    )
+                ) {
+                    BaseText(
+                        text = "Add Product to Inventory",
+                        fontSize = 14f,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
 

@@ -28,7 +28,6 @@ data class VariantsEntity(
     val quantity: Int,
     val sku: String?,
     val plu: String?,
-    val title: String?
     val title: String?,
     @ColumnInfo(name = "bar_code") val barCode: String?=null,
     @ColumnInfo(name = "attributes") val attributes: String? = null, // JSON string Map<String, String>
