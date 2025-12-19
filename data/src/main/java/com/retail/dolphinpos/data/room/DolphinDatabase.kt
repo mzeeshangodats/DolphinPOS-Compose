@@ -8,6 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
+import com.retail.dolphinpos.data.entities.products.ProductTypeConverters
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
@@ -54,7 +55,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
     version = 1,
     exportSchema = false
 )
-@TypeConverters(PaymentMethodConverter::class)
+@TypeConverters(PaymentMethodConverter::class, ProductTypeConverters::class)
 abstract class DolphinDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao

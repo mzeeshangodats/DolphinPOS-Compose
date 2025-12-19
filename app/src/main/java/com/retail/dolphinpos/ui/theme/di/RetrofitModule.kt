@@ -28,11 +28,17 @@ object RetrofitModule {
         preferenceManager: PreferenceManager
     ): Interceptor {
         return Interceptor { chain ->
-            val newRequest = chain.request().newBuilder()
+            val originalRequest = chain.request()
+            val requestBuilder = originalRequest.newBuilder()
                 .addHeader("Authorization", "Bearer ${preferenceManager.getAccessToken()}")
-                .header("Content-Type", "application/json")
-                .build()
-            chain.proceed(newRequest)
+            
+            // Only set Content-Type for non-multipart requests
+            // Retrofit automatically sets Content-Type with boundary for @Multipart requests
+            if (originalRequest.body !is okhttp3.MultipartBody) {
+                requestBuilder.header("Content-Type", "application/json")
+            }
+            
+            chain.proceed(requestBuilder.build())
         }
     }
 

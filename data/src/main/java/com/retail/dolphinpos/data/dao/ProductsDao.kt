@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import com.retail.dolphinpos.data.entities.category.CategoryEntity
 import com.retail.dolphinpos.data.entities.products.CachedImageEntity
 import com.retail.dolphinpos.data.entities.products.ProductImagesEntity
@@ -22,10 +23,16 @@ interface ProductsDao {
     suspend fun insertProducts(productList: List<ProductsEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProduct(product: ProductsEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertProductImages(productImagesList: List<ProductImagesEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVariants(variantsList: List<VariantsEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVariant(variant: VariantsEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVariantImages(variantsImagesList: List<VariantImagesEntity>)
@@ -120,5 +127,27 @@ interface ProductsDao {
 
     @Query("UPDATE variants SET quantity = quantity - :quantityToDeduct WHERE id = :variantId")
     suspend fun deductVariantQuantity(variantId: Int, quantityToDeduct: Int)
+
+    // Product creation and sync methods
+    @Update
+    suspend fun updateProduct(product: ProductsEntity)
+
+//    @Query("SELECT * FROM products WHERE is_synced = 0 ORDER BY createdAt ASC")
+//    suspend fun getUnsyncedProducts(): List<ProductsEntity>
+
+    @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
+    suspend fun getProductByLocalId(productId: Int): ProductsEntity?
+
+    @Query("SELECT * FROM variants WHERE productId = :productId AND is_synced = 0")
+    suspend fun getUnsyncedVariantsByProductId(productId: Int): List<VariantsEntity>
+
+    @Query("DELETE FROM variants WHERE productId = :productId")
+    suspend fun deleteVariantsByProductId(productId: Int)
+
+//    @Query("UPDATE products SET is_synced = 1, server_id = :serverId, updatedAt = :updatedAt WHERE id = :productId")
+//    suspend fun markProductAsSynced(productId: Int, serverId: Int, updatedAt: Long)
+
+    @Query("UPDATE variants SET is_synced = 1, server_id = :serverId, updated_at = :updatedAt WHERE id = :variantId")
+    suspend fun markVariantAsSynced(variantId: Int, serverId: Int, updatedAt: Long)
 
 }
