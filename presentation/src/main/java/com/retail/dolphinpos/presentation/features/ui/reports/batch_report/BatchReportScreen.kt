@@ -88,15 +88,6 @@ fun BatchReportContent(
         }
     }
 
-    // Use isLoading state directly to show/hide loader for batch report loading
-    LaunchedEffect(isLoading) {
-        if (isLoading) {
-            Loader.show("Please wait while loading batch report")
-        } else {
-            Loader.hide()
-        }
-    }
-
     LaunchedEffect(Unit) {
         viewModel.loadBatchReport()
     }
@@ -105,17 +96,13 @@ fun BatchReportContent(
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is BatchReportUiEvent.ShowLoading -> {
-                    // Only show if not already showing (to avoid duplicate messages)
-                    if (!Loader.isVisible) {
-                        Loader.show("Please wait while loading batch report")
-                    }
+                    // Show loader with custom message or default message
+                    val message = event.message ?: "Please wait while loading batch report"
+                    Loader.show(message)
                 }
 
                 is BatchReportUiEvent.HideLoading -> {
-                    // Only hide if isLoading is false (to avoid hiding during other operations)
-                    if (!isLoading) {
-                        Loader.hide()
-                    }
+                    Loader.hide()
                 }
 
                 is BatchReportUiEvent.ShowError -> {

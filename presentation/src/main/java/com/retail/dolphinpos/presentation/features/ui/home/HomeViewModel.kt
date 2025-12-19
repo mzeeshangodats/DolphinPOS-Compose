@@ -613,7 +613,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
             try {
-                // Get latest synced online order only (not pending orders)
+                // Get latest order regardless of sync status
                 val latestOrder = getLatestOnlineOrderUseCase()
 
                 if (latestOrder == null) {

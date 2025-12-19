@@ -10,10 +10,9 @@ class GetLatestOnlineOrderUseCaseImpl @Inject constructor(
 ) : GetLatestOnlineOrderUseCase {
 
     override suspend operator fun invoke(): PendingOrder? {
-        // Get latest synced orders (isSynced = true)
-        val syncedOrders = orderRepository.getOrdersBySyncStatus(isSynced = true)
-        // Return the latest one (first in the list since they're ordered by created_at DESC)
-        return syncedOrders.firstOrNull()?.let { order ->
+        // Get latest order regardless of sync status
+        val latestOrder = orderRepository.getLatestOrder()
+        return latestOrder?.let { order ->
             orderRepository.convertToPendingOrder(order)
         }
     }

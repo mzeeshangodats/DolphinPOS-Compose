@@ -26,7 +26,7 @@ import kotlin.coroutines.resume
 import javax.inject.Inject
 
 sealed class BatchReportUiEvent {
-    object ShowLoading : BatchReportUiEvent()
+    data class ShowLoading(val message: String? = null) : BatchReportUiEvent()
     object HideLoading : BatchReportUiEvent()
     data class ShowError(val message: String) : BatchReportUiEvent()
     object NavigateToPinCode : BatchReportUiEvent()
@@ -65,7 +65,7 @@ class BatchReportViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                _uiEvent.emit(BatchReportUiEvent.ShowLoading)
+                _uiEvent.emit(BatchReportUiEvent.ShowLoading())
 
                 // Get current batch number from SharedPreferences
                 val batchNo = preferenceManager.getBatchNo()
@@ -130,7 +130,7 @@ class BatchReportViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _isLoading.value = true
-                _uiEvent.emit(BatchReportUiEvent.ShowLoading)
+                _uiEvent.emit(BatchReportUiEvent.ShowLoading("Closing batch. Do not close the app..."))
 
                 // Step 1: Close PAX Batch if checkbox is checked (BEFORE regular batch close)
                 if (shouldClosePaxBatch) {

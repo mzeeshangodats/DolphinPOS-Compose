@@ -2053,7 +2053,7 @@ fun ActionButtonsPanel(
             rowIndex = 0, buttons = listOf(
                 ActionButton("EBT"),
                 ActionButton("Split"),
-                ActionButton("Add Customer"),
+                ActionButton("Customer"),
                 ActionButton("Discount"),
             ), onActionClick = { action ->
                 when (action) {
@@ -2061,7 +2061,7 @@ fun ActionButtonsPanel(
                         onShowOrderDiscountDialog()
                     }
 
-                    "Add Customer" -> {
+                    "Customer" -> {
                         onShowAddCustomerDialog()
                     }
 
