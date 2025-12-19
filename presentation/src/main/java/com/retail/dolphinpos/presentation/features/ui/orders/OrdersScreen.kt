@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
@@ -1029,12 +1031,49 @@ fun OrderDetailsDialog(
                 )
 
                 if (order.orderItems.isNotEmpty()) {
+                    // Header Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colorResource(id = R.color.primary))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BaseText(
+                            text = "Product Name",
+                            fontSize = 12f,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontFamily = GeneralSans,
+                            modifier = Modifier.weight(2f)
+                        )
+                        BaseText(
+                            text = "Qty",
+                            fontSize = 12f,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontFamily = GeneralSans,
+                            modifier = Modifier.width(60.dp),
+                            textAlign = TextAlign.Center
+                        )
+                        BaseText(
+                            text = "Price",
+                            fontSize = 12f,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontFamily = GeneralSans,
+                            modifier = Modifier.width(100.dp),
+                            textAlign = TextAlign.End
+                        )
+                    }
+                    
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(150.dp)
+                            .height((order.orderItems.size * 70).coerceAtMost(300).dp)
                             .padding(vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         items(order.orderItems) { item ->
                             OrderItemRow(item = item)
@@ -1071,59 +1110,66 @@ fun OrderDetailsDialog(
 
 @Composable
 fun OrderItemRow(item: com.retail.dolphinpos.domain.model.home.order_details.OrderItem) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(
                 color = Color(0xFFF5F5F5),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(4.dp)
             )
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Item Name
+        // Product Name
         BaseText(
             text = item.product.name,
             fontSize = 13f,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
             color = Color.Black,
             fontFamily = GeneralSans,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.weight(2f),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Quantity
-            BaseText(
-                text = "Qty: ${item.quantity}",
-                fontSize = 12f,
-                color = Color.Gray,
-                fontFamily = GeneralSans
-            )
+        // Quantity
+        BaseText(
+            text = "${item.quantity}",
+            fontSize = 13f,
+            color = Color.Black,
+            fontFamily = GeneralSans,
+            modifier = Modifier.width(60.dp),
+            textAlign = TextAlign.Center
+        )
 
-            // Price
+        // Price Column
+        Column(
+            modifier = Modifier.width(100.dp),
+            horizontalAlignment = Alignment.End
+        ) {
             val itemPrice = item.price.toDoubleOrNull() ?: 0.0
             val itemTotal = itemPrice * item.quantity
+            
+            // Main Price
             BaseText(
                 text = "$${String.format("%.2f", itemTotal)}",
-                fontSize = 12f,
+                fontSize = 13f,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.Black,
                 fontFamily = GeneralSans
             )
-        }
 
-        // Discount info if available
-        if (item.isDiscounted && item.discountedPrice.toDoubleOrNull() ?: 0.0 > 0) {
-            val discountedTotal = item.discountedPrice.toDoubleOrNull() ?: 0.0 * item.quantity
-            BaseText(
-                text = "Discounted: $${String.format("%.2f", discountedTotal)}",
-                fontSize = 11f,
-                color = Color(0xFF4CAF50),
-                fontFamily = GeneralSans
-            )
+            // Discount info if available
+            if (item.isDiscounted && item.discountedPrice.toDoubleOrNull() ?: 0.0 > 0) {
+                val discountedTotal = item.discountedPrice.toDoubleOrNull() ?: 0.0 * item.quantity
+                BaseText(
+                    text = "Disc: $${String.format("%.2f", discountedTotal)}",
+                    fontSize = 11f,
+                    color = Color(0xFF4CAF50),
+                    fontFamily = GeneralSans
+                )
+            }
         }
     }
 }

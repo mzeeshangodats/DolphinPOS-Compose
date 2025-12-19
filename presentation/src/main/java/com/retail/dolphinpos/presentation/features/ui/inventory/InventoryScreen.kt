@@ -43,6 +43,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
@@ -76,9 +77,9 @@ fun InventoryScreen(
     val filteredProducts = if (searchQuery.isEmpty()) {
         products
     } else {
-        products.filter { 
+        products.filter {
             it.name?.contains(searchQuery, ignoreCase = true) == true ||
-            it.barCode?.contains(searchQuery, ignoreCase = true) == true
+                    it.barCode?.contains(searchQuery, ignoreCase = true) == true
         }
     }
 
@@ -89,14 +90,14 @@ fun InventoryScreen(
     // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    
+
     DisposableEffect(currentRoute) {
         onDispose {
             // Hide loader when leaving this screen
             Loader.hide()
         }
     }
-    
+
     LaunchedEffect(currentRoute) {
         if (currentRoute == "inventory") {
             viewModel.uiEvent.collect { event ->
@@ -110,6 +111,7 @@ fun InventoryScreen(
                                 popUpTo(0) { inclusive = false }
                             }
                         }
+
                         is InventoryUiEvent.ShowError -> {
                             DialogHandler.showDialog(
                                 message = event.message,
@@ -144,7 +146,7 @@ fun InventoryScreen(
                 .padding(16.dp)
         ) {
 
-            // Search Bar
+            // Search Bar and Add Product Button
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -153,7 +155,7 @@ fun InventoryScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(0.6f)
                         .height(40.dp)
                         .background(
                             color = Color(0xFFF5F5F5),
@@ -197,6 +199,19 @@ fun InventoryScreen(
                         )
                     }
                 }
+
+                // Add Product Button
+                BaseButton(
+                    text = "Add Product to Inventory",
+                    onClick = { navController.navigate("create_product") },
+                    modifier = Modifier
+                        .weight(0.2f)
+                        .height(40.dp),
+                    backgroundColor = colorResource(id = R.color.primary),
+                    textColor = Color.White,
+                    fontSize = 14,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
             // Products List
@@ -205,10 +220,10 @@ fun InventoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-        BaseText(
+                    BaseText(
                         text = "Loading...",
                         fontSize = 16f,
-            color = Color.Gray,
+                        color = Color.Gray,
                         fontFamily = GeneralSans
                     )
                 }
@@ -219,10 +234,10 @@ fun InventoryScreen(
                 ) {
                     BaseText(
                         text = "No products found",
-            fontSize = 16f,
+                        fontSize = 16f,
                         color = Color.Gray,
-            fontFamily = GeneralSans
-        )
+                        fontFamily = GeneralSans
+                    )
                 }
             } else {
                 // Table Header
@@ -302,7 +317,13 @@ fun InventoryScreen(
                                 modifier = Modifier.weight(1f)
                             )
                             BaseText(
-                                text = "$${String.format(Locale.US, "%.2f", product.cashPrice.toDoubleOrNull() ?: 0.0)}",
+                                text = "$${
+                                    String.format(
+                                        Locale.US,
+                                        "%.2f",
+                                        product.cashPrice.toDoubleOrNull() ?: 0.0
+                                    )
+                                }",
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
@@ -466,7 +487,13 @@ fun ProductDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = "$${String.format(Locale.US, "%.2f", product.cashPrice.toDoubleOrNull() ?: 0.0)}",
+                        text = "$${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                product.cashPrice.toDoubleOrNull() ?: 0.0
+                            )
+                        }",
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
@@ -486,7 +513,13 @@ fun ProductDetailsDialog(
                         fontFamily = GeneralSans
                     )
                     BaseText(
-                        text = "$${String.format(Locale.US, "%.2f", product.cardPrice.toDoubleOrNull() ?: 0.0)}",
+                        text = "$${
+                            String.format(
+                                Locale.US,
+                                "%.2f",
+                                product.cardPrice.toDoubleOrNull() ?: 0.0
+                            )
+                        }",
                         fontSize = 14f,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.Black,
@@ -557,13 +590,25 @@ fun ProductDetailsDialog(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     BaseText(
-                                        text = "Cash: $${String.format(Locale.US, "%.2f", variant.cashPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        text = "Cash: $${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                variant.cashPrice?.toDoubleOrNull() ?: 0.0
+                                            )
+                                        }",
                                         fontSize = 12f,
                                         color = Color.Gray,
                                         fontFamily = GeneralSans
                                     )
                                     BaseText(
-                                        text = "Card: $${String.format(Locale.US, "%.2f", variant.cardPrice?.toDoubleOrNull() ?: 0.0)}",
+                                        text = "Card: $${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                variant.cardPrice?.toDoubleOrNull() ?: 0.0
+                                            )
+                                        }",
                                         fontSize = 12f,
                                         color = Color.Gray,
                                         fontFamily = GeneralSans
