@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.domain.model.report
+package com.retail.dolphinpos.domain.model.report.batch_report
 
 data class BatchReportData(
     val batchNo: String,
