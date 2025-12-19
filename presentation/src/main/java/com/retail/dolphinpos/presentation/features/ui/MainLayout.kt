@@ -57,6 +57,7 @@ import com.retail.dolphinpos.presentation.features.ui.reports.ReportsScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.HardwareSetupScreen
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import android.app.Activity
+import com.retail.dolphinpos.presentation.features.ui.products.CreateProductScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,7 +145,6 @@ fun MainLayout(
             when (currentDestination?.route) {
                 "home" -> HomeScreen(navController = navController, preferenceManager = preferenceManager)
                 "products" -> ProductsScreen(navController = navController, preferenceManager = preferenceManager)
-                "orders" -> OrdersScreen(navController = navController, preferenceManager = preferenceManager)
                 "inventory" -> InventoryScreen(navController = navController, preferenceManager = preferenceManager)
                 "reports" -> {
                     // Use key to force recomposition when navigating to reports
@@ -190,6 +190,7 @@ fun MainLayout(
                         val route = when (menu.destinationId) {
                             R.id.homeScreen -> "home"
                             R.id.productsScreen -> "products"
+//                            R.id.productsScreen -> "create_product"
                             R.id.ordersScreen -> "orders"
                             R.id.inventoryScreen -> "inventory"
                             R.id.reportsScreen -> "reports"

@@ -18,13 +18,22 @@ import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRe
 import com.retail.dolphinpos.domain.model.home.catrgories_products.ProductsResponse
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderResponse
+import com.retail.dolphinpos.domain.model.product.CreateProductRequest
+import com.retail.dolphinpos.domain.model.product.CreateProductResponse
+import com.retail.dolphinpos.domain.model.product.FileUploadResponse
+import com.retail.dolphinpos.domain.model.product.VendorListResponse
+import okhttp3.MultipartBody
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
 import com.retail.dolphinpos.domain.model.report.BatchReport
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
+import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -62,6 +71,16 @@ interface ApiService {
     suspend fun getProducts(
         @Query("storeId") storeId: Int, @Query("locationId") locationId: Int
     ): ProductsResponse
+
+    @POST("product")
+    suspend fun createProduct(@Body createProductRequest: CreateProductRequest): CreateProductResponse
+
+    @Multipart
+    @POST("files")
+    suspend fun uploadFiles(
+        @Part files: List<MultipartBody.Part>,
+        @Part("type") type: RequestBody
+    ): FileUploadResponse
 
     @GET("transaction")
     suspend fun getTransactions(
@@ -108,5 +127,13 @@ interface ApiService {
         @Query("storeId") storeId: Int,
         @Query("keyword") keyword: String? = null
     ): OrderDetailsResponse
+
+    @GET("vendor")
+    suspend fun getVendors(
+        @Query("paginate") paginate: Boolean = false,
+        @Query("page") page: Int = 1,
+        @Query("orderBy") orderBy: String = "createdAt",
+        @Query("order") order: String = "DESC"
+    ): VendorListResponse
 
 }

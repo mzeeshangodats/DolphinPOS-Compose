@@ -8,6 +8,7 @@ import androidx.room.TypeConverters
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
+import com.retail.dolphinpos.data.entities.products.ProductTypeConverters
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
@@ -50,10 +51,10 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
-@TypeConverters(PaymentMethodConverter::class)
+@TypeConverters(PaymentMethodConverter::class, ProductTypeConverters::class)
 abstract class DolphinDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -81,7 +82,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -382,6 +383,48 @@ abstract class DolphinDatabase : RoomDatabase() {
                 
                 // Create index on is_synced for faster queries of unsynced customers
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_customer_is_synced ON customer(is_synced)")
+            }
+        }
+
+        private val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add new columns to products table for product creation
+                db.execSQL("ALTER TABLE products ADD COLUMN server_id INTEGER")
+                db.execSQL("ALTER TABLE products ADD COLUMN price TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN compare_at_price TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN cost_price TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN secondary_bar_codes TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN track_quantity INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE products ADD COLUMN continue_selling_when_out_of_stock INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE products ADD COLUMN product_vendor_id INTEGER")
+                db.execSQL("ALTER TABLE products ADD COLUMN current_vendor_id INTEGER")
+                db.execSQL("ALTER TABLE products ADD COLUMN attributes TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN sales_channel TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN shipping_weight REAL")
+                db.execSQL("ALTER TABLE products ADD COLUMN shipping_weight_unit TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN is_physical_product INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE products ADD COLUMN customs_information TEXT")
+                db.execSQL("ALTER TABLE products ADD COLUMN is_ebt_eligible INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE products ADD COLUMN is_id_required INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE products ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE products ADD COLUMN created_at INTEGER NOT NULL DEFAULT ${System.currentTimeMillis()}")
+                db.execSQL("ALTER TABLE products ADD COLUMN updated_at INTEGER NOT NULL DEFAULT ${System.currentTimeMillis()}")
+                
+                // Add new columns to variants table
+                db.execSQL("ALTER TABLE variants ADD COLUMN server_id INTEGER")
+                db.execSQL("ALTER TABLE variants ADD COLUMN price TEXT")
+                db.execSQL("ALTER TABLE variants ADD COLUMN cost_price TEXT")
+                db.execSQL("ALTER TABLE variants ADD COLUMN bar_code TEXT")
+                db.execSQL("ALTER TABLE variants ADD COLUMN attributes TEXT")
+                db.execSQL("ALTER TABLE variants ADD COLUMN location_id INTEGER")
+                db.execSQL("ALTER TABLE variants ADD COLUMN is_synced INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE variants ADD COLUMN created_at INTEGER NOT NULL DEFAULT ${System.currentTimeMillis()}")
+                db.execSQL("ALTER TABLE variants ADD COLUMN updated_at INTEGER NOT NULL DEFAULT ${System.currentTimeMillis()}")
+                
+                // Create indexes
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_products_is_synced ON products(is_synced)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_is_synced ON variants(is_synced)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_variants_product_id ON variants(productId)")
             }
         }
 

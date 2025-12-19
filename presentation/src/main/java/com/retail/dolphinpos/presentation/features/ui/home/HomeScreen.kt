@@ -1819,6 +1819,7 @@ fun ProductsPanel(
         when (route) {
             "home" -> 0
             "products" -> 1
+//            "create_product" -> 1
             "orders" -> 2
             "inventory" -> 3
             "reports" -> 4
