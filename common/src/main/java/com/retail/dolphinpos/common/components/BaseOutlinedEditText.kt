@@ -10,7 +10,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.TextStyle
@@ -28,7 +30,8 @@ fun BaseOutlinedEditText(
     isPassword: Boolean = false,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
 ) {
     OutlinedTextField(
         value = value,
@@ -51,6 +54,7 @@ fun BaseOutlinedEditText(
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         enabled = enabled,
+        keyboardOptions = keyboardOptions,
         textStyle = TextStyle(
             fontFamily = GeneralSans,
             color = Color.Black

@@ -217,6 +217,23 @@ fun ProductsScreen(
                         fontWeight = FontWeight.SemiBold
                     )
                 }
+
+                // Add Products Button
+                Button(
+                    onClick = { navController.navigate("create_product") },
+                    modifier = Modifier.height(40.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    )
+                ) {
+                    BaseText(
+                        text = "Add Products",
+                        fontSize = 14f,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
 
             // Products List
