@@ -587,7 +587,7 @@ fun VariantsSection(
     // Variant Type Dropdown using DropdownSelector
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.width(200.dp)
+        modifier = Modifier.width(642.dp)
     ) {
         DropdownSelector(
             label = "Add Variant",
@@ -1050,7 +1050,7 @@ fun VariantTableRow(
         BaseOutlinedEditText(
             value = variant.dualPrice,
             onValueChange = {},
-            placeholder = "Auto-calculated",
+            placeholder = "0.0",
             enabled = false,
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
