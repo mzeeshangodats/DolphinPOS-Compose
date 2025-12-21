@@ -7,6 +7,7 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReportData
+import com.retail.dolphinpos.domain.repositories.batch.BatchRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
@@ -38,6 +39,7 @@ class BatchReportViewModel @Inject constructor(
     private val homeRepository: HomeRepository,
     private val preferenceManager: PreferenceManager,
     private val batchReportRepository: BatchReportRepository,
+    private val batchRepository: BatchRepository,
     private val userDao: UserDao,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
     private val closeBatchUseCase: CloseBatchUseCase
@@ -148,7 +150,7 @@ class BatchReportViewModel @Inject constructor(
                     Log.d(TAG, "closeBatch: PAX batch closed successfully, proceeding with regular batch close")
                 }
 
-                // Step 2: Close Regular Batch
+                // Step 2: Close Regular Batch (offline-first)
                 // Get batch number from SharedPreferences
                 val batchNo = preferenceManager.getBatchNo()
                 if (batchNo.isEmpty()) {
@@ -160,61 +162,90 @@ class BatchReportViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Get current batch details from database
-                val batchEntity = userDao.getBatchDetails()
-
-                // Get required IDs
-                val userId = preferenceManager.getUserID()
-                val storeId = preferenceManager.getStoreID()
-                val locationId = preferenceManager.getOccupiedLocationID()
-
-                val batchCloseRequest = BatchCloseRequest(
-                    cashierId = userId,
-                    closedBy = userId,
-                    closingCashAmount = closingCashAmount,
-                    locationId = locationId,
-                    orders = emptyList(),
-                    paxBatchNo = "",
-                    storeId = storeId
-                )
-
-                val result =
-                    batchReportRepository.batchClose(batchNo, batchCloseRequest)
-
-                result.onSuccess { response ->
-                    // Update local batch entity
-                    val updatedBatch = batchEntity.copy(
-                        closedAt = System.currentTimeMillis(),
-                        closingCashAmount = closingCashAmount
-                    )
-                    userDao.updateBatch(updatedBatch)
-
-                    // Set batch status to "closed" in SharedPreferences
-                    preferenceManager.setBatchStatus("closed")
-
-                    _isLoading.value = false
-                    _uiEvent.emit(BatchReportUiEvent.HideLoading)
-
-                    // Dismiss dialog
-                    _showClosingCashDialog.value = false
-
-                    // Navigate to PinCode after successful batch close
-                    _uiEvent.emit(BatchReportUiEvent.NavigateToPinCode)
-                }.onFailure { exception ->
+                // Get batch entity to find batchId (UUID)
+                val registerId = preferenceManager.getOccupiedRegisterID()
+                val activeBatch = batchRepository.getActiveBatch(registerId)
+                
+                if (activeBatch == null) {
                     _isLoading.value = false
                     _uiEvent.emit(BatchReportUiEvent.HideLoading)
                     _uiEvent.emit(
-                        BatchReportUiEvent.ShowError(
-                            exception.message ?: "Failed to close batch"
-                        )
+                        BatchReportUiEvent.ShowError("No active batch found")
                     )
+                    return@launch
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "closeBatch: Error during batch close", e)
+
+                // Close batch locally (offline-first operation)
+                // This works immediately even without internet
+                val closed = batchRepository.closeBatch(
+                    batchId = activeBatch.batchId,
+                    closingCashAmount = closingCashAmount
+                )
+
+                if (!closed) {
+                    _isLoading.value = false
+                    _uiEvent.emit(BatchReportUiEvent.HideLoading)
+                    _uiEvent.emit(
+                        BatchReportUiEvent.ShowError("Failed to close batch locally")
+                    )
+                    return@launch
+                }
+
+                // Batch closed locally successfully
+                // Set batch status to "closed" in SharedPreferences
+                preferenceManager.setBatchStatus("closed")
+
+                // Try to sync to backend (optional - don't fail if it doesn't work)
+                // This is done asynchronously and doesn't block the user
+                try {
+                    val userId = preferenceManager.getUserID()
+                    val storeId = preferenceManager.getStoreID()
+                    val locationId = preferenceManager.getOccupiedLocationID()
+
+                    val batchCloseRequest = BatchCloseRequest(
+                        cashierId = userId,
+                        closedBy = userId,
+                        closingCashAmount = closingCashAmount,
+                        locationId = locationId,
+                        orders = emptyList(),
+                        paxBatchNo = "",
+                        storeId = storeId
+                    )
+
+                    // Try to sync to backend, but don't fail if it doesn't work
+                    batchReportRepository.batchClose(batchNo, batchCloseRequest).onSuccess {
+                        Log.d(TAG, "Batch close synced to backend successfully")
+                    }.onFailure { exception ->
+                        Log.w(TAG, "Batch close sync to backend failed (batch is still closed locally): ${exception.message}")
+                        // Don't show error to user - batch is already closed locally
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error attempting to sync batch close to backend: ${e.message}", e)
+                    // Don't show error to user - batch is already closed locally
+                }
+
                 _isLoading.value = false
                 _uiEvent.emit(BatchReportUiEvent.HideLoading)
-                _uiEvent.emit(BatchReportUiEvent.ShowError(e.message ?: "Failed to close batch"))
-            }
+
+                // Dismiss dialog
+                _showClosingCashDialog.value = false
+
+                // Navigate to PinCode after successful batch close
+                _uiEvent.emit(BatchReportUiEvent.NavigateToPinCode)
+                } catch (e: Exception) {
+                    Log.e(TAG, "closeBatch: Error during batch close", e)
+                    _isLoading.value = false
+                    _uiEvent.emit(BatchReportUiEvent.HideLoading)
+                    // Filter out network-related error messages for better UX
+                    val errorMessage = if (e.message?.contains("internet", ignoreCase = true) == true ||
+                        e.message?.contains("network", ignoreCase = true) == true ||
+                        e.message?.contains("connectivity", ignoreCase = true) == true) {
+                        "Failed to close batch. Please try again."
+                    } else {
+                        e.message ?: "Failed to close batch"
+                    }
+                    _uiEvent.emit(BatchReportUiEvent.ShowError(errorMessage))
+                }
         }
     }
 

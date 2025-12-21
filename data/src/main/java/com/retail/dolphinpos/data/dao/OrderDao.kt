@@ -52,6 +52,42 @@ interface OrderDao {
 
     @Query("SELECT * FROM orders WHERE store_id = :storeId AND (order_no LIKE '%' || :keyword || '%' OR payment_method LIKE '%' || :keyword || '%') ORDER BY created_at DESC")
     suspend fun searchOrdersByStoreId(storeId: Int, keyword: String): List<OrderEntity>
+    
+    /**
+     * Gets all orders for a specific batch ID.
+     * Used to find orders that belong to a batch for syncing.
+     */
+    @Query("SELECT * FROM orders WHERE batch_id = :batchId ORDER BY created_at ASC")
+    suspend fun getOrdersByBatchId(batchId: String): List<OrderEntity>
+    
+    /**
+     * Gets all unsynced orders for batches eligible for order sync.
+     * Orders can only be synced if batch start is synced (START_SYNCED or later, but not FAILED).
+     * 
+     * NOTE: This query is deprecated in favor of filtering in code using getBatchesEligibleForOrderSync()
+     * to ensure correct sync status checking.
+     */
+    @Deprecated("Use getUnsyncedLocalOrders() and filter by eligible batches in code")
+    @Query("""
+        SELECT o.* FROM orders o
+        INNER JOIN batch b ON o.batch_id = b.batchId
+        WHERE o.is_synced = 0 
+        AND b.syncStatus IN ('START_SYNCED', 'CLOSE_PENDING', 'CLOSE_SYNCED')
+        ORDER BY o.created_at ASC
+    """)
+    suspend fun getUnsyncedOrdersForSyncedBatches(): List<OrderEntity>
+    
+    /**
+     * Gets unsynced orders for a specific batch ID.
+     * Used when syncing orders for a specific batch.
+     */
+    @Query("""
+        SELECT o.* FROM orders o
+        WHERE o.batch_id = :batchId 
+        AND o.is_synced = 0
+        ORDER BY o.created_at ASC
+    """)
+    suspend fun getUnsyncedOrdersByBatchId(batchId: String): List<OrderEntity>
 
     @Update
     suspend fun updateOrder(order: OrderEntity)

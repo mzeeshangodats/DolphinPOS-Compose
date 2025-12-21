@@ -19,6 +19,18 @@ data class OrderEntity(
     @ColumnInfo(name = "store_id") val storeId: Int,
     @ColumnInfo(name = "location_id") val locationId: Int,
     @ColumnInfo(name = "store_register_id") val storeRegisterId: Int? = null,
+    
+    /**
+     * Batch ID (UUID) - foreign key to batch table
+     * Orders MUST belong to exactly one batch
+     * This is the single source of truth for order-to-batch relationship
+     */
+    @ColumnInfo(name = "batch_id") val batchId: String,
+    
+    /**
+     * Deprecated: Batch number (human-readable identifier)
+     * Kept for backward compatibility, but batchId is primary reference
+     */
     @ColumnInfo(name = "batch_no") val batchNo: String? = null,
     
     // Payment info

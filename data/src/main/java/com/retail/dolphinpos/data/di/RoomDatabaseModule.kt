@@ -3,6 +3,7 @@ package com.retail.dolphinpos.data.di
 import android.content.Context
 import androidx.room.Room
 import com.google.gson.Gson
+import com.retail.dolphinpos.data.dao.BatchDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
 import com.retail.dolphinpos.data.dao.OnlineOrderDao
@@ -44,6 +45,11 @@ object RoomDatabaseModule {
     @Provides
     fun provideUserDao(database: DolphinDatabase): UserDao {
         return database.userDao()
+    }
+
+    @Provides
+    fun provideBatchDao(database: DolphinDatabase): BatchDao {
+        return database.batchDao()
     }
 
     @Provides
@@ -129,10 +135,11 @@ object RoomDatabaseModule {
     @Singleton
     fun provideOrderRepository(
         orderDao: OrderDao,
+        batchDao: BatchDao,
         apiService: ApiService,
         gson: Gson
     ): OrderRepositoryImpl {
-        return OrderRepositoryImpl(orderDao, apiService, gson)
+        return OrderRepositoryImpl(orderDao, batchDao, apiService, gson)
     }
 
     @Provides

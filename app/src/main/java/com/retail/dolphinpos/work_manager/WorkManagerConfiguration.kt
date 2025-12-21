@@ -38,9 +38,11 @@ object WorkManagerConfiguration {
     }
 
     private fun enqueueOrderSyncWork(context: Context) {
-        enqueuePeriodicSyncWork<OrderSyncWorker>(
+        // Use BatchSyncCoordinatorWorker instead of direct OrderSyncWorker
+        // This ensures batches are synced before orders, maintaining data consistency
+        enqueuePeriodicSyncWork<com.retail.dolphinpos.data.workers.BatchSyncCoordinatorWorker>(
             context = context,
-            tag = "ORDER_SYNC"
+            tag = "BATCH_ORDER_SYNC"
         )
     }
 

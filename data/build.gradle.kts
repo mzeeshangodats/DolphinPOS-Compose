@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.square.logging)
     implementation(libs.room.runtime)
     implementation(libs.room.pagging)
+    implementation(libs.androidx.hilt.common)
     ksp(libs.room.compiler)
     kapt(libs.hilt.compiler)
     implementation(libs.camera)
@@ -61,6 +62,11 @@ dependencies {
     implementation(libs.camera.extension)
     implementation(libs.camera.lifecycle)
     implementation(libs.mlkit.barcode)
+    
+    // WorkManager for background sync
+    implementation(libs.workManager)
+    implementation(libs.hilt.workManager)
+    kapt(libs.hilt.compiler.workManager)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

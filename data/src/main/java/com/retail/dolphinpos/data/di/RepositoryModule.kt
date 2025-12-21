@@ -1,13 +1,18 @@
 package com.retail.dolphinpos.data.di
 
 import android.content.Context
+import androidx.work.WorkManager
 import com.google.gson.Gson
 import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.data.dao.BatchDao
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
+import com.retail.dolphinpos.data.dao.HoldCartDao
+import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.repositories.auth.CashDenominationRepositoryImpl
+import com.retail.dolphinpos.data.repositories.batch.BatchRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.LoginRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.StoreRegisterRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.VerifyPinRepositoryImpl
@@ -23,6 +28,7 @@ import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
+import com.retail.dolphinpos.domain.repositories.batch.BatchRepository
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 import com.retail.dolphinpos.domain.repositories.product.ProductRepository
@@ -66,10 +72,9 @@ object RepositoryModule {
     @Singleton
     fun provideVerifyPinRepository(
         userDao: UserDao,
-        api: ApiService,
         gson: Gson
     ): VerifyPinRepository {
-        return VerifyPinRepositoryImpl(userDao, api, gson)
+        return VerifyPinRepositoryImpl(userDao, gson)
     }
 
     @Provides
@@ -79,6 +84,24 @@ object RepositoryModule {
         apiService: ApiService
     ): CashDenominationRepository {
         return CashDenominationRepositoryImpl(userDao, apiService)
+    }
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(
+        @ApplicationContext context: Context
+    ): WorkManager {
+        return WorkManager.getInstance(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideBatchRepository(
+        batchDao: BatchDao,
+        workManager: WorkManager,
+        @ApplicationContext context: Context
+    ): BatchRepository {
+        return BatchRepositoryImpl(batchDao, workManager, context)
     }
 
     @Provides
@@ -126,9 +149,12 @@ object RepositoryModule {
         apiService: ApiService,
         userDao: UserDao,
         batchReportDao: BatchReportDao,
+        batchDao: BatchDao,
+        orderDao: OrderDao,
+        holdCartDao: HoldCartDao,
         networkMonitor: NetworkMonitor
     ): BatchReportRepository {
-        return BatchReportRepositoryImpl(apiService, userDao, batchReportDao, networkMonitor)
+        return BatchReportRepositoryImpl(apiService, userDao, batchReportDao, batchDao, orderDao, holdCartDao, networkMonitor)
     }
 
     @Provides

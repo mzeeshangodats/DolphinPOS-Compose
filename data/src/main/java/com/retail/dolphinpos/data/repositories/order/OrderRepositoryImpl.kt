@@ -3,6 +3,7 @@ package com.retail.dolphinpos.data.repositories.order
 import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
+import com.retail.dolphinpos.data.dao.BatchDao
 import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.data.service.ApiService
@@ -19,6 +20,7 @@ import java.lang.reflect.Type
 
 class OrderRepositoryImpl(
     private val orderDao: OrderDao,
+    private val batchDao: BatchDao,
     private val apiService: ApiService,
     private val gson: Gson
 ) {
@@ -26,8 +28,17 @@ class OrderRepositoryImpl(
     /**
      * Save order to local database (offline)
      * Sets isSynced = false, status = "pending", orderSource = "local"
+     * 
+     * IMPORTANT: Orders must belong to an active batch.
+     * Gets the active batch's batchId for the register.
      */
     suspend fun saveOrderToLocal(orderRequest: CreateOrderRequest): Long {
+        // Get active batch for the register
+        val registerId = orderRequest.storeRegisterId
+            ?: throw IllegalStateException("storeRegisterId is required to get active batch")
+        val activeBatch = batchDao.getActiveBatch(registerId)
+            ?: throw IllegalStateException("No active batch found for register $registerId. Please start a batch first.")
+        
         val orderEntity = OrderEntity(
             orderNumber = orderRequest.orderNumber ?: "",
             invoiceNo = orderRequest.invoiceNo,
@@ -35,7 +46,8 @@ class OrderRepositoryImpl(
             storeId = orderRequest.storeId,
             locationId = orderRequest.locationId,
             storeRegisterId = orderRequest.storeRegisterId,
-            batchNo = orderRequest.batchNo,
+            batchId = activeBatch.batchId, // Use UUID batchId from active batch
+            batchNo = activeBatch.batchNo, // Always use batchNo from active batch
             paymentMethod = orderRequest.paymentMethod,
             isRedeemed = orderRequest.isRedeemed,
             source = orderRequest.source,
@@ -124,6 +136,7 @@ class OrderRepositoryImpl(
                     storeId = orderEntity.storeId,
                     locationId = orderEntity.locationId,
                     storeRegisterId = orderEntity.storeRegisterId ?: existingOrder.storeRegisterId,
+                    batchId = orderEntity.batchId.ifEmpty { existingOrder.batchId },
                     batchNo = orderEntity.batchNo ?: existingOrder.batchNo,
                     paymentMethod = orderEntity.paymentMethod,
                     transactionId = orderEntity.transactionId ?: existingOrder.transactionId,
@@ -205,6 +218,13 @@ class OrderRepositoryImpl(
         val isSynced = apiOrder.status.lowercase() == "completed"
         val orderStatus = if (isSynced) "completed" else "pending"
 
+        // For API orders, we need to map to local UUID batchId
+        // Note: OrderDetailList has batchId (Any?) which is the server's batch ID (Int), not our UUID
+        // OrderDetailList doesn't have batchNo, so we can't reliably match to local batches
+        // TODO: API should provide UUID batchId or batchNo to properly link orders to batches
+        // For now, use empty string as fallback - this should be fixed when API is updated
+        val batchId: String = ""
+        
         return OrderEntity(
             serverId = apiOrder.id,
             orderNumber = apiOrder.orderNumber,
@@ -213,7 +233,8 @@ class OrderRepositoryImpl(
             storeId = apiOrder.storeId,
             locationId = apiOrder.locationId,
             storeRegisterId = apiOrder.storeRegisterId,
-            batchNo = apiOrder.batchId?.toString()?.takeIf { it != "null" && it.isNotEmpty() },
+            batchId = batchId, // Empty string for now - TODO: API should provide UUID batchId
+            batchNo = null, // OrderDetailList doesn't have batchNo
             paymentMethod = apiOrder.paymentMethod,
             isRedeemed = apiOrder.isRedeemed,
             source = apiOrder.source,

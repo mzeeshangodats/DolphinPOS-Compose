@@ -9,16 +9,11 @@ import com.retail.dolphinpos.domain.model.auth.active_user.ActiveUserDetails
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutHistoryData
 import com.retail.dolphinpos.domain.model.auth.clock_in_out.ClockInOutRequest
 import com.retail.dolphinpos.domain.model.auth.login.response.AllStoreUsers
-import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
 import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.domain.repositories.auth.VerifyPinRepository
-import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
+import com.retail.dolphinpos.domain.repositories.batch.BatchRepository
 import com.retail.dolphinpos.domain.usecases.GetCurrentTimeUseCase
-import com.retail.dolphinpos.common.network.NetworkMonitor
-import com.retail.dolphinpos.common.network.NoConnectivityException
-import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
-import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -37,8 +32,7 @@ class VerifyPinViewModel @Inject constructor(
     private val repository: VerifyPinRepository,
     private val preferenceManager: PreferenceManager,
     private val getCurrentTimeUseCase: GetCurrentTimeUseCase,
-    private val batchReportRepository: BatchReportRepository,
-    private val networkMonitor: NetworkMonitor,
+    private val batchRepository: BatchRepository,
     private val storeRegistersRepository: StoreRegistersRepository
 ) : ViewModel() {
     private val _currentTime = MutableStateFlow("")
@@ -83,26 +77,28 @@ class VerifyPinViewModel @Inject constructor(
                         )
                     )
 
-                    // Check internet before batch status API call
-                    if (!networkMonitor.isNetworkAvailable()) {
-                        _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
-                        _verifyPinUiEvent.emit(
-                            VerifyPinUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
-                        )
-                        return@launch
+                    // Check if there's an active batch (works offline, uses local database)
+                    val registerId = preferenceManager.getOccupiedRegisterID()
+                    val activeBatch = if (registerId != 0) {
+                        batchRepository.getActiveBatch(registerId)
+                    } else {
+                        null
                     }
 
-                    val batchReport = checkBatchStatus()
-                    val batchStatus = batchReport?.data?.status
-                    batchStatus?.let { preferenceManager.setBatchStatus(it) }
-
-                    // If batch status is closed, show dialog then navigate to cash denomination screen
-                    if (batchStatus?.equals("closed", ignoreCase = true) == true) {
+                    // If no active batch, navigate to cash denomination to start a new batch
+                    if (activeBatch == null) {
+                        preferenceManager.setBatchStatus("closed")
+                        // Clear batch number from preferences if no active batch
                         preferenceManager.clearBatchNo()
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
                         _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
                         return@launch
                     }
+
+                    // There is an active batch, set status to active
+                    preferenceManager.setBatchStatus("active")
+                    // Make sure batch number is set in preferences
+                    preferenceManager.setBatchNo(activeBatch.batchNo)
 
                     // Verify register status after batch status check
                     val storeId = preferenceManager.getStoreID()
@@ -125,42 +121,26 @@ class VerifyPinViewModel @Inject constructor(
                             if (registerStatus != "occupied") {
                                 Log.w(TAG, "Register status is not occupied: $registerStatus")
 
-                                // Close batch if there's an open batch
-                                val batchNo = preferenceManager.getBatchNo()
+                                // Close batch if there's an open batch (offline-first)
                                 try {
-                                    val batchDetails = batchReportRepository.getBatchDetails()
-                                    val userId = preferenceManager.getUserID()
-                                    val closingCashAmount = batchDetails.startingCashAmount
-
-                                    val batchCloseRequest = BatchCloseRequest(
-                                        cashierId = userId,
-                                        closedBy = userId,
-                                        closingCashAmount = closingCashAmount,
-                                        locationId = locationId,
-                                        orders = emptyList(),
-                                        paxBatchNo = "",
-                                        storeId = storeId
-                                    )
-
-                                    val closeResult =
-                                        batchReportRepository.batchClose(batchNo, batchCloseRequest)
-
-                                    // Properly handle the Result
-                                    if (closeResult.isSuccess) {
-                                        closeResult.getOrNull()?.let {
-                                            Log.d(
-                                                TAG,
-                                                "Batch closed successfully after register release"
-                                            )
+                                    val activeBatchToClose = batchRepository.getActiveBatch(storeRegisterId)
+                                    if (activeBatchToClose != null) {
+                                        // Use starting cash as closing cash (or get from preference if available)
+                                        val closingCashAmount = activeBatchToClose.startingCashAmount
+                                        
+                                        // Close batch locally (works offline)
+                                        val closed = batchRepository.closeBatch(
+                                            batchId = activeBatchToClose.batchId,
+                                            closingCashAmount = closingCashAmount
+                                        )
+                                        
+                                        if (closed) {
+                                            Log.d(TAG, "Batch closed successfully after register release")
                                             preferenceManager.setBatchStatus("closed")
                                             preferenceManager.clearBatchNo()
+                                        } else {
+                                            Log.e(TAG, "Failed to close batch locally")
                                         }
-                                    } else {
-                                        val exception = closeResult.exceptionOrNull()
-                                        Log.e(
-                                            TAG,
-                                            "Failed to close batch: ${exception?.message ?: "Unknown error"}"
-                                        )
                                     }
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error closing batch: ${e.message}", e)
@@ -181,26 +161,9 @@ class VerifyPinViewModel @Inject constructor(
 
                     _verifyPinUiEvent.emit(VerifyPinUiEvent.HideLoading)
 
-                    // Determine navigation based on remote batch status
-                    when {
-                        // If batch is already active (open), proceed to home
-                        batchStatus?.equals("active", ignoreCase = true) == true -> {
-                            _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
-                        }
-                        // If batch status is closed, redirect to Cash Denomination to start a new batch
-                        batchStatus?.equals("closed", ignoreCase = true) == true -> {
-                            _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
-                        }
-                        // If remote status is null, check local preference
-                        else -> {
-                            val isBatchOpen = preferenceManager.isBatchOpen()
-                            if (isBatchOpen) {
-                                _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
-                            } else {
-                                _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCashDenomination)
-                            }
-                        }
-                    }
+                    // Since we already checked for active batch above and returned early if null,
+                    // at this point we know there's an active batch, so navigate to home/cart screen
+                    _verifyPinUiEvent.emit(VerifyPinUiEvent.NavigateToCartScreen)
                 }
 
             } catch (e: Exception) {
@@ -297,23 +260,7 @@ class VerifyPinViewModel @Inject constructor(
                     },
                     onFailure = { err ->
                         val msg = err.message
-                        if (msg == "OFFLINE_QUEUED") {
-                            val action = if (slug == "check-in") "in" else "out"
-                            // Set clock-in status even when offline (for check-in)
-                            if (slug == "check-in") {
-                                preferenceManager.setClockInStatus(true)
-                                preferenceManager.setClockInTime(System.currentTimeMillis())
-                            } else {
-                                preferenceManager.clockOut()
-                            }
-                            _verifyPinUiEvent.emit(
-                                VerifyPinUiEvent.ShowDialog(
-                                    "Your clock $action request has been queued successfully. " +
-                                            "It will be synchronized automatically when the internet connection is restored.",
-                                    success = true
-                                )
-                            )
-                        } else if (!msg.isNullOrBlank()) {
+                        if (!msg.isNullOrBlank()) {
                             _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog(msg))
                         } else {
                             _verifyPinUiEvent.emit(VerifyPinUiEvent.ShowDialog("Clock In/Out failed"))
@@ -351,22 +298,6 @@ class VerifyPinViewModel @Inject constructor(
         }
     }
 
-    private suspend fun checkBatchStatus(): BatchReport? {
-        val batchNo = preferenceManager.getBatchNo()
-        if (batchNo.isBlank()) {
-            return null
-        }
-        // Internet check is already done before calling this function
-        return try {
-            batchReportRepository.getBatchReport(batchNo)
-        } catch (e: NoConnectivityException) {
-            Log.e(TAG, "No internet connection: ${e.message}")
-            throw e // Re-throw to be caught by caller
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to fetch batch status for $batchNo: ${e.message}")
-            null
-        }
-    }
 
     companion object {
         private const val TAG = "VerifyPinViewModel"

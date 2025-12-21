@@ -4,13 +4,12 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.retail.dolphinpos.common.network.NoConnectivityException
 import com.retail.dolphinpos.common.utils.PreferenceManager
-import com.retail.dolphinpos.domain.model.auth.batch.Batch
-import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.Denomination
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.DenominationType
 import com.retail.dolphinpos.domain.repositories.auth.CashDenominationRepository
-import com.retail.dolphinpos.common.network.NetworkMonitor
+import com.retail.dolphinpos.domain.repositories.batch.BatchRepository
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.Loader
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,15 +21,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import retrofit2.HttpException
 import javax.inject.Inject
 
 @HiltViewModel
 class CashDenominationViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: CashDenominationRepository,
-    private val preferenceManager: PreferenceManager,
-    private val networkMonitor: NetworkMonitor
+    private val batchRepository: BatchRepository,
+    private val preferenceManager: PreferenceManager
 ) : ViewModel() {
 
     private val _denominations = MutableStateFlow<List<Denomination>>(emptyList())
@@ -147,131 +145,74 @@ class CashDenominationViewModel @Inject constructor(
                 // Show progress dialog
                 Loader.show("Starting batch...")
                 
-                // Batch/open API requires internet connection - check before proceeding
-                if (!networkMonitor.isNetworkAvailable()) {
+                val userId = preferenceManager.getUserID()
+                val storeId = preferenceManager.getStoreID()
+                val registerId = preferenceManager.getOccupiedRegisterID()
+                val locationId = preferenceManager.getOccupiedLocationID()
+                val startingCashAmount = totalAmount.value
+                
+                // Validate required fields
+                if (registerId == 0 || locationId == 0) {
                     Loader.hide()
                     _cashDenominationUiEvent.emit(
-                        CashDenominationUiEvent.ShowNoInternetDialog(context.getString(R.string.no_internet_connection))
+                        CashDenominationUiEvent.ShowError("Invalid register or location. Please try again.")
                     )
                     return@launch
                 }
                 
-                // Save batch number to SharedPreferences
-                preferenceManager.setBatchNo(batchNo)
-                // Set batch status to "open"
+                // Start batch locally (works offline immediately)
+                // This creates the batch immediately and schedules sync via WorkManager
+                val batch = batchRepository.startBatch(
+                    userId = userId,
+                    storeId = storeId,
+                    registerId = registerId,
+                    locationId = locationId,
+                    startingCashAmount = startingCashAmount,
+                    batchNo = batchNo
+                )
+                
+                // Save batch number to SharedPreferences for backward compatibility
+                preferenceManager.setBatchNo(batch.batchNo)
+                // Set batch status to "active"
                 preferenceManager.setBatchStatus("active")
                 
-                val batch = Batch(
-                    batchNo = batchNo,
-                    userId = preferenceManager.getUserID(),
-                    storeId = preferenceManager.getStoreID(),
-                    registerId = preferenceManager.getOccupiedRegisterID(),
-                    locationId = preferenceManager.getOccupiedLocationID(),
-                    startingCashAmount = totalAmount.value
-                )
-
-                // Save to local database after internet check
-                repository.insertBatchIntoLocalDB(batch)
-
-                Log.e("Batch", "Started")
+                Log.d("Batch", "Batch started locally with UUID: ${batch.batchId}, batchNo: ${batch.batchNo}")
                 
-                // Internet is available, proceed with API call
-                try {
-                    val batchOpenRequest = BatchOpenRequest(
-                        batchNo = batchNo,
-                        storeId = preferenceManager.getStoreID(),
-                        userId = preferenceManager.getUserID(),
-                        locationId = preferenceManager.getOccupiedLocationID(),
-                        storeRegisterId = preferenceManager.getOccupiedRegisterID(),
-                        startingCashAmount = totalAmount.value
-                    )
-
-                    repository.batchOpen(batchOpenRequest).onSuccess { response ->
-                        // Check if response message indicates batch is already active
-                        val responseMessage = response.message ?: ""
-                        if (responseMessage.contains("Batch already active.", ignoreCase = true)) {
-                            Log.e("Batch", "Batch already active, navigating to home")
-                            // Hide progress dialog
-                            Loader.hide()
-                            // Navigate to home since batch is already active
-                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                        } else {
-                            Log.e("Batch", "Batch successfully synced with server")
-                            // Mark batch as synced in database
-                            repository.markBatchAsSynced(batchNo)
-                            // Hide progress dialog
-                            Loader.hide()
-                            // Emit success event to navigate to home
-                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                        }
-                    }.onFailure { e ->
-                        Log.e("Batch", "Failed to sync batch with server: ${e.message}")
-                        // Hide progress dialog
-                        Loader.hide()
-                        
-                        // Check if error is 422 status code
-                        val cause = e.cause
-                        if (cause is HttpException && cause.code() == 422) {
-                            // 422 status code - show error and do NOT navigate to home
-                            val errorMessage = e.message ?: "Validation error. Please check your input."
-                            Log.e("Batch", "422 error: $errorMessage")
-                            _cashDenominationUiEvent.emit(
-                                CashDenominationUiEvent.ShowError(errorMessage)
-                            )
-                            return@launch
-                        }
-                        
-                        // Check if error message indicates batch is already active
-                        val errorMessage = e.message ?: "Failed to sync batch"
-                        if (errorMessage.contains("Batch already active.", ignoreCase = true)) {
-                            // Batch is already active, navigate to home
-                            _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
-                        } else {
-                            // Show error message from server in dialog
-                            _cashDenominationUiEvent.emit(
-                                CashDenominationUiEvent.ShowError(errorMessage)
-                            )
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e("Batch", "Failed to sync batch with server: ${e.message}")
-                    // Hide progress dialog
-                    Loader.hide()
-                    
-                    // Check if error is 422 status code
-                    if (e is HttpException && e.code() == 422) {
-                        // 422 status code - show error and do NOT navigate to home
-                        val errorMessage = e.message ?: "Validation error. Please check your input."
-                        Log.e("Batch", "422 error: $errorMessage")
-                        _cashDenominationUiEvent.emit(
-                            CashDenominationUiEvent.ShowError(errorMessage)
-                        )
-                        return@launch
-                    }
-                    
-                    // Emit error event with server error message
-                    _cashDenominationUiEvent.emit(
-                        CashDenominationUiEvent.ShowError(e.message ?: "Failed to sync batch")
-                    )
-                }
+                // Hide progress dialog
+                Loader.hide()
+                
+                // Batch is now active locally - navigate to home
+                // Sync to backend will happen automatically via WorkManager when network is available
+                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+            } catch (e: NoConnectivityException) {
+                // This should NOT happen during batch start as it's offline-first
+                // Log it for debugging but still proceed - batch was already created locally
+                Loader.hide()
+                Log.w("Batch", "NoConnectivityException during batch start (unexpected): ${e.message}", e)
+                // Batch was already created locally, so we can still navigate
+                // If there's a real issue, it would have failed before this point
+                _cashDenominationUiEvent.emit(CashDenominationUiEvent.NavigateToHome)
+            } catch (e: IllegalStateException) {
+                // Handle case where no active batch exists or other state errors
+                Loader.hide()
+                Log.e("Batch", "Failed to start batch: ${e.message}")
+                _cashDenominationUiEvent.emit(
+                    CashDenominationUiEvent.ShowError(e.message ?: "Failed to start batch")
+                )
             } catch (e: Exception) {
                 // Hide progress dialog on any unexpected error
                 Loader.hide()
-                Log.e("Batch", "Unexpected error: ${e.message}")
-                
-                // Check if error is 422 status code
-                if (e is HttpException && e.code() == 422) {
-                    // 422 status code - show error and do NOT navigate to home
-                    val errorMessage = e.message ?: "Validation error. Please check your input."
-                    Log.e("Batch", "422 error: $errorMessage")
-                    _cashDenominationUiEvent.emit(
-                        CashDenominationUiEvent.ShowError(errorMessage)
-                    )
-                    return@launch
+                Log.e("Batch", "Unexpected error: ${e.message}", e)
+                // Don't show network-related error messages for offline operations
+                val errorMessage = if (e.message?.contains("internet", ignoreCase = true) == true ||
+                    e.message?.contains("network", ignoreCase = true) == true ||
+                    e.message?.contains("connectivity", ignoreCase = true) == true) {
+                    "Failed to start batch. Please try again."
+                } else {
+                    e.message ?: "Failed to start batch"
                 }
-                
                 _cashDenominationUiEvent.emit(
-                    CashDenominationUiEvent.ShowError(e.message ?: "Failed to start batch")
+                    CashDenominationUiEvent.ShowError(errorMessage)
                 )
             }
         }

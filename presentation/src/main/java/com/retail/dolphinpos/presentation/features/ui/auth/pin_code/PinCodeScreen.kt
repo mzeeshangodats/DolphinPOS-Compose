@@ -157,15 +157,6 @@ fun PinCodeScreen(
                     }
                 }
 
-                is VerifyPinUiEvent.ShowNoInternetDialog -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = dismiss,
-                        iconRes = R.drawable.no_internet_icon
-                    ) {
-                        pinValue = ""
-                    }
-                }
             }
         }
     }

@@ -9,6 +9,9 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
 import com.retail.dolphinpos.data.entities.products.ProductTypeConverters
+import com.retail.dolphinpos.data.entities.user.BatchLifecycleStatusConverter
+import com.retail.dolphinpos.data.entities.user.BatchSyncStatusConverter
+import com.retail.dolphinpos.data.dao.BatchDao
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
@@ -52,13 +55,14 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
-    version = 13,
+            version = 15,
     exportSchema = false
 )
-@TypeConverters(PaymentMethodConverter::class, ProductTypeConverters::class)
+@TypeConverters(PaymentMethodConverter::class, ProductTypeConverters::class, BatchSyncStatusConverter::class, BatchLifecycleStatusConverter::class)
 abstract class DolphinDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
+    abstract fun batchDao(): BatchDao
     abstract fun productsDao(): ProductsDao
     abstract fun customerDao(): CustomerDao
     abstract fun holdCartDao(): HoldCartDao
@@ -83,7 +87,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -416,6 +420,165 @@ abstract class DolphinDatabase : RoomDatabase() {
                 // Create indexes for faster queries
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_store_id ON batch_history(storeId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_created_at ON batch_history(createdAt)")
+            }
+        }
+
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Migration for batch management system with UUID and sync status
+                
+                // Step 1: Create new batch table with UUID primary key
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS batch_new (
+                        batchId TEXT PRIMARY KEY NOT NULL,
+                        batchNo TEXT NOT NULL,
+                        userId INTEGER,
+                        storeId INTEGER,
+                        registerId INTEGER,
+                        locationId INTEGER,
+                        startingCashAmount REAL NOT NULL,
+                        startedAt INTEGER NOT NULL,
+                        closedAt INTEGER,
+                        closingCashAmount REAL,
+                        syncStatus TEXT NOT NULL DEFAULT 'SYNC_PENDING',
+                        isSynced INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                
+                // Step 2: Migrate existing batch data to new table
+                // Generate UUIDs for existing batches
+                db.execSQL("""
+                    INSERT INTO batch_new (
+                        batchId, batchNo, userId, storeId, registerId, locationId,
+                        startingCashAmount, startedAt, closedAt, closingCashAmount,
+                        syncStatus, isSynced
+                    )
+                    SELECT 
+                        'batch_' || batchId || '_' || startedAt,  -- Generate UUID-like ID
+                        batchNo, userId, storeId, registerId, locationId,
+                        startingCashAmount, startedAt, closedAt, closingCashAmount,
+                        CASE WHEN isSynced = 1 THEN 'SYNCED' ELSE 'SYNC_PENDING' END,
+                        isSynced
+                    FROM batch
+                """.trimIndent())
+                
+                // Step 3: Drop old batch table
+                db.execSQL("DROP TABLE IF EXISTS batch")
+                
+                // Step 4: Rename new table to batch
+                db.execSQL("ALTER TABLE batch_new RENAME TO batch")
+                
+                // Step 5: Create indexes for batch table
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_registerId ON batch(registerId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_syncStatus ON batch(syncStatus)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_registerId_closedAt ON batch(registerId, closedAt)")
+                
+                // Step 6: Add batch_id column to orders table
+                // First, check if column already exists (for safety)
+                try {
+                    db.execSQL("ALTER TABLE orders ADD COLUMN batch_id TEXT")
+                } catch (e: Exception) {
+                    // Column might already exist, ignore
+                }
+                
+                // Step 7: Migrate existing batch_no references to batch_id
+                // This creates a mapping from batchNo to batchId
+                db.execSQL("""
+                    UPDATE orders 
+                    SET batch_id = (
+                        SELECT batchId 
+                        FROM batch 
+                        WHERE batch.batchNo = orders.batch_no 
+                        LIMIT 1
+                    )
+                    WHERE batch_no IS NOT NULL 
+                    AND batch_id IS NULL
+                """.trimIndent())
+                
+                // Step 8: Create index on batch_id for orders
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_orders_batch_id ON orders(batch_id)")
+                
+                // Note: batch_no column is kept for backward compatibility
+                // New code should use batch_id, but old code can still work
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Migration for new batch state system with lifecycle and sync status separation
+                
+                // Step 1: Create new batch table with updated schema
+                // Note: Batch IDs are always generated by POS (UUID), never by server
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS batch_new (
+                        batchId TEXT PRIMARY KEY NOT NULL,
+                        batchNo TEXT NOT NULL,
+                        userId INTEGER,
+                        storeId INTEGER,
+                        registerId INTEGER,
+                        locationId INTEGER,
+                        startingCashAmount REAL NOT NULL,
+                        openedAt INTEGER NOT NULL,
+                        closedAt INTEGER,
+                        closingCashAmount REAL,
+                        lifecycleStatus TEXT NOT NULL DEFAULT 'OPEN',
+                        syncStatus TEXT NOT NULL DEFAULT 'START_PENDING',
+                        startedAt INTEGER NOT NULL DEFAULT 0,
+                        isSynced INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                
+                // Step 2: Migrate existing batch data to new table
+                // Map old batchId (keep same name - batch IDs are always generated by POS)
+                db.execSQL("""
+                    INSERT INTO batch_new (
+                        batchId, batchNo, userId, storeId, registerId, locationId,
+                        startingCashAmount, openedAt, closedAt, closingCashAmount,
+                        lifecycleStatus, syncStatus, startedAt, isSynced
+                    )
+                    SELECT 
+                        batchId,  -- Keep batchId (always generated by POS, never by server)
+                        batchNo,
+                        userId, storeId, registerId, locationId,
+                        startingCashAmount,
+                        startedAt AS openedAt,    -- Rename startedAt to openedAt
+                        closedAt,
+                        closingCashAmount,
+                        CASE 
+                            WHEN closedAt IS NULL THEN 'OPEN'
+                            ELSE 'CLOSED'
+                        END AS lifecycleStatus,
+                        CASE 
+                            WHEN syncStatus = 'SYNC_PENDING' THEN 'START_PENDING'
+                            WHEN syncStatus = 'SYNCED' THEN 
+                                CASE 
+                                    WHEN closedAt IS NULL THEN 'START_SYNCED'
+                                    ELSE 'CLOSE_PENDING'  -- Batch closed locally but close not synced yet
+                                END
+                            WHEN syncStatus = 'SYNC_FAILED' THEN 'FAILED'
+                            ELSE 'START_PENDING'
+                        END AS syncStatus,
+                        startedAt,
+                        isSynced
+                    FROM batch
+                """.trimIndent())
+                
+                // Step 3: Drop old batch table
+                db.execSQL("DROP TABLE IF EXISTS batch")
+                
+                // Step 4: Rename new table to batch
+                db.execSQL("ALTER TABLE batch_new RENAME TO batch")
+                
+                // Step 5: Update orders table batch_id references
+                // No change needed - batch_id already references batchId
+                // Batch IDs are always generated by POS (UUID), never by server
+                
+                // Step 6: Create indexes for batch table
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_batchId ON batch(batchId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_registerId ON batch(registerId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_lifecycleStatus ON batch(lifecycleStatus)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_syncStatus ON batch(syncStatus)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_registerId_lifecycleStatus ON batch(registerId, lifecycleStatus)")
             }
         }
 
