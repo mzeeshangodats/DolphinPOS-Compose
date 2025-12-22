@@ -3,14 +3,17 @@ package com.retail.dolphinpos.presentation.features.ui.reports.batch_report
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.dao.UserDao
-import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReportData
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.CloseBatchUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.payment.pax.InitializeTerminalUseCase
+import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -39,8 +42,11 @@ class BatchReportViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val batchReportRepository: BatchReportRepository,
     private val userDao: UserDao,
+    private val posSyncRepository: PosSyncRepository,
+    private val scheduleSyncUseCase: ScheduleSyncUseCase,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
-    private val closeBatchUseCase: CloseBatchUseCase
+    private val closeBatchUseCase: CloseBatchUseCase,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _batchReport = MutableStateFlow<BatchReportData?>(null)
@@ -148,7 +154,7 @@ class BatchReportViewModel @Inject constructor(
                     Log.d(TAG, "closeBatch: PAX batch closed successfully, proceeding with regular batch close")
                 }
 
-                // Step 2: Close Regular Batch
+                // Step 2: Close Regular Batch (offline-first)
                 // Get batch number from SharedPreferences
                 val batchNo = preferenceManager.getBatchNo()
                 if (batchNo.isEmpty()) {
@@ -160,37 +166,15 @@ class BatchReportViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Get current batch details from database
-                val batchEntity = userDao.getBatchDetails()
-
-                // Get required IDs
-                val userId = preferenceManager.getUserID()
-                val storeId = preferenceManager.getStoreID()
-                val locationId = preferenceManager.getOccupiedLocationID()
-
-                val batchCloseRequest = BatchCloseRequest(
-                    cashierId = userId,
-                    closedBy = userId,
-                    closingCashAmount = closingCashAmount,
-                    locationId = locationId,
-                    orders = emptyList(),
-                    paxBatchNo = "",
-                    storeId = storeId
-                )
-
-                val result =
-                    batchReportRepository.batchClose(batchNo, batchCloseRequest)
-
-                result.onSuccess { response ->
-                    // Update local batch entity
-                    val updatedBatch = batchEntity.copy(
-                        closedAt = System.currentTimeMillis(),
-                        closingCashAmount = closingCashAmount
-                    )
-                    userDao.updateBatch(updatedBatch)
+                // Close batch using offline-first sync system
+                try {
+                    posSyncRepository.closeBatch(batchNo, closingCashAmount)
 
                     // Set batch status to "closed" in SharedPreferences
                     preferenceManager.setBatchStatus("closed")
+
+                    // Schedule sync to process the CLOSE_BATCH command
+                    scheduleSyncUseCase.scheduleSync(context)
 
                     _isLoading.value = false
                     _uiEvent.emit(BatchReportUiEvent.HideLoading)
@@ -200,12 +184,13 @@ class BatchReportViewModel @Inject constructor(
 
                     // Navigate to PinCode after successful batch close
                     _uiEvent.emit(BatchReportUiEvent.NavigateToPinCode)
-                }.onFailure { exception ->
+                } catch (e: Exception) {
+                    Log.e(TAG, "closeBatch: Error closing batch", e)
                     _isLoading.value = false
                     _uiEvent.emit(BatchReportUiEvent.HideLoading)
                     _uiEvent.emit(
                         BatchReportUiEvent.ShowError(
-                            exception.message ?: "Failed to close batch"
+                            e.message ?: "Failed to close batch"
                         )
                     )
                 }

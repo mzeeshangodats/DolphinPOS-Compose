@@ -2,6 +2,7 @@ package com.retail.dolphinpos.data.repositories.report
 
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.dao.BatchReportDao
+import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.mapper.BatchReportMapper
 import com.retail.dolphinpos.data.mapper.UserMapper
@@ -14,6 +15,8 @@ import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistor
 import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryResponse
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReportData
+import com.retail.dolphinpos.domain.model.report.batch_report.Closed
+import com.retail.dolphinpos.domain.model.report.batch_report.Opened
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import retrofit2.HttpException
 import java.text.SimpleDateFormat
@@ -22,6 +25,7 @@ import java.util.Locale
 class BatchReportRepositoryImpl(
     private val apiService: ApiService,
     private val userDao: UserDao,
+    private val orderDao: OrderDao,
     private val batchReportDao: BatchReportDao,
     private val networkMonitor: NetworkMonitor
 ) : BatchReportRepository {
@@ -32,7 +36,13 @@ class BatchReportRepositoryImpl(
     }
 
     override suspend fun getBatchReport(batchNo: String): BatchReport {
-        // Check if internet is available
+        // First, try to generate from local batch and order tables
+        val localBatchReport = generateBatchReportFromLocalData(batchNo)
+        if (localBatchReport != null) {
+            return localBatchReport
+        }
+        
+        // If local generation fails, check if internet is available and try API
         if (networkMonitor.isNetworkAvailable()) {
             // Try to get data from API
             return try {
@@ -57,7 +67,7 @@ class BatchReportRepositoryImpl(
                 if (e.code() == 404) {
                     throw e
                 }
-                // For other HTTP errors, try to get from local database
+                // For other HTTP errors, try to get from cached batch report
                 val localEntity = batchReportDao.getBatchReportByBatchNo(batchNo)
                 if (localEntity != null) {
                     BatchReport(
@@ -65,149 +75,171 @@ class BatchReportRepositoryImpl(
                     )
                 } else {
                     // Return empty/default response if nothing found
-                    BatchReport(
-                        data = BatchReportData(
-                            batchNo = "",
-                            closed = null,
-                            closedBy = 0,
-                            closingCashAmount = 0.0,
-                            closingTime = null,
-                            createdAt = null,
-                            id = 0,
-                            locationId = 0,
-                            openTime = null,
-                            opened = null,
-                            openedBy = 0,
-                            payInCard = 0,
-                            payInCash = 0,
-                            payOutCard = 0,
-                            payOutCash = 0,
-                            startingCashAmount = 0.0,
-                            status = null,
-                            storeId = 0,
-                            storeRegisterId = 0,
-                            totalAbandonOrders = 0,
-                            totalAmount = null,
-                            totalCardAmount = null,
-                            totalCashAmount = null,
-                            totalCashDiscount = null,
-                            totalDiscount = null,
-                            totalOnlineSales = null,
-                            totalPayIn = 0,
-                            totalPayOut = 0,
-                            totalRewardDiscount = null,
-                            totalSales = 0,
-                            totalTax = null,
-                            totalTip = 0,
-                            totalTipCard = 0,
-                            totalTipCash = 0,
-                            totalTransactions = 0,
-                            updatedAt = null
-                        )
-                    )
+                    createEmptyBatchReport()
                 }
             } catch (e: Exception) {
-                // If API call fails, try to get from local database
+                // If API call fails, try to get from cached batch report
                 val localEntity = batchReportDao.getBatchReportByBatchNo(batchNo)
                 if (localEntity != null) {
                     BatchReport(
                         data = BatchReportMapper.toBatchReportData(localEntity)
                     )
                 } else {
-                    // Return empty/default response if nothing found
-                    BatchReport(
-                        data = BatchReportData(
-                            batchNo = "",
-                            closed = null,
-                            closedBy = 0,
-                            closingCashAmount = 0.0,
-                            closingTime = null,
-                            createdAt = null,
-                            id = 0,
-                            locationId = 0,
-                            openTime = null,
-                            opened = null,
-                            openedBy = 0,
-                            payInCard = 0,
-                            payInCash = 0,
-                            payOutCard = 0,
-                            payOutCash = 0,
-                            startingCashAmount = 0.0,
-                            status = null,
-                            storeId = 0,
-                            storeRegisterId = 0,
-                            totalAbandonOrders = 0,
-                            totalAmount = null,
-                            totalCardAmount = null,
-                            totalCashAmount = null,
-                            totalCashDiscount = null,
-                            totalDiscount = null,
-                            totalOnlineSales = null,
-                            totalPayIn = 0,
-                            totalPayOut = 0,
-                            totalRewardDiscount = null,
-                            totalSales = 0,
-                            totalTax = null,
-                            totalTip = 0,
-                            totalTipCard = 0,
-                            totalTipCash = 0,
-                            totalTransactions = 0,
-                            updatedAt = null
-                        )
-                    )
+                    createEmptyBatchReport()
                 }
             }
         } else {
-            // No internet - get from local database
+            // No internet - try cached batch report
             val localEntity = batchReportDao.getBatchReportByBatchNo(batchNo)
             return if (localEntity != null) {
                 BatchReport(
                     data = BatchReportMapper.toBatchReportData(localEntity)
                 )
             } else {
-                // Return empty/default response if nothing found
-                BatchReport(
-                    data = BatchReportData(
-                        batchNo = "",
-                        closed = null,
-                        closedBy = 0,
-                        closingCashAmount = 0.0,
-                        closingTime = null,
-                        createdAt = null,
-                        id = 0,
-                        locationId = 0,
-                        openTime = null,
-                        opened = null,
-                        openedBy = 0,
-                        payInCard = 0,
-                        payInCash = 0,
-                        payOutCard = 0,
-                        payOutCash = 0,
-                        startingCashAmount = 0.0,
-                        status = null,
-                        storeId = 0,
-                        storeRegisterId = 0,
-                        totalAbandonOrders = 0,
-                        totalAmount = null,
-                        totalCardAmount = null,
-                        totalCashAmount = null,
-                        totalCashDiscount = null,
-                        totalDiscount = null,
-                        totalOnlineSales = null,
-                        totalPayIn = 0,
-                        totalPayOut = 0,
-                        totalRewardDiscount = null,
-                        totalSales = 0,
-                        totalTax = null,
-                        totalTip = 0,
-                        totalTipCard = 0,
-                        totalTipCash = 0,
-                        totalTransactions = 0,
-                        updatedAt = null
-                    )
-                )
+                createEmptyBatchReport()
             }
         }
+    }
+    
+    /**
+     * Generate batch report data from local batch and order tables
+     */
+    private suspend fun generateBatchReportFromLocalData(batchNo: String): BatchReport? {
+        return try {
+            // Get batch from local database
+            val batch = userDao.getBatchByBatchNo(batchNo) ?: return null
+            
+            // Get all orders for this batch (non-void orders)
+            val orders = orderDao.getOrdersByBatchNo(batchNo)
+            val voidOrders = orderDao.getVoidOrdersByBatchNo(batchNo)
+            
+            // Calculate totals from orders
+            val totalSales = orders.sumOf { it.total }
+            val totalTax = orders.sumOf { it.taxValue }
+            val totalDiscount = orders.sumOf { it.discountAmount }
+            val totalCashDiscount = orders.sumOf { it.cashDiscountAmount }
+            val totalRewardDiscount = orders.sumOf { it.rewardDiscount }
+            
+            // Separate cash and card payments
+            val cashOrders = orders.filter { it.paymentMethod.equals("cash", ignoreCase = true) }
+            val cardOrders = orders.filter { it.paymentMethod.equals("card", ignoreCase = true) }
+            
+            val totalCashAmount = cashOrders.sumOf { it.total }
+            val totalCardAmount = cardOrders.sumOf { it.total }
+            
+            // Get user names for opened/closed by
+            val openedByUser = batch.userId?.let { userId ->
+                userDao.getUserById(userId)?.name ?: userDao.getActiveUserDetails()?.let { 
+                    if (it.id == userId) it.name else null
+                } ?: "User $userId"
+            } ?: "Unknown"
+            
+            val closedByUser = batch.userId?.let { userId ->
+                userDao.getUserById(userId)?.name ?: userDao.getActiveUserDetails()?.let { 
+                    if (it.id == userId) it.name else null
+                } ?: "User $userId"
+            } ?: "Unknown"
+            
+            // Format dates
+            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+            val openTime = dateFormat.format(java.util.Date(batch.startedAt))
+            val closingTime = batch.closedAt?.let { dateFormat.format(java.util.Date(it)) }
+            val createdAt = openTime
+            val updatedAt = closingTime ?: openTime
+            
+            // Determine status
+            val status = when {
+                batch.closedAt != null -> "closed"
+                else -> "active"
+            }
+            
+            BatchReport(
+                data = BatchReportData(
+                    batchNo = batch.batchNo,
+                    closed = if (batch.closedAt != null) Closed(name = closedByUser) else null,
+                    closedBy = batch.userId ?: 0,
+                    closingCashAmount = batch.closingCashAmount ?: 0.0,
+                    closingTime = closingTime,
+                    createdAt = createdAt,
+                    id = batch.batchId,
+                    locationId = batch.locationId ?: 0,
+                    openTime = openTime,
+                    opened = Opened(name = openedByUser),
+                    openedBy = batch.userId ?: 0,
+                    payInCard = 0, // Not tracked in current system
+                    payInCash = 0, // Not tracked in current system
+                    payOutCard = 0, // Not tracked in current system
+                    payOutCash = 0, // Not tracked in current system
+                    startingCashAmount = batch.startingCashAmount,
+                    status = status,
+                    storeId = batch.storeId ?: 0,
+                    storeRegisterId = batch.registerId ?: 0,
+                    totalAbandonOrders = 0, // Not tracked separately
+                    totalAmount = String.format("%.2f", totalSales),
+                    totalCardAmount = String.format("%.2f", totalCardAmount),
+                    totalCashAmount = String.format("%.2f", totalCashAmount),
+                    totalCashDiscount = String.format("%.2f", totalCashDiscount),
+                    totalDiscount = String.format("%.2f", totalDiscount),
+                    totalOnlineSales = "0.00", // Not tracked in POS
+                    totalPayIn = 0, // Not tracked in current system
+                    totalPayOut = 0, // Not tracked in current system
+                    totalRewardDiscount = String.format("%.2f", totalRewardDiscount),
+                    totalSales = totalSales,
+                    totalTax = String.format("%.2f", totalTax),
+                    totalTip = 0, // Not tracked in current system
+                    totalTipCard = 0, // Not tracked in current system
+                    totalTipCash = 0, // Not tracked in current system
+                    totalTransactions = orders.size,
+                    updatedAt = updatedAt
+                )
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("BatchReportRepositoryImpl", "Error generating batch report from local data: ${e.message}", e)
+            null
+        }
+    }
+    
+    private fun createEmptyBatchReport(): BatchReport {
+        return BatchReport(
+            data = BatchReportData(
+                batchNo = "",
+                closed = null,
+                closedBy = 0,
+                closingCashAmount = 0.0,
+                closingTime = null,
+                createdAt = null,
+                id = 0,
+                locationId = 0,
+                openTime = null,
+                opened = null,
+                openedBy = 0,
+                payInCard = 0,
+                payInCash = 0,
+                payOutCard = 0,
+                payOutCash = 0,
+                startingCashAmount = 0.0,
+                status = null,
+                storeId = 0,
+                storeRegisterId = 0,
+                totalAbandonOrders = 0,
+                totalAmount = null,
+                totalCardAmount = null,
+                totalCashAmount = null,
+                totalCashDiscount = null,
+                totalDiscount = null,
+                totalOnlineSales = null,
+                totalPayIn = 0,
+                totalPayOut = 0,
+                totalRewardDiscount = null,
+                totalSales = 0,
+                totalTax = null,
+                totalTip = 0,
+                totalTipCard = 0,
+                totalTipCash = 0,
+                totalTransactions = 0,
+                updatedAt = null
+            )
+        )
     }
 
     override suspend fun batchClose(batchNo: String, batchCloseRequest: BatchCloseRequest): Result<BatchCloseResponse> {

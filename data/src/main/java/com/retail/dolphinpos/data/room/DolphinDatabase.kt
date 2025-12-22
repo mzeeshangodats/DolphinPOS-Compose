@@ -9,6 +9,12 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethodConverter
 import com.retail.dolphinpos.data.entities.products.ProductTypeConverters
+import com.retail.dolphinpos.data.entities.sync.SyncCommandEntity
+import com.retail.dolphinpos.data.entities.sync.SyncLockEntity
+import com.retail.dolphinpos.data.entities.sync.SyncSequenceEntity
+import com.retail.dolphinpos.data.entities.sync.SyncTypeConverters
+import com.retail.dolphinpos.data.entities.user.BatchSyncStatusConverter
+import com.retail.dolphinpos.data.entities.order.OrderSyncStatusConverter
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.HoldCartDao
@@ -19,6 +25,8 @@ import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
 import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
+import com.retail.dolphinpos.data.dao.SyncCommandDao
+import com.retail.dolphinpos.data.dao.SyncLockDao
 import com.retail.dolphinpos.data.entities.category.CategoryEntity
 import com.retail.dolphinpos.data.entities.customer.CustomerEntity
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
@@ -51,11 +59,18 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ActiveUserDetailsEntity::class, BatchEntity::class, BatchHistoryEntity::class, RegisterStatusEntity::class, CategoryEntity::class, ProductsEntity::class,
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
-        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class],
-    version = 13,
+        CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class,
+        SyncCommandEntity::class, SyncLockEntity::class, SyncSequenceEntity::class],
+    version = 14,
     exportSchema = false
 )
-@TypeConverters(PaymentMethodConverter::class, ProductTypeConverters::class)
+@TypeConverters(
+    PaymentMethodConverter::class, 
+    ProductTypeConverters::class,
+    SyncTypeConverters::class,
+    BatchSyncStatusConverter::class,
+    OrderSyncStatusConverter::class
+)
 abstract class DolphinDatabase : RoomDatabase() {
 
     abstract fun userDao(): UserDao
@@ -68,6 +83,8 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun createOrderTransactionDao(): CreateOrderTransactionDao
     abstract fun transactionDao(): TransactionDao
     abstract fun batchReportDao(): BatchReportDao
+    abstract fun syncCommandDao(): SyncCommandDao
+    abstract fun syncLockDao(): SyncLockDao
 
     companion object {
         @Volatile
@@ -83,7 +100,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -416,6 +433,60 @@ abstract class DolphinDatabase : RoomDatabase() {
                 // Create indexes for faster queries
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_store_id ON batch_history(storeId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_batch_history_created_at ON batch_history(createdAt)")
+            }
+        }
+
+        private val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add sync_status column to batch table
+                db.execSQL("ALTER TABLE batch ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'ACTIVE_LOCAL'")
+                
+                // Add sync_status column to orders table
+                db.execSQL("ALTER TABLE orders ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'LOCAL_ONLY'")
+                
+                // Create sync_command table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sync_command (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        sequence INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        batchId TEXT,
+                        orderId TEXT,
+                        status TEXT NOT NULL DEFAULT 'PENDING',
+                        attempts INTEGER NOT NULL DEFAULT 0,
+                        lastError TEXT,
+                        createdAt INTEGER NOT NULL,
+                        idempotencyKey TEXT NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Create sync_lock table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sync_lock (
+                        id INTEGER PRIMARY KEY NOT NULL DEFAULT 1,
+                        lockedBy TEXT,
+                        lockedAt INTEGER
+                    )
+                """.trimIndent())
+                
+                // Create sync_sequence table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS sync_sequence (
+                        id INTEGER PRIMARY KEY NOT NULL DEFAULT 1,
+                        currentSequence INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                
+                // Initialize sync_lock and sync_sequence with default rows
+                db.execSQL("INSERT OR IGNORE INTO sync_lock (id, lockedBy, lockedAt) VALUES (1, NULL, NULL)")
+                db.execSQL("INSERT OR IGNORE INTO sync_sequence (id, currentSequence) VALUES (1, 0)")
+                
+                // Create indexes for sync_command
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_sequence ON sync_command(sequence)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_status ON sync_command(status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_batch_id ON sync_command(batchId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_order_id ON sync_command(orderId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_idempotency ON sync_command(idempotencyKey)")
             }
         }
 

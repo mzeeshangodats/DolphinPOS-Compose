@@ -37,6 +37,9 @@ interface UserDao {
     @Query("SELECT * FROM user WHERE pin = :pin AND locationId = :locationId")
     suspend fun getUserByPin(pin: String, locationId: Int): UserEntity?
 
+    @Query("SELECT * FROM user WHERE id = :userId LIMIT 1")
+    suspend fun getUserById(userId: Int): UserEntity?
+
     @Query("SELECT * FROM store")
     suspend fun getStore(): StoreEntity
 

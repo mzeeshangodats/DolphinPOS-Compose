@@ -61,6 +61,9 @@ dependencies {
     implementation(libs.camera.extension)
     implementation(libs.camera.lifecycle)
     implementation(libs.mlkit.barcode)
+    implementation(libs.workManager)
+    implementation(libs.hilt.workManager)
+    kapt(libs.hilt.compiler.workManager)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -50,6 +50,12 @@ interface OrderDao {
     @Query("SELECT * FROM orders WHERE user_id = :userId ORDER BY created_at DESC")
     suspend fun getOrdersByUserId(userId: Int): List<OrderEntity>
 
+    @Query("SELECT * FROM orders WHERE batch_no = :batchNo AND is_void = 0 ORDER BY created_at DESC")
+    suspend fun getOrdersByBatchNo(batchNo: String): List<OrderEntity>
+
+    @Query("SELECT * FROM orders WHERE batch_no = :batchNo AND is_void = 1 ORDER BY created_at DESC")
+    suspend fun getVoidOrdersByBatchNo(batchNo: String): List<OrderEntity>
+
     @Query("SELECT * FROM orders WHERE store_id = :storeId AND (order_no LIKE '%' || :keyword || '%' OR payment_method LIKE '%' || :keyword || '%') ORDER BY created_at DESC")
     suspend fun searchOrdersByStoreId(storeId: Int, keyword: String): List<OrderEntity>
 

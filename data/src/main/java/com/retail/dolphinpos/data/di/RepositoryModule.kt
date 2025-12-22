@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
+import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.repositories.auth.CashDenominationRepositoryImpl
@@ -29,6 +30,8 @@ import com.retail.dolphinpos.domain.repositories.product.ProductRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.repositories.setup.HardwareSetupRepository
 import com.retail.dolphinpos.data.repositories.product.ProductRepositoryImpl
+import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
+import com.retail.dolphinpos.data.usecases.sync.ScheduleSyncUseCaseImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -125,10 +128,11 @@ object RepositoryModule {
     fun provideBatchReportRepository(
         apiService: ApiService,
         userDao: UserDao,
+        orderDao: OrderDao,
         batchReportDao: BatchReportDao,
         networkMonitor: NetworkMonitor
     ): BatchReportRepository {
-        return BatchReportRepositoryImpl(apiService, userDao, batchReportDao, networkMonitor)
+        return BatchReportRepositoryImpl(apiService, userDao, orderDao, batchReportDao, networkMonitor)
     }
 
     @Provides
@@ -139,6 +143,12 @@ object RepositoryModule {
         preferenceManager: PreferenceManager
     ): CustomerDisplayManager {
         return CustomerDisplayManager(context, gson, preferenceManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideScheduleSyncUseCase(): ScheduleSyncUseCase {
+        return ScheduleSyncUseCaseImpl()
     }
 
 }

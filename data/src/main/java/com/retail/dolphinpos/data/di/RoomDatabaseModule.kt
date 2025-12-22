@@ -13,11 +13,14 @@ import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
 import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
+import com.retail.dolphinpos.data.dao.SyncCommandDao
+import com.retail.dolphinpos.data.dao.SyncLockDao
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
 import com.retail.dolphinpos.data.repositories.pending_order.PendingOrderRepositoryImpl
+import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.data.repositories.transaction.TransactionRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.domain.repositories.transaction.TransactionRepository
@@ -126,6 +129,16 @@ object RoomDatabaseModule {
     }
 
     @Provides
+    fun provideSyncCommandDao(database: DolphinDatabase): SyncCommandDao {
+        return database.syncCommandDao()
+    }
+
+    @Provides
+    fun provideSyncLockDao(database: DolphinDatabase): SyncLockDao {
+        return database.syncLockDao()
+    }
+
+    @Provides
     @Singleton
     fun provideOrderRepository(
         orderDao: OrderDao,
@@ -144,5 +157,13 @@ object RoomDatabaseModule {
         gson: Gson
     ): TransactionRepository {
         return TransactionRepositoryImpl(apiService, transactionDao, networkMonitor, gson)
+    }
+
+    @Provides
+    @Singleton
+    fun providePosSyncRepository(
+        database: DolphinDatabase
+    ): PosSyncRepository {
+        return PosSyncRepository(database)
     }
 }

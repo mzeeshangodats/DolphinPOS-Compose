@@ -3,8 +3,10 @@ package com.retail.dolphinpos.data.entities.order
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.TypeConverters
 
 @Entity(tableName = "orders")
+@TypeConverters(OrderSyncStatusConverter::class)
 data class OrderEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
@@ -38,6 +40,18 @@ data class OrderEntity(
     @ColumnInfo(name = "reward_discount") val rewardDiscount: Double = 0.0,
     
     // Status & Sync
+    /**
+     * Sync status tracking for offline-first sync system
+     * Defaults to LOCAL_ONLY when order is created
+     */
+    @ColumnInfo(name = "sync_status")
+    val syncStatus: OrderSyncStatus = OrderSyncStatus.LOCAL_ONLY,
+    
+    /**
+     * Legacy field - kept for backward compatibility
+     * Use syncStatus instead for new code
+     */
+    @Deprecated("Use syncStatus instead")
     @ColumnInfo(name = "is_synced") val isSynced: Boolean = false,  // 1 = completed/synced, 0 = pending/unsynced
     @ColumnInfo(name = "order_source") val orderSource: String,     // "api" or "local"
     @ColumnInfo(name = "status") val status: String? = null,        // "completed" or "pending"

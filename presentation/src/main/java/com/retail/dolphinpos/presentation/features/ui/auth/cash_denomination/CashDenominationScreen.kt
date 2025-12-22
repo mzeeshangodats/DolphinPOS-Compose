@@ -63,14 +63,6 @@ fun CashDenominationScreen(
                         buttonText = dismiss,
                     ) {}
                 }
-
-                is CashDenominationUiEvent.ShowNoInternetDialog -> {
-                    DialogHandler.showDialog(
-                        message = event.message,
-                        buttonText = dismiss,
-                        iconRes = R.drawable.no_internet_icon
-                    ) {}
-                }
             }
         }
     }

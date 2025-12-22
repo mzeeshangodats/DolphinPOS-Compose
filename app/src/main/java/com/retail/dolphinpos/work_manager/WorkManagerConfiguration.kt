@@ -35,6 +35,8 @@ object WorkManagerConfiguration {
         enqueueRegisterVerificationWork(context)
         enqueueTimeSlotSyncWork(context)
         enqueueBatchStatusCheckWork(context)
+        // Note: PosSyncWorker is scheduled via SyncScheduler when needed (not periodic)
+        // It uses OneTimeWorkRequest with NetworkType.CONNECTED constraint
     }
 
     private fun enqueueOrderSyncWork(context: Context) {
