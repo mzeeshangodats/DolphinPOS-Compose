@@ -270,6 +270,44 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private val _priceCheckProduct = MutableStateFlow<Products?>(null)
+    val priceCheckProduct: StateFlow<Products?> = _priceCheckProduct.asStateFlow()
+
+    fun searchProductForPriceCheck(query: String) {
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _priceCheckProduct.value = null
+                return@launch
+            }
+
+            try {
+                // First try searching by barcode
+                val productByBarcode = homeRepository.searchProductByBarcode(query)
+                if (productByBarcode != null) {
+                    _priceCheckProduct.value = productByBarcode
+                    return@launch
+                }
+
+                // If not found by barcode, try searching by name
+                val searchResults = homeRepository.searchProducts(query)
+                if (searchResults.isNotEmpty()) {
+                    // Take the first matching product
+                    _priceCheckProduct.value = searchResults[0]
+                } else {
+                    _priceCheckProduct.value = null
+                    _homeUiEvent.emit(HomeUiEvent.ShowError("Product not found"))
+                }
+            } catch (e: Exception) {
+                _priceCheckProduct.value = null
+                _homeUiEvent.emit(HomeUiEvent.ShowError("Error searching product: ${e.message}"))
+            }
+        }
+    }
+
+    fun clearPriceCheckProduct() {
+        _priceCheckProduct.value = null
+    }
+
     private val _pluSearchResult = MutableStateFlow<Products?>(null)
     val pluSearchResult: StateFlow<Products?> = _pluSearchResult.asStateFlow()
 
