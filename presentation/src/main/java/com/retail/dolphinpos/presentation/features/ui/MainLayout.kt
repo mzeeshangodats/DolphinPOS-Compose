@@ -175,7 +175,7 @@ fun MainLayout(
 
         // Persistent Bottom Navigation (hide on Reports, Setup screens as they have their own nav)
         val currentRoute = currentDestination?.route
-        val shouldShowMainNav = currentRoute !in listOf("reports", "setup")
+        val shouldShowMainNav = currentRoute !in listOf("reports", "setup", "home")
         
         if (shouldShowMainNav) {
             BottomNavigationBar(
