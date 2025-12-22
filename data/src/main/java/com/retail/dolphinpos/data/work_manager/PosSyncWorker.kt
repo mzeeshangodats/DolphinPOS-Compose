@@ -161,16 +161,44 @@ class PosSyncWorker @AssistedInject constructor(
         val orderId = command.orderId ?: throw IllegalArgumentException("orderId is null for CREATE_ORDER command")
         val batchId = command.batchId ?: throw IllegalArgumentException("batchId is null for CREATE_ORDER command")
 
-        // Verify batch is synced open (FIFO should ensure this, but check anyway)
+        // Get batch from database
         val batch = userDao.getBatchByBatchNo(batchId)
-        if (batch == null || batch.syncStatus != BatchSyncStatus.SYNCED_OPEN) {
-            throw IllegalStateException("Batch $batchId is not in SYNCED_OPEN state. Current status: ${batch?.syncStatus}")
+            ?: throw IllegalStateException("Batch not found: $batchId")
+
+        // If batch is not synced yet (ACTIVE_LOCAL), sync it first
+        if (batch.syncStatus == BatchSyncStatus.ACTIVE_LOCAL) {
+            Log.d(TAG, "Batch $batchId is not synced yet (ACTIVE_LOCAL), syncing batch first")
+            try {
+                // Sync batch first
+                val batchRequest = BatchOpenRequest(
+                    batchNo = batchId,
+                    storeId = batch.storeId ?: throw IllegalArgumentException("storeId is null"),
+                    userId = batch.userId ?: throw IllegalArgumentException("userId is null"),
+                    locationId = batch.locationId ?: throw IllegalArgumentException("locationId is null"),
+                    storeRegisterId = batch.registerId,
+                    startingCashAmount = batch.startingCashAmount
+                )
+                apiService.batchOpen(batchRequest)
+                
+                // Update batch status to SYNCED_OPEN
+                val updatedBatch = batch.copy(syncStatus = BatchSyncStatus.SYNCED_OPEN)
+                userDao.updateBatch(updatedBatch)
+                Log.d(TAG, "Batch $batchId synced successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to sync batch $batchId before syncing order: ${e.message}", e)
+                throw IllegalStateException("Cannot sync order: batch must be synced first. Error: ${e.message}")
+            }
+        } else if (batch.syncStatus != BatchSyncStatus.SYNCED_OPEN) {
+            // Batch is in an invalid state for syncing orders
+            throw IllegalStateException("Batch $batchId is in invalid state for syncing orders. Current status: ${batch.syncStatus}")
         }
 
         // Get order from database
         val order = orderDao.getOrderByOrderNumber(orderId)
             ?: throw IllegalStateException("Order not found: $orderId")
 
+        Log.d(TAG, "Syncing order $orderId to server...")
+        
         // Sync order to server using existing repository method
         val result = orderRepository.syncOrderToServer(order)
         result.getOrThrow() // Throw exception if failed
@@ -179,7 +207,7 @@ class PosSyncWorker @AssistedInject constructor(
         val updatedOrder = order.copy(syncStatus = OrderSyncStatus.SYNCED)
         orderDao.updateOrder(updatedOrder)
 
-        Log.d(TAG, "Order created successfully: $orderId")
+        Log.d(TAG, "Order $orderId synced successfully")
     }
 
     /**

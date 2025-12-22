@@ -5,6 +5,7 @@ import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.entities.order.OrderEntity
+import com.retail.dolphinpos.data.entities.order.OrderSyncStatus
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
@@ -57,7 +58,8 @@ class OrderRepositoryImpl(
             voidReason = orderRequest.voidReason,
             isVoid = orderRequest.isVoid,
             orderSource = "local",
-            isSynced = false,  // ✅ isSynced = 0 for offline orders
+            syncStatus = OrderSyncStatus.LOCAL_ONLY,  // ✅ Set explicit sync status for offline orders
+            isSynced = false,  // ✅ isSynced = 0 for offline orders (legacy field)
             status = "pending"
         )
         return orderDao.insertOrder(orderEntity)

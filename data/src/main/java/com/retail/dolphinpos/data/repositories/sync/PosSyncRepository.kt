@@ -177,10 +177,17 @@ class PosSyncRepository(
     
     /**
      * Get active batch (if any)
+     * Active batch is one that is not closed (closedAt is null)
+     * This includes both ACTIVE_LOCAL (offline) and SYNCED_OPEN (synced to server) batches
      */
     suspend fun getActiveBatch(): BatchEntity? {
-        return userDao.getAllBatches().firstOrNull { 
-            it.syncStatus == BatchSyncStatus.ACTIVE_LOCAL 
+        return userDao.getAllBatches().firstOrNull { batch ->
+            // Batch is active if it's not closed (closedAt is null)
+            // and status is either ACTIVE_LOCAL or SYNCED_OPEN
+            batch.closedAt == null && (
+                batch.syncStatus == BatchSyncStatus.ACTIVE_LOCAL || 
+                batch.syncStatus == BatchSyncStatus.SYNCED_OPEN
+            )
         }
     }
     
@@ -189,6 +196,57 @@ class PosSyncRepository(
      */
     suspend fun getBatchByBatchId(batchId: String): BatchEntity? {
         return userDao.getBatchByBatchNo(batchId)
+    }
+    
+    /**
+     * Enqueue CREATE_ORDER command for an existing order
+     * Use this when order was already saved to database (e.g., via OrderRepository.saveOrderToLocal)
+     * 
+     * @param orderId Client-generated order ID (orderNumber)
+     * @param batchId Batch ID this order belongs to
+     */
+    suspend fun enqueueOrderSyncCommand(
+        orderId: String,
+        batchId: String
+    ) {
+        android.util.Log.d("PosSyncRepository", "Enqueueing sync command for order: $orderId, batch: $batchId")
+        
+        // Verify order exists
+        val order = orderDao.getOrderByOrderNumber(orderId)
+        if (order == null) {
+            android.util.Log.e("PosSyncRepository", "Order not found: $orderId")
+            // List all orders to help debug
+            val allOrders = orderDao.getAllOrders()
+            android.util.Log.d("PosSyncRepository", "Available orders: ${allOrders.map { it.orderNumber }.joinToString(", ")}")
+            throw IllegalStateException("Order not found: $orderId")
+        }
+        
+        android.util.Log.d("PosSyncRepository", "Order found: ${order.orderNumber}, batchNo: ${order.batchNo}, syncStatus: ${order.syncStatus}")
+        
+        // Verify batch exists and is in valid state
+        val batch = userDao.getBatchByBatchNo(batchId)
+        if (batch == null) {
+            android.util.Log.e("PosSyncRepository", "Batch not found: $batchId")
+            throw IllegalStateException("Batch not found: $batchId")
+        }
+        
+        android.util.Log.d("PosSyncRepository", "Batch found: ${batch.batchNo}, syncStatus: ${batch.syncStatus}")
+        
+        // Enqueue CREATE_ORDER command (sequence generation is atomic)
+        val sequence = syncCommandDao.getNextSequence()
+        val command = SyncCommandEntity(
+            sequence = sequence,
+            type = CommandType.CREATE_ORDER,
+            batchId = batchId,
+            orderId = orderId,
+            status = CommandStatus.PENDING,
+            attempts = 0,
+            lastError = null,
+            createdAt = System.currentTimeMillis(),
+            idempotencyKey = orderId
+        )
+        syncCommandDao.insertCommand(command)
+        android.util.Log.d("PosSyncRepository", "Sync command enqueued successfully. Sequence: $sequence, Command ID: ${command.id}")
     }
 }
 

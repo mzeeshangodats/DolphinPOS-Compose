@@ -3,10 +3,14 @@ package com.retail.dolphinpos.presentation.features.ui.home
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
+import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
+import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
 import com.google.gson.Gson
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
 import com.retail.dolphinpos.data.entities.transaction.CreateOrderTransactionEntity
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
@@ -71,6 +75,8 @@ class HomeViewModel @Inject constructor(
     private val storeRegistersRepository: StoreRegistersRepository,
     private val verifyPinRepository: VerifyPinRepository,
     private val batchReportRepository: BatchReportRepository,
+    private val posSyncRepository: PosSyncRepository,
+    private val scheduleSyncUseCase: ScheduleSyncUseCase,
     private val initializeTerminalUseCase: InitializeTerminalUseCase,
     private val processTransactionUseCase: ProcessTransactionUseCase,
     private val cancelTransactionUseCase: CancelTransactionUseCase,
@@ -78,6 +84,7 @@ class HomeViewModel @Inject constructor(
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val openCashDrawerUseCase: OpenCashDrawerUseCase,
     private val customerDisplayManager: CustomerDisplayManager,
+    @ApplicationContext private val context: Context,
     private val pricingCalculationUseCase: PricingCalculationUseCase,
     val pricingSummaryUseCase: PricingSummaryUseCase,
     private val dynamicTaxCalculationUseCase: DynamicTaxCalculationUseCase,
@@ -1446,8 +1453,20 @@ class HomeViewModel @Inject constructor(
                 val locationId = preferenceManager.getOccupiedLocationID()
                 val customerId = preferenceManager.getCustomerID()
 
-                // Get batch details from database
-                val batch = batchReportRepository.getBatchDetails()
+                // Get current active batch from sync repository
+                val activeBatch = posSyncRepository.getActiveBatch()
+                    ?: throw IllegalStateException("No active batch found. Please start a batch before creating an order.")
+                
+                // Convert BatchEntity to Batch domain model for compatibility
+                val batch = com.retail.dolphinpos.domain.model.auth.batch.Batch(
+                    batchId = 0,  // Not used in offline-first system
+                    batchNo = activeBatch.batchNo,
+                    userId = activeBatch.userId,
+                    storeId = activeBatch.storeId,
+                    registerId = activeBatch.registerId,
+                    locationId = activeBatch.locationId,
+                    startingCashAmount = activeBatch.startingCashAmount
+                )
 
                 // Generate order number
                 val orderNumber = generateOrderNumber()
@@ -1753,6 +1772,21 @@ class HomeViewModel @Inject constructor(
                 val orderId = orderRepository.saveOrderToLocal(orderRequest)
                 Log.d("Order", "Order saved locally with ID: $orderId")
 
+                // Enqueue CREATE_ORDER command in sync queue for offline-first sync
+                try {
+                    posSyncRepository.enqueueOrderSyncCommand(
+                        orderId = orderNumber,
+                        batchId = batch.batchNo
+                    )
+                    Log.d("Order", "Order sync command enqueued for order: $orderNumber")
+                    
+                    // Schedule sync to process the CREATE_ORDER command
+                    scheduleSyncUseCase.scheduleSync(context)
+                } catch (e: Exception) {
+                    Log.e("Order", "Failed to enqueue order sync command: ${e.message}", e)
+                    // Continue anyway - order is saved locally
+                }
+
                 // Deduct product quantities from local database
                 try {
                     _cartItems.value.forEach { cartItem ->
@@ -1777,26 +1811,20 @@ class HomeViewModel @Inject constructor(
                 // Save transaction to transactions table
                 try {
                     val paymentMethodEnum = PaymentMethod.fromString(paymentMethod)
-                    // If no internet and payment is cash, set status as "paid"
-                    // Otherwise, set as "pending" to be synced later
-                    val transactionStatus =
-                        if (!networkMonitor.isNetworkAvailable() && paymentMethod == "cash") {
-                            "paid"
-                        } else {
-                            "pending"
-                        }
+                    // Always set status as "paid" for offline-first approach
+                    val transactionStatus = "paid"
 
                     val transactionEntity = CreateOrderTransactionEntity(
-                        orderNo = orderNumber, // orderId will be updated when order is synced to server and we get the server order ID
+                        orderNo = orderNumber,
                         storeId = storeId,
                         locationId = locationId,
                         paymentMethod = paymentMethodEnum,
-                        status = transactionStatus, // "paid" for offline cash, "pending" for others
+                        status = transactionStatus,
                         amount = finalTotal,
                         invoiceNo = invoiceNo,
                         batchNo = batch.batchNo,
                         userId = userId,
-                        orderSource = "register", // Since source is "point-of-sale"
+                        orderSource = "register",
                         tax = finalTax,
                         cardDetails = cardDetails?.let { gson.toJson(it) }
                     )
@@ -1809,41 +1837,9 @@ class HomeViewModel @Inject constructor(
                     Log.e("Transaction", "Failed to save transaction: ${e.message}")
                 }
 
-                // Try to sync with server if internet is available
-                if (networkMonitor.isNetworkAvailable()) {
-                    try {
-                        // Get the order we just saved
-                        val savedOrder = orderRepository.getOrderById(orderId)
-                        if (savedOrder != null) {
-                            // Sync order to server
-                            orderRepository.syncOrderToServer(savedOrder).onSuccess { response ->
-                                Log.d(
-                                    "Order",
-                                    "Order synced to server successfully. Response: ${response.message}"
-                                )
-                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
-                            }.onFailure { e ->
-                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                                Log.e(
-                                    "Order",
-                                    "Failed to sync order: ${e.message}\n Your order has been saved locally and will sync when internet is available"
-                                )
-                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
-                            }
-                        } else {
-                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                            _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved but could not be retrieved for syncing"))
-                        }
-                    } catch (e: Exception) {
-                        Log.e("Order", "Failed to sync order: ${e.message}")
-                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                        _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
-                    }
-                } else {
-                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                    _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved offline and will sync when internet is available"))
-                }
+                // Hide loading and show success message
+                _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully! It will sync automatically when internet is available."))
 
                 // Clear cart after successful order creation
                 clearCart()
