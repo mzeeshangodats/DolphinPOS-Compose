@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -42,8 +43,11 @@ import com.retail.dolphinpos.domain.model.home.create_order.TaxDetail
 import com.retail.dolphinpos.domain.model.home.cart.applyTax
 import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
+import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
+import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -61,6 +65,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val homeRepository: HomeRepository,
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
@@ -81,6 +86,8 @@ class HomeViewModel @Inject constructor(
     private val pricingCalculationUseCase: PricingCalculationUseCase,
     val pricingSummaryUseCase: PricingSummaryUseCase,
     private val dynamicTaxCalculationUseCase: DynamicTaxCalculationUseCase,
+    private val posSyncRepository: PosSyncRepository,
+    private val scheduleSyncUseCase: ScheduleSyncUseCase,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -1484,8 +1491,9 @@ class HomeViewModel @Inject constructor(
                 val locationId = preferenceManager.getOccupiedLocationID()
                 val customerId = preferenceManager.getCustomerID()
 
-                // Get batch details from database
-                val batch = batchReportRepository.getBatchDetails()
+                // Get active batch from database (only active batch should be used for orders)
+                val batch = posSyncRepository.getActiveBatch()
+                    ?: throw IllegalStateException("No active batch found. Please open a batch before creating orders.")
 
                 // Generate order number
                 val orderNumber = generateOrderNumber()
@@ -1790,6 +1798,23 @@ class HomeViewModel @Inject constructor(
                 // Always save to local database first (with isSynced = false, status = "pending")
                 val orderId = orderRepository.saveOrderToLocal(orderRequest)
                 Log.d("Order", "Order saved locally with ID: $orderId")
+
+                // Enqueue order sync command to sync_command table (for offline-first sync)
+                try {
+                    posSyncRepository.enqueueOrderSyncCommand(
+                        orderId = orderNumber,
+                        batchId = batch.batchNo
+                    )
+                    Log.d("Order", "Order sync command enqueued successfully for order: $orderNumber")
+                    
+                    // Schedule sync worker to process the command
+                    scheduleSyncUseCase.scheduleSync(context)
+                    Log.d("Order", "Sync worker scheduled")
+                } catch (e: Exception) {
+                    Log.e("Order", "Failed to enqueue order sync command: ${e.message}", e)
+                    // Continue with order processing even if sync command enqueue fails
+                    // The order is still saved locally and can be synced later
+                }
 
                 // Deduct product quantities from local database
                 try {
