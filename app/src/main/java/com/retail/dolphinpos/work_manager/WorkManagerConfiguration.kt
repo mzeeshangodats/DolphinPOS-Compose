@@ -32,9 +32,7 @@ object WorkManagerConfiguration {
         // Enqueue periodic sync work when internet is available
         enqueueOrderSyncWork(context)
         enqueueCustomerSyncWork(context)
-        enqueueRegisterVerificationWork(context)
         enqueueTimeSlotSyncWork(context)
-        enqueueBatchStatusCheckWork(context)
         // Note: PosSyncWorker is scheduled via SyncScheduler when needed (not periodic)
         // It uses OneTimeWorkRequest with NetworkType.CONNECTED constraint
     }
@@ -53,24 +51,10 @@ object WorkManagerConfiguration {
         )
     }
 
-    private fun enqueueRegisterVerificationWork(context: Context) {
-        enqueuePeriodicSyncWork<RegisterVerificationWorker>(
-            context = context,
-            tag = "REGISTER_VERIFICATION"
-        )
-    }
-
     private fun enqueueTimeSlotSyncWork(context: Context) {
         enqueuePeriodicSyncWork<TimeSlotSyncWorker>(
             context = context,
             tag = "TIME_SLOT_SYNC"
-        )
-    }
-
-    private fun enqueueBatchStatusCheckWork(context: Context) {
-        enqueuePeriodicSyncWork<BatchStatusCheckWorker>(
-            context = context,
-            tag = "BATCH_STATUS_CHECK"
         )
     }
 

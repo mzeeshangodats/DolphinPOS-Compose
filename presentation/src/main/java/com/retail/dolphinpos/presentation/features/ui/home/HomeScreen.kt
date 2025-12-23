@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -90,6 +91,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.launch
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -197,7 +199,7 @@ fun HomeScreen(
             viewModel.homeUiEvent.collect { event ->
                 // Double-check we're still on home screen before processing events
                 if (navController.currentBackStackEntry?.destination?.route == "home") {
-                    when (event) {
+                     when (event) {
                         is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
                         is HomeUiEvent.HideLoading -> Loader.hide()
                         is HomeUiEvent.ShowError -> {
@@ -242,6 +244,17 @@ fun HomeScreen(
                                 popUpTo(0) { inclusive = true }
                             }
                         }
+
+                        HomeUiEvent.ShowClosingAmountDialog -> {
+                            // Dialog state is handled by showClosingAmountDialog StateFlow
+                            // No action needed here
+                        }
+
+                        HomeUiEvent.NavigateToSelectRegister -> {
+                            navController.navigate("selectRegister") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
                     }
                 }
             }
@@ -267,6 +280,30 @@ fun HomeScreen(
     // Load hold carts when screen loads
     LaunchedEffect(Unit) {
         viewModel.loadHoldCarts()
+    }
+
+    // Handle closing amount dialog state
+    val showClosingAmountDialog by viewModel.showClosingAmountDialog.collectAsStateWithLifecycle()
+
+    // Verify register status when landing on home screen (only once)
+    LaunchedEffect(currentRoute) {
+        if (currentRoute == "home" && !showClosingAmountDialog) {
+            coroutineScope.launch {
+                val registerStatus = viewModel.verifyRegisterStatus()
+                when (registerStatus) {
+                    false -> {
+                        // Register status is "active", show closing amount dialog
+                        viewModel.showClosingAmountDialog()
+                    }
+                    true -> {
+                        // Register status is "occupied", do nothing
+                    }
+                    null -> {
+                        // Error or skip, do nothing
+                    }
+                }
+            }
+        }
     }
 
     // Barcode scanner detection - debounce input to detect complete barcode scans
@@ -750,6 +787,31 @@ fun HomeScreen(
                     viewModel.searchProductForPriceCheck(query)
                 },
                 viewModel = viewModel
+            )
+        }
+
+        // Closing Amount Dialog
+        if (showClosingAmountDialog) {
+            ClosingAmountDialog(
+                onDismiss = { viewModel.hideClosingAmountDialog() },
+                onConfirm = { closingAmount ->
+                    coroutineScope.launch {
+                        viewModel.closeBatch(closingAmount).onSuccess {
+                            viewModel.hideClosingAmountDialog()
+                            // Navigate to select register screen
+                            navController.navigate("selectRegister") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }.onFailure { exception ->
+                            DialogHandler.showDialog(
+                                message = "Failed to close batch: ${exception.message}",
+                                buttonText = "OK"
+                            ) {
+                                viewModel.hideClosingAmountDialog()
+                            }
+                        }
+                    }
+                }
             )
         }
     }
@@ -4205,6 +4267,108 @@ fun PriceCheckDialog(
     // Auto-focus search input when dialog opens
     LaunchedEffect(Unit) {
         searchFocusRequester.requestFocus()
+    }
+}
+
+@Composable
+fun ClosingAmountDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Double?) -> Unit
+) {
+    var closingAmount by remember { mutableStateOf("0.00") }
+    
+    // Non-cancelable dialog - can only be dismissed via Cancel button
+    Dialog(onDismissRequest = {}) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Title
+                BaseText(
+                    text = "Close Batch",
+                    fontSize = 18F,
+                    color = colorResource(id = R.color.colorHint),
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Message
+                BaseText(
+                    text = "Enter closing cash amount",
+                    color = colorResource(id = R.color.cart_screen_btn_clr),
+                    fontSize = 14F,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Closing Amount Input
+                OutlinedTextField(
+                    value = closingAmount,
+                    onValueChange = { newValue ->
+                        // Allow only numbers and one decimal point
+                        val filtered = newValue.filter { it.isDigit() || it == '.' }
+                        if (filtered.count { it == '.' } <= 1) {
+                            closingAmount = filtered
+                        }
+                    },
+                    label = { 
+                        BaseText(
+                            text = "Closing Amount",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            color = colorResource(id = R.color.primary),
+                        ) 
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colorResource(id = R.color.primary),
+                        unfocusedBorderColor = colorResource(id = R.color.borderOutline)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = TextStyle(
+                        fontFamily = GeneralSans,
+                        fontSize = 16.sp
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Close Batch Button (non-cancelable dialog - only this button can close it)
+                Button(
+                    onClick = {
+                        val amount = closingAmount.toDoubleOrNull()
+                        onConfirm(amount)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    BaseText(
+                        text = "Close Batch",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16F
+                    )
+                }
+            }
+        }
     }
 }
 

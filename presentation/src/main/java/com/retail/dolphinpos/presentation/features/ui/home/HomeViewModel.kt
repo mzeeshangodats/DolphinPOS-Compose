@@ -45,6 +45,8 @@ import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
 import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -153,6 +155,10 @@ class HomeViewModel @Inject constructor(
 
     // PAX Terminal Session ID (stored as domain model, not SDK type)
     private var currentSessionId: String? = null
+
+    // Closing amount dialog state
+    private val _showClosingAmountDialog = MutableStateFlow(false)
+    val showClosingAmountDialog: StateFlow<Boolean> = _showClosingAmountDialog.asStateFlow()
 
     init {
         loadCategories()
@@ -2036,6 +2042,117 @@ class HomeViewModel @Inject constructor(
         } catch (e: Exception) {
             // If any error occurs, default to 0.0
             0.0
+        }
+    }
+
+    /**
+     * Verify register status when user lands on home screen
+     * Returns true if register is occupied, false if active (needs batch close), null if error
+     */
+    suspend fun verifyRegisterStatus(): Boolean? {
+        if (!networkMonitor.isNetworkAvailable()) {
+            return null // Skip verification if no network
+        }
+
+        if (!preferenceManager.isLogin() || !preferenceManager.getRegister()) {
+            return null // Skip if not logged in or no register
+        }
+
+        return try {
+            val storeId = preferenceManager.getStoreID()
+            val locationId = preferenceManager.getOccupiedLocationID()
+            val storeRegisterId = preferenceManager.getOccupiedRegisterID()
+
+            if (storeId == 0 || locationId == 0 || storeRegisterId == 0) {
+                Log.d("HomeViewModel", "Invalid register information")
+                return null
+            }
+
+            val verifyRequest = VerifyRegisterRequest(
+                storeId = storeId,
+                locationId = locationId,
+                storeRegisterId = storeRegisterId
+            )
+            val response = storeRegistersRepository.verifyStoreRegister(verifyRequest)
+            val status = response.data.status.lowercase()
+
+            Log.d("HomeViewModel", "Register status: $status")
+
+            when (status) {
+                "occupied" -> {
+                    // Register is occupied, do nothing
+                    true
+                }
+                "active" -> {
+                    // Register is active, need to close batch
+                    false
+                }
+                else -> {
+                    // Unknown status, do nothing
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error verifying register: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Show closing amount dialog
+     */
+    fun showClosingAmountDialog() {
+        _showClosingAmountDialog.value = true
+    }
+
+    /**
+     * Hide closing amount dialog
+     */
+    fun hideClosingAmountDialog() {
+        _showClosingAmountDialog.value = false
+    }
+
+    /**
+     * Close batch with closing cash amount
+     */
+    suspend fun closeBatch(closingCashAmount: Double?): Result<Unit> {
+        return try {
+            val batchNo = preferenceManager.getBatchNo()
+            if (batchNo.isEmpty()) {
+                return Result.failure(Exception("No batch number found"))
+            }
+
+            val userId = preferenceManager.getUserID()
+            val storeId = preferenceManager.getStoreID()
+            val locationId = preferenceManager.getOccupiedLocationID()
+
+            val batchCloseRequest = BatchCloseRequest(
+                cashierId = userId,
+                closedBy = userId,
+                closingCashAmount = closingCashAmount ?: 0.0,
+                locationId = locationId,
+                orders = emptyList(),
+                paxBatchNo = "",
+                storeId = storeId
+            )
+
+            val result = batchReportRepository.batchClose(batchNo, batchCloseRequest)
+            
+            result.map { response ->
+                Log.d("HomeViewModel", "Batch closed successfully: ${response.message}")
+                
+                // Close batch in local database using PosSyncRepository
+                posSyncRepository.closeBatch(batchNo, closingCashAmount)
+                
+                // Update preferences
+                preferenceManager.setBatchStatus("closed")
+                preferenceManager.setRegister(false)
+                
+                Unit
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error closing batch: ${e.message}", e)
+            Result.failure(e)
         }
     }
 }
