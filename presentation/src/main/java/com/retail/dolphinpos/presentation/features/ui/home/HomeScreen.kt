@@ -17,11 +17,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -3839,14 +3842,35 @@ fun PriceCheckDialog(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        BaseOutlinedEditText(
-                            value = searchInput,
-                            onValueChange = { newValue ->
-                                searchInput = newValue
-                            },
-                            placeholder = "Enter product name",
-                            modifier = Modifier.weight(1f)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .border(
+                                    width = 0.5.dp,
+                                    color = Color.Gray,
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .background(Color.White)
+                                .padding(horizontal = 12.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+
+                            if (searchInput.isEmpty()) {
+                                Text(
+                                    text = "Enter product name",
+                                    color = Color.Gray
+                                )
+                            }
+
+                            BasicTextField(
+                                value = searchInput,
+                                onValueChange = { searchInput = it },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
                         Button(
                             onClick = {
                                 if (searchInput.isNotBlank()) {
@@ -3858,7 +3882,7 @@ fun PriceCheckDialog(
                                 containerColor = colorResource(id = R.color.primary)
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(48.dp)
+                            modifier = Modifier.height(40.dp)
                         ) {
                             BaseText(
                                 text = "Search",
@@ -3871,43 +3895,23 @@ fun PriceCheckDialog(
                     }
                 }
 
-                // Barcode Scan Field (Hidden)
-                BasicTextField(
-                    value = barcodeInput,
-                    onValueChange = { newValue ->
-                        barcodeInput = newValue
-                    },
+                // Scrollable Product Details or Empty State
+                val scrollState = rememberScrollState()
+                Box(
                     modifier = Modifier
-                        .size(1.dp)
-                        .offset(x = (-1000).dp, y = (-1000).dp)
-                        .focusRequester(barcodeFocusRequester)
-                        .focusable(),
-                    textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.None
-                    )
-                )
-
-                // Barcode Scan Info
-                BaseText(
-                    text = "Or scan barcode (focus will be on hidden field)",
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    color = Color.Gray,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-
-                // Product Details or Empty State
-                when {
-                    priceCheckProduct != null -> {
-                        // Show product details in the same dialog
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
+                        .fillMaxWidth()
+                        .weight(1f, fill = false)
+                        .heightIn(max = 400.dp)
+                ) {
+                    when {
+                        priceCheckProduct != null -> {
+                            // Show product details in scrollable container
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .verticalScroll(scrollState),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
                             HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
 
                             // Product Name
@@ -4080,13 +4084,11 @@ fun PriceCheckDialog(
                                     color = Color.Black,
                                     fontFamily = GeneralSans
                                 )
-                                LazyColumn(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height((priceCheckProduct.variants!!.size * 80).coerceAtMost(200).dp),
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    items(priceCheckProduct.variants!!) { variant ->
+                                    priceCheckProduct.variants!!.forEach { variant ->
                                         Column(
                                             modifier = Modifier
                                                 .fillMaxWidth()
@@ -4157,7 +4159,7 @@ fun PriceCheckDialog(
                             }
                         }
                     }
-                    searchInput.isNotEmpty() -> {
+                    searchInput.isNotEmpty() && priceCheckProduct == null -> {
                         BaseText(
                             text = "No product found",
                             fontSize = 16f,
@@ -4177,6 +4179,7 @@ fun PriceCheckDialog(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
