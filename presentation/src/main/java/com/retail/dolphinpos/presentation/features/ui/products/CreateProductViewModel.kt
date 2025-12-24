@@ -43,6 +43,24 @@ class CreateProductViewModel @Inject constructor(
         loadDualPricePercentage()
     }
 
+    /**
+     * Filters input to only allow digits and one dot (for decimal numbers)
+     * Removes commas, minus signs, and other special characters
+     */
+    private fun filterNumericInput(input: String): String {
+        var hasDot = false
+        return input.filter { char ->
+            when {
+                char.isDigit() -> true
+                char == '.' && !hasDot -> {
+                    hasDot = true
+                    true
+                }
+                else -> false // Filter out commas, minus, and other special characters
+            }
+        }
+    }
+
     private fun loadDualPricePercentage() {
         viewModelScope.launch {
             try {
@@ -124,8 +142,18 @@ class CreateProductViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(description = description)
     }
 
+    fun updateSku(sku: String) {
+        _uiState.value = _uiState.value.copy(sku = sku)
+    }
+
+    fun updatePlu(plu: String) {
+        _uiState.value = _uiState.value.copy(plu = plu)
+    }
+
     fun updateQuantity(quantity: String) {
-        _uiState.value = _uiState.value.copy(quantity = quantity)
+        // Filter: only allow digits (no decimal for quantity)
+        val filtered = quantity.filter { it.isDigit() }
+        _uiState.value = _uiState.value.copy(quantity = filtered)
     }
 
     fun updateTrackQuantity(trackQuantity: Boolean) {
@@ -187,8 +215,10 @@ class CreateProductViewModel @Inject constructor(
     }
 
     fun updatePrice(price: String) {
+        // Filter: only allow digits and one dot
+        val filtered = filterNumericInput(price)
         // Limit price to 8 characters
-        val limitedPrice = if (price.length > 8) price.take(8) else price
+        val limitedPrice = if (filtered.length > 8) filtered.take(8) else filtered
         val currentState = _uiState.value
         val priceValue = limitedPrice.toDoubleOrNull()
         
@@ -233,8 +263,10 @@ class CreateProductViewModel @Inject constructor(
     }
 
     fun updateCostPerItem(costPerItem: String) {
+        // Filter: only allow digits and one dot
+        val filtered = filterNumericInput(costPerItem)
         val currentState = _uiState.value
-        val costPerItemValue = costPerItem.toDoubleOrNull()
+        val costPerItemValue = filtered.toDoubleOrNull()
         val priceValue = currentState.price.toDoubleOrNull()
         
         // Calculate Profit (Price - Cost Per Item) - calculate if both values are valid
@@ -253,7 +285,7 @@ class CreateProductViewModel @Inject constructor(
         }
         
         _uiState.value = currentState.copy(
-            costPerItem = costPerItem,
+            costPerItem = filtered,
             profit = profit,
             margin = markup
         )
@@ -409,7 +441,7 @@ class CreateProductViewModel @Inject constructor(
                 }
             }
 
-            val variantPrice = state.price.ifEmpty { "0.0" }
+            val variantPrice = state.price
             val priceValue = variantPrice.toDoubleOrNull()
             val calculatedDualPrice = if (priceValue != null && priceValue > 0) {
                 val multiplier = 1.0 + (dualPricePercentage / 100.0)
@@ -422,7 +454,7 @@ class CreateProductViewModel @Inject constructor(
                 id = java.util.UUID.randomUUID().toString(),
                 title = title,
                 price = variantPrice,
-                costPrice = state.costPerItem.ifEmpty { "0.0" },
+                costPrice = state.costPerItem,
                 quantity = "0",
                 barcode = "",
                 sku = "",
@@ -457,8 +489,15 @@ class CreateProductViewModel @Inject constructor(
         val currentVariants = _uiState.value.variants.toMutableList()
         val index = currentVariants.indexOfFirst { it.id == variant.id }
         if (index >= 0) {
-            // Limit price to 8 characters
-            val limitedPrice = if (variant.price.length > 8) variant.price.take(8) else variant.price
+            // Filter and limit price to 8 characters
+            val filteredPrice = filterNumericInput(variant.price)
+            val limitedPrice = if (filteredPrice.length > 8) filteredPrice.take(8) else filteredPrice
+            
+            // Filter costPrice
+            val filteredCostPrice = filterNumericInput(variant.costPrice)
+            
+            // Filter quantity (only digits, no decimal)
+            val filteredQuantity = variant.quantity.filter { it.isDigit() }
             
             // Calculate dual price for variant when price changes
             val priceValue = limitedPrice.toDoubleOrNull()
@@ -468,7 +507,12 @@ class CreateProductViewModel @Inject constructor(
             } else {
                 ""
             }
-            val updatedVariant = variant.copy(price = limitedPrice, dualPrice = calculatedDualPrice)
+            val updatedVariant = variant.copy(
+                price = limitedPrice,
+                costPrice = filteredCostPrice,
+                quantity = filteredQuantity,
+                dualPrice = calculatedDualPrice
+            )
             currentVariants[index] = updatedVariant
             _uiState.value = _uiState.value.copy(variants = currentVariants)
         }
@@ -519,6 +563,14 @@ class CreateProductViewModel @Inject constructor(
             }
             if (state.barcode.isBlank()) {
                 _uiEvent.emit(CreateProductUiEvent.ShowError("Please enter Barcode"))
+                return@launch
+            }
+            if (state.sku.isBlank()) {
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Please enter SKU"))
+                return@launch
+            }
+            if (state.plu.isBlank()) {
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Please enter PLU"))
                 return@launch
             }
             if (state.description.isBlank()) {
@@ -712,10 +764,13 @@ class CreateProductViewModel @Inject constructor(
             barCode = state.barcode,
             secondaryBarCodes = if (state.alternateBarcode.isNotEmpty()) 
                 listOf(state.alternateBarcode) else emptyList(),
+            sku = if (state.sku.isNotEmpty()) state.sku else null,
+            plu = if (state.plu.isNotEmpty()) state.plu else null,
             //varients = varients,
             cashPrice = state.price,
             cardPrice = state.compareAtPrice,
-            variants = variants
+            variants = variants,
+            isPhysicalProduct = true // Default to physical product
         )
     }
 
@@ -730,7 +785,9 @@ class CreateProductViewModel @Inject constructor(
 data class CreateProductUiState(
     val productName: String = "",
     val barcode: String = "",
+    val sku: String = "",
     val alternateBarcode: String = "",
+    val plu: String = "",
     val description: String = "",
     val quantity: String = "",
     val trackQuantity: Boolean = true,

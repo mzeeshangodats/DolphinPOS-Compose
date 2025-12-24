@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.common.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -17,6 +18,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.retail.dolphinpos.common.R
 import com.retail.dolphinpos.common.utils.GeneralSans
 
@@ -58,6 +60,60 @@ fun BaseOutlinedEditText(
         textStyle = TextStyle(
             fontFamily = GeneralSans,
             color = Color.Black
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedBorderColor = colorResource(id = R.color.borderOutline),
+            unfocusedBorderColor = colorResource(id = R.color.borderOutline),
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
+            cursorColor = colorResource(id = R.color.primary)
+        )
+    )
+}
+
+@Composable
+fun BaseOutlinedEditTextSmallHeight(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    singleLine: Boolean = true,
+    isPassword: Boolean = false,
+    leadingIcon: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    enabled: Boolean = true,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = {
+            Text(
+                text = placeholder,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Light,
+                    color = Color.Gray,
+                    fontSize = 11.sp // Smaller font for placeholder
+                )
+            )
+        },
+        singleLine = singleLine,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(51.dp) // Fixed height of 50dp
+            .padding(top = 3.dp),
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        leadingIcon = leadingIcon,
+        trailingIcon = trailingIcon,
+        enabled = enabled,
+        keyboardOptions = keyboardOptions,
+        textStyle = TextStyle(
+            fontFamily = GeneralSans,
+            color = Color.Black,
+            fontSize = 11.sp // Smaller font size to prevent text cutting
         ),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = Color.White,
