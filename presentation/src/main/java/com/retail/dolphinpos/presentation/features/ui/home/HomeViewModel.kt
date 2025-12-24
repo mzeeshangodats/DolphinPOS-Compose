@@ -17,6 +17,7 @@ import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
+import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
@@ -162,6 +163,29 @@ class HomeViewModel @Inject constructor(
     // Closing amount dialog state
     private val _showClosingAmountDialog = MutableStateFlow(false)
     val showClosingAmountDialog: StateFlow<Boolean> = _showClosingAmountDialog.asStateFlow()
+
+    // Split Payment state management
+    private val _isSplitPaymentEnabled = MutableStateFlow(false)
+    val isSplitPaymentEnabled: StateFlow<Boolean> = _isSplitPaymentEnabled.asStateFlow()
+
+    private val _splitTransactions = MutableStateFlow<List<CheckoutSplitPaymentTransactions>>(emptyList())
+    val splitTransactions: StateFlow<List<CheckoutSplitPaymentTransactions>> = _splitTransactions.asStateFlow()
+
+    // Store the original total amount when split payment is enabled (to prevent recalculation issues)
+    private val _splitPaymentTotal = MutableStateFlow(0.0)
+    
+    private val _remainingAmount = MutableStateFlow(0.0)
+    val remainingAmount: StateFlow<Double> = _remainingAmount.asStateFlow()
+
+    private val _currentTenderAmount = MutableStateFlow(0.0)
+    val currentTenderAmount: StateFlow<Double> = _currentTenderAmount.asStateFlow()
+
+    // Payment success dialog state for split payments
+    private val _showSplitPaymentSuccessDialog = MutableStateFlow(false)
+    val showSplitPaymentSuccessDialog: StateFlow<Boolean> = _showSplitPaymentSuccessDialog.asStateFlow()
+
+    private val _splitPaymentSuccessData = MutableStateFlow<Pair<Double, Double>>(Pair(0.0, 0.0)) // (tendered, remaining)
+    val splitPaymentSuccessData: StateFlow<Pair<Double, Double>> = _splitPaymentSuccessData.asStateFlow()
 
     init {
         loadCategories()
@@ -1800,6 +1824,24 @@ class HomeViewModel @Inject constructor(
                     Log.d("HomeViewModel", "Tax is exempt - taxDetails will be empty")
                 }
 
+                // Check if split payment is enabled and has transactions
+                val splitPaymentTransactions = if (_isSplitPaymentEnabled.value && _splitTransactions.value.isNotEmpty()) {
+                    // Update invoice numbers for all split transactions
+                    _splitTransactions.value.map { transaction ->
+                        transaction.copy(invoiceNo = invoiceNo)
+                    }
+                } else {
+                    null
+                }
+
+                // Use split payment transactions if available, otherwise use single payment method
+                val finalPaymentMethod = if (splitPaymentTransactions != null && splitPaymentTransactions.isNotEmpty()) {
+                    // Use first payment method as primary (for backward compatibility)
+                    splitPaymentTransactions.first().paymentMethod
+                } else {
+                    paymentMethod
+                }
+
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
                     invoiceNo = invoiceNo,
@@ -1808,7 +1850,7 @@ class HomeViewModel @Inject constructor(
                     locationId = locationId,
                     storeRegisterId = registerId,
                     batchNo = batch.batchNo,
-                    paymentMethod = paymentMethod,
+                    paymentMethod = finalPaymentMethod,  // Use primary payment method from split or single payment
                     isRedeemed = false,
                     source = "point-of-sale",
                     items = orderItems,
@@ -1821,6 +1863,7 @@ class HomeViewModel @Inject constructor(
                     rewardDiscount = 0.0,
                     userId = userId,
                     cardDetails = cardDetails,
+                    transactions = splitPaymentTransactions,  // Include split payment transactions if available
                     taxDetails = orderTaxDetails,  // Empty list if tax is exempt, otherwise store-level default taxes breakdown
                     taxExempt = isTaxExempt  // Use tax exempt state
                 )
@@ -1940,6 +1983,9 @@ class HomeViewModel @Inject constructor(
 
                 // Clear cart after successful order creation
                 clearCart()
+                
+                // Reset split payment state after order is created
+                resetSplitPayment()
 
             } catch (e: Exception) {
                 Log.e("Order", "Failed to create order: ${e.message}")
@@ -2008,11 +2054,49 @@ class HomeViewModel @Inject constructor(
 
     private fun handleTransactionSuccess(cardDetails: CardDetails) {
         viewModelScope.launch {
-            _homeUiEvent.emit(
-                HomeUiEvent.ShowSuccess("Transaction Successful!")
-            )
-            delay(100)
-            createOrder("card", cardDetails)
+            // Check if split payment is enabled
+            if (_isSplitPaymentEnabled.value) {
+                // For split payments, add the card payment and show dialog
+                // Order will be created when dialog DONE is clicked
+                val remaining = _remainingAmount.value
+                val finalTenderAmount = if (remaining > 0.01) remaining else _currentTenderAmount.value
+                
+                if (finalTenderAmount > 0) {
+                    // Add the final card payment to split transactions
+                    val finalTransaction = CheckoutSplitPaymentTransactions(
+                        invoiceNo = null, // Will be set when order is created
+                        paymentMethod = "card",
+                        amount = finalTenderAmount,
+                        cardDetails = cardDetails,
+                        baseAmount = null,
+                        taxAmount = null,
+                        dualPriceAmount = null
+                    )
+                    
+                    val updatedTransactions = _splitTransactions.value.toMutableList()
+                    updatedTransactions.add(finalTransaction)
+                    _splitTransactions.value = updatedTransactions
+                    
+                    // Update remaining amount: remaining = total - sum of all paid amounts
+                    val total = _splitPaymentTotal.value
+                    val newTotalPaid = updatedTransactions.sumOf { it.amount }
+                    val newRemaining = total - newTotalPaid
+                    _remainingAmount.value = newRemaining.coerceAtLeast(0.0)
+                    
+                    // Show success dialog (order will be created when DONE is clicked)
+                    _splitPaymentSuccessData.value = Pair(finalTenderAmount, _remainingAmount.value)
+                    _showSplitPaymentSuccessDialog.value = true
+                    
+                    Log.d("SplitPayment", "Card payment added: $finalTenderAmount, Remaining: ${_remainingAmount.value}")
+                }
+            } else {
+                // Regular (non-split) card payment - create order immediately
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowSuccess("Transaction Successful!")
+                )
+                delay(100)
+                createOrder("card", cardDetails)
+            }
         }
     }
 
@@ -2199,6 +2283,153 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowBatchClosedDialog)
         }
+    }
+
+    /**
+     * Toggle split payment mode on/off
+     * When enabled, initializes split payment with 50:50 default split
+     * Note: Should be called from UI thread to access current cardTotal
+     */
+    fun toggleSplitPayment(totalAmount: Double) {
+        val newState = !_isSplitPaymentEnabled.value
+        _isSplitPaymentEnabled.value = newState
+
+        if (newState) {
+            // Initialize split payment mode
+            // Store the original total amount to use consistently (prevents recalculation issues)
+            _splitPaymentTotal.value = totalAmount
+            _currentTenderAmount.value = totalAmount / 2.0 // Default 50:50 split
+            // Calculate remaining amount: remaining = total - tender amount
+            _remainingAmount.value = totalAmount - _currentTenderAmount.value
+            _splitTransactions.value = emptyList()
+            Log.d("SplitPayment", "Split payment enabled. Total: $totalAmount, Initial Tender: ${_currentTenderAmount.value}, Remaining: ${_remainingAmount.value}")
+        } else {
+            // Reset split payment state
+            _splitTransactions.value = emptyList()
+            _splitPaymentTotal.value = 0.0
+            _remainingAmount.value = 0.0
+            _currentTenderAmount.value = 0.0
+            _showSplitPaymentSuccessDialog.value = false
+            Log.d("SplitPayment", "Split payment disabled. State reset.")
+        }
+    }
+
+    /**
+     * Update current tender amount in split payment mode
+     * Automatically calculates remaining amount
+     * Remaining = Total - Tender Amount (simplified calculation)
+     */
+    fun updateSplitPaymentTenderAmount(tenderAmount: Double) {
+        if (!_isSplitPaymentEnabled.value) return
+
+        // Use the stored split payment total (not current cardTotal which might change)
+        val total = _splitPaymentTotal.value
+
+        // Cap tender amount at total amount
+        val cappedTender = tenderAmount.coerceIn(0.0, total)
+        _currentTenderAmount.value = cappedTender
+
+        // Calculate remaining amount: remaining = total - tender amount
+        val remaining = total - cappedTender
+        _remainingAmount.value = remaining.coerceAtLeast(0.0)
+
+        Log.d("SplitPayment", "Tender updated: $cappedTender, Remaining: ${_remainingAmount.value}, Total: $total")
+    }
+
+    /**
+     * Add a split payment transaction (cash or card)
+     * Stores payment locally and updates remaining amount
+     * Returns true if payment was added successfully, false if validation failed
+     */
+    fun addSplitPayment(paymentMethod: String, tenderAmount: Double, cardDetails: CardDetails? = null): Boolean {
+        if (!_isSplitPaymentEnabled.value) {
+            Log.e("SplitPayment", "Cannot add split payment: Split payment mode is not enabled")
+            return false
+        }
+
+        // Use the stored split payment total (not current cardTotal which might change)
+        val total = _splitPaymentTotal.value
+        val totalPaid = _splitTransactions.value.sumOf { it.amount }
+        val remaining = total - totalPaid
+
+        // Validate: tender amount must be greater than 0
+        if (tenderAmount <= 0) {
+            Log.e("SplitPayment", "Tender amount must be greater than 0")
+            return false
+        }
+
+        // Automatically cap tender amount at remaining amount if it exceeds (no error shown)
+        val cappedTenderAmount = tenderAmount.coerceIn(0.0, remaining)
+        if (cappedTenderAmount < tenderAmount) {
+            Log.d("SplitPayment", "Tender amount ($tenderAmount) capped to remaining amount ($remaining)")
+        }
+
+        // Create split payment transaction (use capped amount)
+        val transaction = CheckoutSplitPaymentTransactions(
+            invoiceNo = null, // Will be set when order is created
+            paymentMethod = paymentMethod.lowercase(),
+            amount = cappedTenderAmount, // Use capped amount
+            cardDetails = cardDetails,
+            baseAmount = null,
+            taxAmount = null,
+            dualPriceAmount = null
+        )
+
+        // Add to split transactions list
+        val updatedTransactions = _splitTransactions.value.toMutableList()
+        updatedTransactions.add(transaction)
+        _splitTransactions.value = updatedTransactions
+
+            // Update remaining amount: remaining = total - sum of all paid amounts
+            val newTotalPaid = updatedTransactions.sumOf { it.amount }
+            val newRemaining = total - newTotalPaid
+            _remainingAmount.value = newRemaining.coerceAtLeast(0.0)
+
+            // Don't update tender here - it will be updated when dialog DONE is clicked
+
+        // Show success dialog
+        _splitPaymentSuccessData.value = Pair(cappedTenderAmount, _remainingAmount.value)
+        _showSplitPaymentSuccessDialog.value = true
+
+        Log.d("SplitPayment", "Payment added: $paymentMethod, Amount: $cappedTenderAmount, Remaining: ${_remainingAmount.value}")
+
+        return true
+    }
+
+    /**
+     * Dismiss split payment success dialog
+     * Called when user clicks DONE on payment success dialog
+     * Updates tender amount to remaining amount and sets remaining to 0
+     */
+    fun dismissSplitPaymentSuccessDialog() {
+        _showSplitPaymentSuccessDialog.value = false
+        
+        // After payment is done, set tender amount to remaining amount and remaining to 0
+        val currentRemaining = _remainingAmount.value
+        _currentTenderAmount.value = currentRemaining
+        _remainingAmount.value = 0.0
+        
+        Log.d("SplitPayment", "Dialog dismissed. Tender set to: $currentRemaining, Remaining set to: 0.0")
+    }
+
+    /**
+     * Check if split payment is complete (remaining amount is 0)
+     */
+    fun isSplitPaymentComplete(): Boolean {
+        return _isSplitPaymentEnabled.value && _remainingAmount.value <= 0.01 // Use epsilon for floating point comparison
+    }
+
+    /**
+     * Reset split payment state (called after order is created or cancelled)
+     */
+    fun resetSplitPayment() {
+        _isSplitPaymentEnabled.value = false
+        _splitTransactions.value = emptyList()
+        _splitPaymentTotal.value = 0.0
+        _remainingAmount.value = 0.0
+        _currentTenderAmount.value = 0.0
+        _showSplitPaymentSuccessDialog.value = false
+        Log.d("SplitPayment", "Split payment state reset")
     }
 
     /**
