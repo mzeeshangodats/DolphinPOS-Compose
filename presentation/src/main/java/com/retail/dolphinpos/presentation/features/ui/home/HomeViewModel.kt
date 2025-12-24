@@ -60,6 +60,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -445,6 +446,27 @@ class HomeViewModel @Inject constructor(
             } else {
                 originalChargeTax  // Otherwise use product's original value
             }
+
+            // Calculate tax dynamically based on variant's actual prices
+            // Get tax details from Room database
+            val locationId = preferenceManager.getOccupiedLocationID()
+            val taxDetails = runBlocking(Dispatchers.IO) {
+                try {
+                    verifyPinRepository.getTaxDetailsByLocationId(locationId)
+                } catch (e: Exception) {
+                    Log.e("HomeViewModel", "Error getting tax details: ${e.message}")
+                    emptyList()
+                }
+            }
+
+            // Calculate tax based on variant's actual prices (not product's base price)
+            val taxResult = dynamicTaxCalculationUseCase.calculateTax(
+                cardPrice = variantCardPrice,
+                cashPrice = variantCashPrice,
+                taxDetails = taxDetails,
+                chargeTaxOnThisProduct = newChargeTax
+            )
+
             cartItemList.add(
                 CartItem(
                     productId = product.id,
@@ -459,8 +481,8 @@ class HomeViewModel @Inject constructor(
                     selectedPrice = variantCardPrice,  // Always add new products at card price
                     productTaxDetails = variant.taxDetails
                         ?: product.taxDetails,  // Prefer variant tax details, fallback to product
-                    cardTax = product.cardTax.toDouble(),  // Use product's cardTax for variants
-                    cashTax = product.cashTax.toDouble()  // Use product's cashTax for variants
+                    cardTax = taxResult.cardTax,  // Calculate tax based on variant's actual price
+                    cashTax = taxResult.cashTax  // Calculate tax based on variant's actual price
                 )
             )
         }
