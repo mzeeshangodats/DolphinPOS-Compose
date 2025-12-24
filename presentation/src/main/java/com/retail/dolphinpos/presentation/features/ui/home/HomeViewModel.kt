@@ -47,6 +47,7 @@ import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
 import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
+import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -90,6 +91,7 @@ class HomeViewModel @Inject constructor(
     private val dynamicTaxCalculationUseCase: DynamicTaxCalculationUseCase,
     private val posSyncRepository: PosSyncRepository,
     private val scheduleSyncUseCase: ScheduleSyncUseCase,
+    private val apiService: ApiService,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -2046,6 +2048,62 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
+     * Check batch status when user lands on home screen
+     * Returns true if batch is closed (needs closing dialog), false if active/open, null if error
+     */
+    suspend fun checkBatchStatus(): Boolean? {
+        Log.d("HomeViewModel", "checkBatchStatus() called")
+        
+        if (!preferenceManager.isLogin() || !preferenceManager.getRegister()) {
+            Log.d("HomeViewModel", "Not logged in or no register, skipping batch status check")
+            return null // Skip if not logged in or no register
+        }
+
+        val batchNo = preferenceManager.getBatchNo()
+        if (batchNo.isEmpty()) {
+            Log.d("HomeViewModel", "No batch number found, skipping batch status check")
+            return null // Skip if no batch number
+        }
+
+        val isNetworkAvailable = networkMonitor.isNetworkAvailable()
+        Log.d("HomeViewModel", "Network available: $isNetworkAvailable")
+
+        return try {
+            val batchReport = if (isNetworkAvailable) {
+                // Call API directly to get latest batch status from server
+                Log.d("HomeViewModel", "Calling getBatchReport API directly with batchNo: $batchNo")
+                apiService.getBatchReport(batchNo)
+            } else {
+                // No network - get from local database via repository
+                Log.d("HomeViewModel", "No network, getting batch report from local database with batchNo: $batchNo")
+                batchReportRepository.getBatchReport(batchNo)
+            }
+            
+            val status = batchReport.data.status?.lowercase()
+            val isClosed = batchReport.data.closed != null
+
+            Log.d("HomeViewModel", "Batch status response - status: $status, isClosed: $isClosed, source: ${if (isNetworkAvailable) "API" else "Local DB"}")
+
+            when {
+                status == "closed" || isClosed -> {
+                    // Batch is closed, show closing amount dialog
+                    Log.d("HomeViewModel", "Batch is closed, will show closing dialog")
+                    true
+                }
+                else -> {
+                    // Batch is active/open, do nothing
+                    Log.d("HomeViewModel", "Batch is active/open")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error checking batch status: ${e.message}", e)
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
      * Verify register status when user lands on home screen
      * Returns true if register is occupied, false if active (needs batch close), null if error
      */
@@ -2110,6 +2168,15 @@ class HomeViewModel @Inject constructor(
      */
     fun hideClosingAmountDialog() {
         _showClosingAmountDialog.value = false
+    }
+
+    /**
+     * Show batch closed dialog
+     */
+    fun showBatchClosedDialog() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowBatchClosedDialog)
+        }
     }
 
     /**

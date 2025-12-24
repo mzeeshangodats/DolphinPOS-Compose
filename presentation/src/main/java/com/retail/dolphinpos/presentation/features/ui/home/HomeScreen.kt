@@ -92,6 +92,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.launch
+import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -255,6 +256,36 @@ fun HomeScreen(
                                 popUpTo(0) { inclusive = true }
                             }
                         }
+
+                        HomeUiEvent.ShowBatchClosedDialog -> {
+                            DialogHandler.showDialog(
+                                message = "Your batch has been closed by someone from portal",
+                                buttonText = "Dismiss"
+                            ) {
+                                // Navigate to cash denomination screen after dismiss
+                                val userId = preferenceManager.getUserID()
+                                val storeId = preferenceManager.getStoreID()
+                                val registerId = preferenceManager.getOccupiedRegisterID()
+                                
+                                if (userId != 0 && storeId != 0 && registerId != 0) {
+                                    navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            }
+                        }
+
+                        HomeUiEvent.NavigateToCashDenomination -> {
+                            val userId = preferenceManager.getUserID()
+                            val storeId = preferenceManager.getStoreID()
+                            val registerId = preferenceManager.getOccupiedRegisterID()
+                            
+                            if (userId != 0 && storeId != 0 && registerId != 0) {
+                                navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -285,21 +316,55 @@ fun HomeScreen(
     // Handle closing amount dialog state
     val showClosingAmountDialog by viewModel.showClosingAmountDialog.collectAsStateWithLifecycle()
 
-    // Verify register status when landing on home screen (only once)
+    // Check batch status first, then register status when landing on home screen (only once)
     LaunchedEffect(currentRoute) {
+        Log.d("HomeScreen", "LaunchedEffect triggered, currentRoute: $currentRoute, showClosingAmountDialog: $showClosingAmountDialog")
         if (currentRoute == "home" && !showClosingAmountDialog) {
+            Log.d("HomeScreen", "Starting batch status check")
             coroutineScope.launch {
-                val registerStatus = viewModel.verifyRegisterStatus()
-                when (registerStatus) {
-                    false -> {
-                        // Register status is "active", show closing amount dialog
-                        viewModel.showClosingAmountDialog()
-                    }
+                // Step 1: First check batch status
+                Log.d("HomeScreen", "Calling checkBatchStatus()")
+                val batchStatus = viewModel.checkBatchStatus()
+                Log.d("HomeScreen", "Batch status result: $batchStatus")
+                
+                when (batchStatus) {
                     true -> {
-                        // Register status is "occupied", do nothing
+                        // Batch status is "closed", show message dialog and stop here
+                        // Event will be emitted from ViewModel
+                        viewModel.showBatchClosedDialog()
+                        return@launch
+                    }
+                    false -> {
+                        // Batch is active/open, proceed to Step 2: check register status
+                        val registerStatus = viewModel.verifyRegisterStatus()
+                        when (registerStatus) {
+                            false -> {
+                                // Register status is "active", show closing amount dialog
+                                viewModel.showClosingAmountDialog()
+                            }
+                            true -> {
+                                // Register status is "occupied", do nothing
+                            }
+                            null -> {
+                                // Error or skip, do nothing
+                            }
+                        }
                     }
                     null -> {
-                        // Error or skip, do nothing
+                        // Error checking batch status, proceed to Step 2: check register status as fallback
+                        val registerStatus = viewModel.verifyRegisterStatus()
+                        when (registerStatus) {
+                            false -> {
+                                // Register status is "active", show closing amount dialog
+                                viewModel.showClosingAmountDialog()
+                            }
+                            true -> {
+                                // Register status is "occupied", do nothing
+                            }
+                            null -> {
+                                // Error or skip, do nothing
+                            }
+                        }
                     }
                 }
             }

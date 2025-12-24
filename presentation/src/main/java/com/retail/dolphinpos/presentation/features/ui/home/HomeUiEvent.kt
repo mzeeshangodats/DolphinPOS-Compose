@@ -15,4 +15,6 @@ sealed class HomeUiEvent {
     object NavigateToPinCode : HomeUiEvent()
     object ShowClosingAmountDialog : HomeUiEvent()
     object NavigateToSelectRegister : HomeUiEvent()
+    object ShowBatchClosedDialog : HomeUiEvent()
+    object NavigateToCashDenomination : HomeUiEvent()
 }
