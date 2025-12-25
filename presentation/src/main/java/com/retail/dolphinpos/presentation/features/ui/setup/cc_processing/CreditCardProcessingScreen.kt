@@ -14,14 +14,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
+import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.DropdownSelector
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
@@ -120,47 +123,83 @@ fun CreditCardProcessingScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(4.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Row 1: Card Provider
-                    Column(
+                    // 1. Card Provider Section
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp, top = 10.dp)
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Left: Blue card icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_card),
+                            contentDescription = "Card Provider",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center-left: Label
                         BaseText(
                             text = "Card Provider",
                             color = Color.Black,
                             fontSize = 14f,
                             fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
                         )
-                        DropdownSelector(
-                            label = "",
-                            items = TerminalType.entries.map { it.displayName },
-                            selectedText = configState.selectedTerminalType.displayName,
-                            onItemSelected = { index ->
-                                viewModel.updateTerminalType(TerminalType.entries[index])
-                            }
-                        )
+                        // Right: Dropdown
+                        Box(
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            InlineDropdownSelector(
+                                items = TerminalType.entries.map { it.displayName },
+                                selectedText = configState.selectedTerminalType.displayName,
+                                onItemSelected = { index ->
+                                    viewModel.updateTerminalType(TerminalType.entries[index])
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Row 2: Communication Type
-                    Column(
+                    // 2. Connection Type Section Header
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                            .background(
+                                color = colorResource(id = R.color.color_grey1),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Left: Blue pen/pencil icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_connection_type),
+                            contentDescription = "Connection Type",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Label with asterisk
                         BaseText(
-                            text = "Communication Type",
+                            text = "Connection Type*",
                             color = Color.Black,
                             fontSize = 14f,
                             fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 2.dp)
+                            fontWeight = FontWeight.Medium
                         )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // Right: Radio Buttons
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -192,96 +231,124 @@ fun CreditCardProcessingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Row 3: Digital Signature
-//                    SettingRowWithSwitch(
-//                        icon = R.drawable.card_icon,
-//                        label = "Digital Signature",
-//                        checked = configState.digitalSignatureEnabled,
-//                        onCheckedChange = { viewModel.updateDigitalSignature(it) }
-//                    )
-//
-//                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Row 4: IP Address
-                    Column(
+                    // 3. IP Address Section
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Left: Blue IP icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_ip_address),
+                            contentDescription = "IP Address",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center-left: Label
                         BaseText(
                             text = "IP Address",
                             color = Color.Black,
                             fontSize = 14f,
                             fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
                         )
-                        BaseOutlinedEditText(
-                            value = configState.ipAddress,
-                            onValueChange = { viewModel.updateIpAddress(it) },
-                            placeholder = "xxx.xxx.xxx.xxx"
-                        )
+                        // Right: TextField
+                        Box(
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = configState.ipAddress,
+                                onValueChange = { viewModel.updateIpAddress(it) },
+                                placeholder = "xxx.xxx.xxx.xxx",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Row 5: Port No
-                    Column(
+                    // 4. Port No Section
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Left: Blue port icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_port_no),
+                            contentDescription = "Port No",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center-left: Label
                         BaseText(
                             text = "Port No",
                             color = Color.Black,
                             fontSize = 14f,
                             fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
                         )
-                        BaseOutlinedEditText(
-                            value = configState.portNumber.ifEmpty { "10009" },
-                            onValueChange = { viewModel.updatePortNumber(it) },
-                            placeholder = "Enter Port Number"
-                        )
+                        // Right: TextField
+                        Box(
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = configState.portNumber.ifEmpty { "10009" },
+                                onValueChange = { viewModel.updatePortNumber(it) },
+                                placeholder = "Enter Port Number",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Action Buttons
+                    // 5. Bottom Buttons (aligned to end/right)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         BaseButton(
                             text = "Cancel",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             backgroundColor = Color.White,
                             textColor = Color.Black,
                             border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
                             onClick = { viewModel.onCancel() }
                         )
 
+                        Spacer(modifier = Modifier.width(12.dp))
+
                         BaseButton(
                             text = "Save",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             enabled = viewState.isButtonEnabled && !viewState.isLoading,
                             onClick = { viewModel.saveConfiguration() }
                         )
 
+                        Spacer(modifier = Modifier.width(12.dp))
+
                         BaseButton(
                             text = "Test Connection",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             fontSize = 14,
                             enabled = viewState.isButtonEnabled && !viewState.isLoading,
@@ -289,6 +356,72 @@ fun CreditCardProcessingScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InlineDropdownSelector(
+    items: List<String>,
+    selectedText: String,
+    onItemSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedText,
+            onValueChange = {},
+            readOnly = true,
+            textStyle = TextStyle(
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Light,
+                fontSize = 11.sp
+            ),
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+                .height(51.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                disabledContainerColor = Color.White,
+                focusedBorderColor = colorResource(id = R.color.borderOutline),
+                unfocusedBorderColor = colorResource(id = R.color.borderOutline),
+                cursorColor = colorResource(id = R.color.primary)
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color.White
+        ) {
+            items.forEachIndexed { index, item ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = item,
+                            style = TextStyle(
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Normal
+                            )
+                        )
+                    },
+                    onClick = {
+                        onItemSelected(index)
+                        expanded = false
+                    }
+                )
             }
         }
     }
