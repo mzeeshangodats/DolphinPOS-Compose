@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -19,6 +20,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
+import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -115,53 +117,89 @@ fun CustomerDisplaySetupScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(4.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Row 1: IP Address
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp, end = 8.dp, top = 10.dp)
-                    ) {
-                        BaseText(
-                            text = "IP Address",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = viewState.ipAddress,
-                            onValueChange = { viewModel.updateIpAddress(it) },
-                            placeholder = "127.0.0.1 or xxx.xxx.xxx.xxx"
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        BaseText(
-                            text = "Note: Port 8080 is used automatically",
-                            color = Color.Gray,
-                            fontSize = 12f,
-                            fontFamily = GeneralSans
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Row 2: Enable Customer Display Switch
+                    // 1. IP Address Section
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Left: Blue IP icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_ip_address),
+                            contentDescription = "IP Address",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center: Label and Note
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            BaseText(
+                                text = "IP Address",
+                                color = Color.Black,
+                                fontSize = 14f,
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            BaseText(
+                                text = "Note: Port 8080 is used automatically",
+                                color = Color.Gray,
+                                fontSize = 12f,
+                                fontFamily = GeneralSans
+                            )
+                        }
+                        // Right: TextField
+                        Box(
+                            modifier = Modifier.weight(1.5f)
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = viewState.ipAddress,
+                                onValueChange = { viewModel.updateIpAddress(it) },
+                                placeholder = "127.0.0.1 or xxx.xxx.xxx.xxx",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    // 2. Enable Customer Display Section
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colorResource(id = R.color.color_grey1),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Left: Blue IP icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_ip_address),
+                            contentDescription = "Enable Customer Display",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center-left: Label
                         BaseText(
                             text = "Enable Customer Display",
                             color = Color.Black,
                             fontSize = 14f,
                             fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
                         )
+                        // Right: Toggle Switch
                         Switch(
                             checked = viewState.isEnabled,
                             onCheckedChange = { viewModel.updateEnabled(it) },
@@ -174,40 +212,42 @@ fun CustomerDisplaySetupScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(50.dp))
 
-                    // Action Buttons
+                    // 3. Bottom Buttons (aligned to end/right)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         BaseButton(
                             text = "Cancel",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             backgroundColor = Color.White,
                             textColor = Color.Black,
                             border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
                             onClick = { viewModel.onCancel() }
                         )
 
+                        Spacer(modifier = Modifier.width(12.dp))
+
                         BaseButton(
                             text = "Save",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             enabled = viewState.isButtonEnabled && !viewState.isLoading,
                             onClick = { viewModel.saveConfiguration() }
                         )
 
+                        Spacer(modifier = Modifier.width(12.dp))
+
                         BaseButton(
                             text = "Test Connection",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             contentPadding = PaddingValues(horizontal = 8.dp),
                             fontSize = 14,
                             enabled = viewState.isButtonEnabled && !viewState.isLoading,
