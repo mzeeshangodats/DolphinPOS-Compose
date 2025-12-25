@@ -303,8 +303,8 @@ fun PrinterSetupScreen(
                                 Icon(
                                     painter = painterResource(id = R.drawable.ic_caution),
                                     contentDescription = "Warning",
-                                    tint = Color(0xFFFFA500), // Yellow/orange color
-                                    modifier = Modifier.size(16.dp)
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 BaseText(
                                     text = "No Printer found click \"Discover\" to search for printer!",
