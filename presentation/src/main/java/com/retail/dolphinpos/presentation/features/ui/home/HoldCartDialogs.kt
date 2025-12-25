@@ -1,9 +1,13 @@
 package com.retail.dolphinpos.presentation.features.ui.home
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -11,27 +15,35 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.retail.dolphinpos.common.components.BaseButton
+import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.retail.dolphinpos.presentation.R
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun HoldCartListDialog(
@@ -42,49 +54,144 @@ fun HoldCartListDialog(
     val viewModel: HomeViewModel = hiltViewModel()
     val holdCarts by viewModel.holdCarts.collectAsStateWithLifecycle()
     
-    AlertDialog(
+    Dialog(
         onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = "Hold Carts",
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.Medium
-            )
-        },
-        text = {
-            if (holdCarts.isEmpty()) {
-                Text(
-                    text = "No hold carts available",
-                    fontFamily = GeneralSans,
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.height(300.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .height(600.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Title with Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(holdCarts) { holdCart ->
-                        HoldCartItem(
-                            holdCart = holdCart,
-                            onRestore = { onRestoreCart(holdCart.id) },
-                            onDelete = { onDeleteCart(holdCart.id) }
+                    BaseText(
+                        text = "Saved Carts",
+                        color = Color.Black,
+                        fontSize = 20f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        BaseText(
+                            text = "✕",
+                            color = Color.Black,
+                            fontSize = 18f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = colorResource(id = R.color.primary)
-                )
-            ) {
-                Text("Close")
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Blue Header Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            color = colorResource(id = R.color.primary),
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Customer",
+                        color = Color.White,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Start
+                    )
+                    BaseText(
+                        text = "Amount",
+                        color = Color.White,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                    BaseText(
+                        text = "Date",
+                        color = Color.White,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
+                    )
+                    BaseText(
+                        text = "Actions",
+                        color = Color.White,
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.End
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Cart Items List
+                if (holdCarts.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BaseText(
+                            text = "No hold carts available",
+                            color = Color.Gray,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(holdCarts) { holdCart ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = colorResource(id = R.color.light_grey)
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline))
+                            ) {
+                                HoldCartItem(
+                                    holdCart = holdCart,
+                                    onRestore = { onRestoreCart(holdCart.id) },
+                                    onDelete = { onDeleteCart(holdCart.id) }
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -93,81 +200,88 @@ fun HoldCartItem(
     onRestore: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    // Format date like "Monday, Jun 17, 2024 2:32 PM"
+    val formattedDate = remember(holdCart.createdAt) {
+        try {
+            val dateFormat = SimpleDateFormat("EEEE, MMM dd, yyyy h:mm a", Locale.getDefault())
+            dateFormat.format(java.util.Date(holdCart.createdAt))
+        } catch (e: Exception) {
+            SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                .format(java.util.Date(holdCart.createdAt))
+        }
+    }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
+        // Customer Column
+        BaseText(
+            text = holdCart.cartName,
+            color = Color.Black,
+            fontSize = 14f,
+            fontFamily = GeneralSans,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Start
+        )
+        
+        // Amount Column
+        BaseText(
+            text = "$${String.format(Locale.US, "%.2f", holdCart.totalAmount)}",
+            color = Color.Black,
+            fontSize = 14f,
+            fontFamily = GeneralSans,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center
+        )
+        
+        // Date Column
+        BaseText(
+            text = formattedDate,
+            color = Color.Black,
+            fontSize = 12f,
+            fontFamily = GeneralSans,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            maxLines = 2
+        )
+        
+        // Actions Column
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = "Guest Cart",
-                    fontFamily = GeneralSans,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    color = Color.Black
-                )
-                Text(
-                    text = "Total: $${String.format("%.2f", holdCart.totalAmount)}",
-                    fontFamily = GeneralSans,
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = "Created: ${java.text.SimpleDateFormat("MMM dd, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(holdCart.createdAt))}",
-                    fontFamily = GeneralSans,
-                    fontSize = 12.sp,
-                    color = Color.Gray
-                )
-            }
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onRestore,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(id = R.color.green_success)
-                    ),
-                    modifier = Modifier.size(100.dp, 32.dp),
-                    shape = RoundedCornerShape(5.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(2.dp)
                 ) {
-                    Text(
-                        text = "Restore",
-                        fontSize = 10.sp,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
+                    // Delete Button (Blue with trash icon)
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_delete_1),
+                            contentDescription = "Delete",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(50.dp).clickable { onDelete() }
+                        )
+
+                    
+                    // Restore Button (Green with circular arrow icon)
+
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_restore),
+                            contentDescription = "Restore",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(50.dp).clickable { onRestore() }
+                        )
+
                 }
-                
-                Button(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.Red
-                    ),
-                    modifier = Modifier.size(100.dp, 32.dp),
-                    shape = RoundedCornerShape(5.dp),
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Delete",
-                        fontSize = 10.sp,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-                }
-            }
+
         }
     }
 }
