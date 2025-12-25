@@ -406,6 +406,10 @@ class HomeViewModel @Inject constructor(
     }
 
     fun addVariantToCart(product: Products, variant: Variant): Boolean {
+        return addVariantToCartWithQuantity(product, variant, 1)
+    }
+
+    fun addVariantToCartWithQuantity(product: Products, variant: Variant, quantity: Int): Boolean {
         if (hasCashDiscountApplied()) {
             return false  // Cannot add products after cash discount is applied
         }
@@ -414,13 +418,13 @@ class HomeViewModel @Inject constructor(
         val existingVariant = cartItemList.indexOfFirst { it.productVariantId == variant.id }
 
         if (existingVariant >= 0) {
-            // Increment quantity if variant already in cart
+            // Update quantity if variant already in cart
             val updatedQuantity = cartItemList[existingVariant].copy(
-                quantity = cartItemList[existingVariant].quantity + 1
+                quantity = cartItemList[existingVariant].quantity + quantity
             )
             cartItemList[existingVariant] = updatedQuantity
         } else {
-            // Add new variant
+            // Add new variant with specified quantity
             val variantCardPrice =
                 variant.cardPrice?.toDoubleOrNull() ?: product.cardPrice.toDouble()
             val variantCashPrice =
@@ -441,7 +445,7 @@ class HomeViewModel @Inject constructor(
                 CartItem(
                     productId = product.id,
                     name = "${product.name} - ${variant.title}",
-                    quantity = 1,
+                    quantity = quantity,
                     imageUrl = variant.images.firstOrNull()?.fileURL
                         ?: product.images?.firstOrNull()?.fileURL,
                     productVariantId = variant.id,
