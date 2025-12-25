@@ -248,7 +248,6 @@ fun HoldCartItem(
             fontFamily = GeneralSans,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
-            maxLines = 2
         )
         
         // Actions Column
