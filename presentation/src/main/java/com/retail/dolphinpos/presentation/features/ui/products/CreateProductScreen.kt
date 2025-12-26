@@ -740,7 +740,11 @@ fun ProductDetailsSection(
                 )
                 BaseOutlinedEditTextSmallHeight(
                     value = plu,
-                    onValueChange = onPluChange,
+                    onValueChange = { newValue ->
+                        if (newValue.length <= 5) {
+                            onPluChange(newValue)
+                        }
+                    },
                     placeholder = "Enter PLU"
                 )
             }
@@ -821,7 +825,11 @@ fun InventorySection(
                 )
                 BaseOutlinedEditTextSmallHeight(
                     value = quantity,
-                    onValueChange = onQuantityChange,
+                    onValueChange = { newValue ->
+                        if (newValue.length <= 6) {
+                            onQuantityChange(newValue)
+                        }
+                    },
                     placeholder = "Enter quantity",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -1473,10 +1481,11 @@ fun VariantTableRow(
         BaseOutlinedEditTextSmallHeight(
             value = variant.costPrice,
             onValueChange = {
+                if (it.length <= 8) {
                 // Filter input: only allow digits and one dot
                 val filtered = filterNumericInput(it)
                 onUpdate(variant.copy(costPrice = filtered))
-            },
+            }},
             placeholder = "\$0.00",
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -1486,10 +1495,11 @@ fun VariantTableRow(
         BaseOutlinedEditTextSmallHeight(
             value = variant.quantity,
             onValueChange = {
+                if (it.length <= 6) {
                 // Filter input: only allow digits (no decimal for quantity)
                 val filtered = it.filter { char -> char.isDigit() }
                 onUpdate(variant.copy(quantity = filtered))
-            },
+            }},
             placeholder = "0",
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -1773,7 +1783,11 @@ fun PricingDetailsSection(
                 )
                 BaseOutlinedEditTextSmallHeight(
                     value = costPerItem,
-                    onValueChange = onCostPerItemChange,
+                    onValueChange = { newValue ->
+                        if (newValue.length <= 8) {
+                            onCostPerItemChange(newValue)
+                        }
+                    },
                     placeholder = "Enter price",
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
