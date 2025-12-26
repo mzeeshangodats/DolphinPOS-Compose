@@ -454,7 +454,7 @@ class CreateProductViewModel @Inject constructor(
                 id = java.util.UUID.randomUUID().toString(),
                 title = title,
                 price = variantPrice,
-                costPrice = state.costPerItem,
+                costPrice = "", // Start with empty cost price - user must enter separately
                 quantity = "0",
                 barcode = "",
                 sku = "",
