@@ -1830,25 +1830,46 @@ class HomeViewModel @Inject constructor(
 
                 // Check if split payment is enabled and has transactions
                 val splitPaymentTransactions = if (_isSplitPaymentEnabled.value && _splitTransactions.value.isNotEmpty()) {
-                    // Update invoice numbers for all split transactions
-                    _splitTransactions.value.map { transaction ->
-                        transaction.copy(invoiceNo = invoiceNo)
+                    // Generate completely separate invoice numbers for each split payment transaction
+                    val transactionsList = _splitTransactions.value
+                    val invoiceNumbers = mutableListOf<String>()
+                    
+                    // Generate unique invoice number for each transaction
+                    // First transaction uses the already generated invoiceNo
+                    invoiceNumbers.add(invoiceNo)
+                    
+                    // Generate separate invoice numbers for remaining transactions
+                    for (i in 1 until transactionsList.size) {
+                        delay(1) // Small delay to ensure different timestamp
+                        invoiceNumbers.add(generateInvoiceNo())
+                    }
+                    
+                    // Map transactions with their unique invoice numbers
+                    transactionsList.mapIndexed { index, transaction ->
+                        transaction.copy(invoiceNo = invoiceNumbers[index])
                     }
                 } else {
                     null
                 }
 
-                // Use split payment transactions if available, otherwise use single payment method
+                // Use "split" as payment method when split payment is enabled, otherwise use single payment method
                 val finalPaymentMethod = if (splitPaymentTransactions != null && splitPaymentTransactions.isNotEmpty()) {
-                    // Use first payment method as primary (for backward compatibility)
-                    splitPaymentTransactions.first().paymentMethod
+                    "split"
                 } else {
                     paymentMethod
                 }
 
+                // For split payments, invoiceNo should be null in CreateOrderRequest
+                // Each transaction in the transactions array will have its own unique invoiceNo
+                val finalInvoiceNo = if (splitPaymentTransactions != null && splitPaymentTransactions.isNotEmpty()) {
+                    null
+                } else {
+                    invoiceNo
+                }
+
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
-                    invoiceNo = invoiceNo,
+                    invoiceNo = finalInvoiceNo,
                     customerId = if (customerId > 0) customerId else null,
                     storeId = storeId,
                     locationId = locationId,
