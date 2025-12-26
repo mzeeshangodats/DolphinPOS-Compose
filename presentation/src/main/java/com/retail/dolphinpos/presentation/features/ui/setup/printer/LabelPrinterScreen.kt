@@ -1,21 +1,21 @@
 package com.retail.dolphinpos.presentation.features.ui.setup.printer
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.usb.UsbManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,23 +24,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
-import com.retail.dolphinpos.common.components.BaseOutlinedEditText
+import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.DropdownSelector
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
-import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType as DomainPrinterConnectionType
-import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterDetails
-import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterViewEffect
+import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
@@ -49,577 +46,740 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 fun LabelPrinterScreen(
     navController: NavController,
-    viewModel: PrinterSetupViewModel = hiltViewModel()
+    viewModel: LabelPrintingViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val viewState by viewModel.viewState.collectAsStateWithLifecycle()
     
-    // Map domain connection type to UI enum
-    var connectionType by remember { mutableStateOf(PrinterConnectionType.LAN) }
-    var selectedPrinter by remember { mutableStateOf<PrinterDetails?>(null) }
-    var printerAddress by remember { mutableStateOf("") }
+    var searchQuery by remember { mutableStateOf("") }
+    var showVariantDialog by remember { mutableStateOf(false) }
+    var selectedProductForVariants by remember { mutableStateOf<Products?>(null) }
+    var showPrintDialog by remember { mutableStateOf(false) }
+    var discoveredPrinters by remember { mutableStateOf<List<DiscoveredPrinterInfo>>(emptyList()) }
+    var selectedVariants by remember { mutableStateOf<List<LabelPrintingVariantModel>>(emptyList()) }
     
-    // Track pending actions after permission grant
-    var pendingDiscovery by remember { mutableStateOf(false) }
-    var pendingTestPrint by remember { mutableStateOf(false) }
+    // USB Permission handling
+    val usbPermissionAction = "com.retail.dolphinpos.presentation.features.ui.setup.printer.USB_PERMISSION"
+    var usbPermissionReceiver: BroadcastReceiver? by remember { mutableStateOf(null) }
     
-    // Bluetooth permission launcher
-    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val bluetoothConnectGranted = permissions[Manifest.permission.BLUETOOTH_CONNECT] ?: false
-        val bluetoothScanGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissions[Manifest.permission.BLUETOOTH_SCAN] ?: false
+    // Filter products based on search query
+    val filteredProducts = remember(searchQuery, viewState.products) {
+        if (searchQuery.isEmpty()) {
+            viewState.products
         } else {
-            true // Not needed for Android < 12
-        }
-        val granted = bluetoothConnectGranted && bluetoothScanGranted
-        viewModel.updateBluetoothPermissionStatus(granted)
-        
-        // Execute pending actions after permission granted
-        if (granted) {
-            if (pendingDiscovery) {
-                pendingDiscovery = false
-                viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                selectedPrinter = null
-                printerAddress = ""
-            }
-            if (pendingTestPrint) {
-                pendingTestPrint = false
-                viewModel.onTestPrintClicked()
+            viewState.products.filter {
+                it.name?.contains(searchQuery, ignoreCase = true) == true ||
+                it.barCode?.contains(searchQuery, ignoreCase = true) == true
             }
         }
     }
     
-    // Check Bluetooth permissions on start
-    LaunchedEffect(Unit) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val hasBluetoothConnect = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) == PackageManager.PERMISSION_GRANTED
-            val hasBluetoothScan = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_SCAN
-            ) == PackageManager.PERMISSION_GRANTED
-            viewModel.updateBluetoothPermissionStatus(hasBluetoothConnect && hasBluetoothScan)
-        } else {
-            viewModel.updateBluetoothPermissionStatus(true)
-        }
-    }
-
-    // Handle ViewEffects - Use DisposableEffect to clean up loader when leaving screen
-    DisposableEffect(Unit) {
-        onDispose {
-            // Hide loader when leaving this screen
-            Loader.hide()
-        }
-    }
-
     // Handle ViewEffects
     LaunchedEffect(Unit) {
         viewModel.viewEffect.collectLatest { effect ->
             when (effect) {
-                is PrinterViewEffect.ShowErrorSnackBar -> {
+                is LabelPrintingViewEffect.NavigateToBack -> {
+                    navController.navigateUp()
+                }
+                is LabelPrintingViewEffect.ShowErrorSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,
                         buttonText = "OK",
                         iconRes = R.drawable.cross_red
                     ) {}
                 }
-                is PrinterViewEffect.ShowErrorDialog -> {
-                    DialogHandler.showDialog(
-                        message = effect.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.cross_red
-                    ) {}
-                }
-                is PrinterViewEffect.ShowSuccessSnackBar -> {
-                    DialogHandler.showDialog(
-                        message = effect.message,
-                        buttonText = "OK",
-                        iconRes = R.drawable.success_circle_icon
-                    ) {}
-                }
-                is PrinterViewEffect.ShowInformationSnackBar -> {
-                    // Could use a snackbar here instead of dialog
+                is LabelPrintingViewEffect.ShowInformationSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,
                         buttonText = "OK",
                         iconRes = R.drawable.info_icon
                     ) {}
                 }
-                is PrinterViewEffect.ShowLoading -> {
+                is LabelPrintingViewEffect.ShowSuccessSnackBar -> {
+                    DialogHandler.showDialog(
+                        message = effect.message,
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon
+                    ) {}
+                }
+                is LabelPrintingViewEffect.Loading -> {
                     if (effect.isLoading) {
-                        Loader.show("Discovering printers...")
+                        Loader.show("Please wait...")
                     } else {
                         Loader.hide()
                     }
                 }
-            }
-        }
-    }
-
-    // Initialize connection type from saved printer on first load
-    LaunchedEffect(viewState.savedPrinterDetails) {
-        viewState.savedPrinterDetails?.let { printer ->
-            if (connectionType == PrinterConnectionType.LAN) {
-               // connectionType = printer.connectionType.toUiConnectionType()
-            }
-        }
-    }
-
-    // Include saved printer in discovered printers if it exists and matches connection type
-    val allPrintersWithSaved = remember(viewState.discoveredPrinters, viewState.savedPrinterDetails, connectionType) {
-        val savedPrinter = viewState.savedPrinterDetails
-        val printers = viewState.discoveredPrinters.toMutableList()
-        
-        // Add saved printer if it matches connection type and isn't already in the list
-        savedPrinter?.let { printer ->
-            if (true) {
-                val exists = printers.any { it.address == printer.address && it.name == printer.name }
-                if (!exists) {
-                    printers.add(0, printer) // Add at the beginning
+                is LabelPrintingViewEffect.ShowPrintDialog -> {
+                    discoveredPrinters = effect.printers
+                    showPrintDialog = true
+                }
+                is LabelPrintingViewEffect.CheckAndSearchPrinters -> {
+                    checkUsbPermission(context, viewModel, usbPermissionAction) { receiver ->
+                        usbPermissionReceiver = receiver
+                    }
+                }
+                is LabelPrintingViewEffect.ShowDialog -> {
+                    DialogHandler.showDialog(
+                        message = effect.message,
+                        buttonText = "OK",
+                        iconRes = R.drawable.cross_red
+                    ) {}
                 }
             }
         }
-        printers
     }
-
-    // Filter printers based on selected connection type
-    val filteredPrinters = listOf<PrinterDetails>()
-//        remember(connectionType, allPrintersWithSaved) {
-//        allPrintersWithSaved.filter {
-//            it.connectionType.toUiConnectionType() == connectionType
-//        }
-//    }
-
-    // Initialize saved printer selection when filtered printers or saved printer changes
-    LaunchedEffect(viewState.savedPrinterDetails, filteredPrinters) {
-        viewState.savedPrinterDetails?.let { printer ->
-            printerAddress = printer.address
-            // Find printer in filtered list
-            val foundPrinter = filteredPrinters.firstOrNull { 
-                it.address == printer.address && it.name == printer.name 
+    
+    // Cleanup USB receiver
+    DisposableEffect(Unit) {
+        onDispose {
+            usbPermissionReceiver?.let { receiver ->
+                try {
+                    context.unregisterReceiver(receiver)
+                } catch (e: Exception) {
+                    // Already unregistered
+                }
             }
-            if (foundPrinter != null && selectedPrinter?.address != foundPrinter.address) {
-                selectedPrinter = foundPrinter
-            } else if (foundPrinter == null && selectedPrinter != null) {
-                selectedPrinter = null
-                printerAddress = ""
-            }
-        } ?: run {
-            // No saved printer, reset selection
-            if (selectedPrinter != null) {
-                selectedPrinter = null
-                printerAddress = ""
-            }
+            Loader.hide()
         }
     }
-
-    // Function to navigate to home
-    val navigateToHome = {
-        navController.navigate("home") {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = true
-            }
-            launchSingleTop = true
-            restoreState = true
-        }
+    
+    // Update selected variants from viewState
+    LaunchedEffect(viewState.selectedVariants) {
+        selectedVariants = viewState.selectedVariants
     }
-
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.light_grey))
-            .verticalScroll(rememberScrollState())
+            .padding(6.dp)
     ) {
-        // Header with back button and title
-        HeaderAppBarWithBack(
-            title = "Label Printer Setup",
-            onBackClick = navigateToHome
-        )
-
-        // Spacer for card positioning
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Centered Card with 4dp padding and 50% screen width
-        Box(
+        // Header
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 24.dp),
-            contentAlignment = Alignment.Center
+                .padding(horizontal = 6.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            IconButton(
+                onClick = { navController.navigateUp() },
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        color = Color.Red,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_delete),
+                    contentDescription = "Back",
+                    tint = colorResource(id = R.color.light_grey)
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            BaseText(
+                text = "Label Printing",
+                fontSize = 20f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Bold,
+                color = colorResource(id = R.color.colorTextLightMode)
+            )
+        }
+        
+        // Two cards side by side
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Left Card (40% width) - Product Selection
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(0.6f),
-                shape = RoundedCornerShape(12.dp),
+                    .weight(0.4f)
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(4.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(4.dp)
+                border = BorderStroke(1.dp, colorResource(id = R.color.stroke)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
+                        .fillMaxSize()
+                        .padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Spacer(modifier = Modifier.height(3.dp))
-
-                    // 1. Printer Name Section
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = colorResource(id = R.color.light_grey),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Left: Blue printer icon
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_store),
-                            contentDescription = "Printer Name",
-                            tint = colorResource(id = R.color.primary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        // Center: Label and Warning
-                        Column(
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            BaseText(
-                                text = "Printer Name",
-                                color = Color.Black,
-                                fontSize = 14f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            // Warning message with icon
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_caution),
-                                    contentDescription = "Warning",
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(14.dp)
+                    BaseText(
+                        text = "Product",
+                        fontSize = 14f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium,
+                        //color = colorResource(id = R.color.colorDarkRedBoth)
+                    )
+                    
+                    // Product Autocomplete
+                    ProductAutocomplete(
+                        searchQuery = searchQuery,
+                        onQueryChange = { searchQuery = it },
+                        products = filteredProducts,
+                        onProductSelected = { product ->
+                            searchQuery = ""
+                            if (product.barCode?.isEmpty() == true) {
+                                DialogHandler.showDialog(
+                                    message = "Product has no barcode, cannot generate barcode",
+                                    buttonText = "OK",
+                                    iconRes = R.drawable.cross_red
+                                ) {}
+                                return@ProductAutocomplete
+                            }
+                            if (product.variants != null /*&& product.variants.isNotEmpty()*/) {
+                                selectedProductForVariants = product
+                                showVariantDialog = true
+                            } else {
+                                // Add product directly if no variants
+                                val variant = LabelPrintingVariantModel(
+                                    productId = product.id,
+                                    productName = product.name ?: "",
+                                    variantId = null,
+                                    variantName = null,
+                                    barcode = product.barCode ?: "",
+                                    quantity = 1
                                 )
-                                BaseText(
-                                    text = "No Printer found click \"Discover\" to search for printer!",
-                                    color = Color.Gray,
-                                    fontSize = 12f,
-                                    fontFamily = GeneralSans
-                                )
+                                val updated = selectedVariants + variant
+                                viewModel.onUpdateVariants(updated)
                             }
                         }
-                        // Right: No Printer Selected field with Discover button inside
-                        Box(
-                            modifier = Modifier.weight(0.75f)
-                        ) {
-                            // No Printer Selected field
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(45.dp),
-                                shape = RoundedCornerShape(8.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = Color(0xFFF5F5F5)
-                                ),
-                                border = BorderStroke(1.dp, colorResource(R.color.color_grey))
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize()
-                                ) {
-                                    // Text on the left
-                                    BaseText(
-                                        text = selectedPrinter?.name ?: "No Printer Selected",
-                                        color = if (selectedPrinter != null) Color.Black else Color.Gray,
-                                        fontSize = 11f,
-                                        fontFamily = GeneralSans,
-                                        modifier = Modifier
-                                            .align(Alignment.CenterStart)
-                                            .padding(start = 12.dp, end = 80.dp)
-                                    )
-                                    // Discover button inside on the right
-                                    BaseButton(
-                                        text = "Discover",
-                                        modifier = Modifier
-                                            .align(Alignment.CenterEnd)
-                                            .height(38.dp)
-                                            .padding(end = 4.dp),
-                                        backgroundColor = colorResource(id = R.color.gray_neutral),
-                                        textColor = Color.White,
-                                        contentPadding = PaddingValues(horizontal = 12.dp),
-                                        fontSize = 12,
-                                        onClick = { 
-                                            // Check Bluetooth permission before starting discovery
-                                            if (connectionType == PrinterConnectionType.BLUETOOTH || connectionType == PrinterConnectionType.LAN) {
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                                    val hasBluetoothConnect = ContextCompat.checkSelfPermission(
-                                                        context,
-                                                        Manifest.permission.BLUETOOTH_CONNECT
-                                                    ) == PackageManager.PERMISSION_GRANTED
-                                                    val hasBluetoothScan = ContextCompat.checkSelfPermission(
-                                                        context,
-                                                        Manifest.permission.BLUETOOTH_SCAN
-                                                    ) == PackageManager.PERMISSION_GRANTED
-                                                    
-                                                    if (hasBluetoothConnect && hasBluetoothScan) {
-                                                        viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                                                        selectedPrinter = null
-                                                        printerAddress = ""
-                                                    } else {
-                                                        // Request permissions
-                                                        pendingDiscovery = true
-                                                        val permissions = mutableListOf<String>()
-                                                        if (!hasBluetoothConnect) {
-                                                            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-                                                        }
-                                                        if (!hasBluetoothScan) {
-                                                            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-                                                        }
-                                                        if (permissions.isNotEmpty()) {
-                                                            bluetoothPermissionLauncher.launch(permissions.toTypedArray())
-                                                        }
-                                                    }
-                                                } else {
-                                                    viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                                                    selectedPrinter = null
-                                                    printerAddress = ""
-                                                }
-                                            } else {
-                                                viewModel.startDiscovery(context, excludeBluetooth = true)
-                                                selectedPrinter = null
-                                                printerAddress = ""
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. Connection Type Section
-                    Row(
+                    )
+                    
+                    Spacer(modifier = Modifier.height(20.dp))
+                    
+                    // Print Button
+                    BaseButton(
+                        text = "Print",
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                color = colorResource(id = R.color.light_grey),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Left: Blue printer icon
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_store),
-                            contentDescription = "Connection Type",
-                            tint = colorResource(id = R.color.primary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        // Center-left: Label with asterisk
-                        BaseText(
-                            text = "Connection Type*",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        // Right: Radio Buttons
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            PrinterConnectionType.entries.forEach { option ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable {
-                                        connectionType = option
-                                        selectedPrinter = null
-                                        printerAddress = ""
-                                    }
-                                ) {
-                                    RadioButton(
-                                        selected = connectionType == option,
-                                        onClick = {
-                                            connectionType = option
-                                            selectedPrinter = null
-                                            printerAddress = ""
-                                        },
-                                        colors = RadioButtonDefaults.colors(
-                                            selectedColor = colorResource(id = R.color.primary),
-                                            unselectedColor = Color.Gray
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    BaseText(
-                                        text = option.displayName,
-                                        color = Color.Black,
-                                        fontSize = 12f,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. Auto Print Receipt Section
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = colorResource(id = R.color.light_grey),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Left: Blue printer icon
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_store),
-                            contentDescription = "Auto Print Receipt",
-                            tint = colorResource(id = R.color.primary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        // Center-left: Label
-                        BaseText(
-                            text = "Auto Print Receipt",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        // Right: Toggle Switch
-                        Switch(
-                            checked = viewState.isAutoPrintEnabled,
-                            onCheckedChange = { viewModel.updateAutoPrintEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = colorResource(id = R.color.primary),
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    // 4. Auto Open Drawer Section
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                color = colorResource(id = R.color.light_grey),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            .padding(15.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Left: Blue drawer icon
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Auto Open Drawer",
-                            tint = colorResource(id = R.color.primary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                        // Center-left: Label
-                        BaseText(
-                            text = "Auto Open Drawer",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f)
-                        )
-                        // Right: Toggle Switch
-                        Switch(
-                            checked = viewState.isAutoOpenDrawerEnabled,
-                            onCheckedChange = { viewModel.updateAutoOpenDrawerEnabled(it) },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = colorResource(id = R.color.primary),
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color.Gray
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // 5. Bottom Buttons (aligned to end/right)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 10.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        BaseButton(
-                            text = "Cancel",
-                            modifier = Modifier
-                                .height(45.dp),
-                            backgroundColor = Color.White,
-                            textColor = Color.Black,
-                            border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
-                            onClick = { navigateToHome() }
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        BaseButton(
-                            text = "Save",
-                            modifier = Modifier
-                                .height(45.dp),
-                            onClick = { 
-                                viewModel.onSaveClicked(
-                                    isAutoPrintEnabled = viewState.isAutoPrintEnabled,
-                                    isAutoOpenDrawerEnabled = viewState.isAutoOpenDrawerEnabled
-                                )
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        BaseButton(
-                            text = "Test Print",
-                            modifier = Modifier
-                                .height(45.dp),
-                            fontSize = 14,
-                            onClick = { 
-                                // Check Bluetooth permission before test print if using Bluetooth
-                                if (viewState.savedPrinterDetails?.connectionType == DomainPrinterConnectionType.BLUETOOTH) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                        val hasBluetoothConnect = ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.BLUETOOTH_CONNECT
-                                        ) == PackageManager.PERMISSION_GRANTED
-                                        
-                                        if (hasBluetoothConnect) {
-                                            viewModel.onTestPrintClicked()
-                                        } else {
-                                            pendingTestPrint = true
-                                            bluetoothPermissionLauncher.launch(arrayOf(Manifest.permission.BLUETOOTH_CONNECT))
-                                        }
-                                    } else {
-                                        viewModel.onTestPrintClicked()
-                                    }
-                                } else {
-                                    viewModel.onTestPrintClicked()
-                                }
+                            .height(45.dp),
+                        backgroundColor = Color.Green,
+                        textColor = Color.White,
+                        onClick = {
+                            viewModel.onPrintClicked()
+                        },
+                        enabled = viewState.isPrintButtonEnabled
+                    )
+                }
+            }
+            
+            // Right Card (60% width) - Barcode Labels Grid
+            Card(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .fillMaxHeight(),
+                shape = RoundedCornerShape(4.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, colorResource(id = R.color.stroke)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(4.dp),
+                    contentPadding = PaddingValues(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    items(selectedVariants) { variant ->
+                        BarcodeLabelItem(
+                            variant = variant,
+                            onRemove = {
+                                val updated = selectedVariants.filter { it != variant }
+                                viewModel.onUpdateVariants(updated)
                             }
                         )
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
+    }
+    
+    // Variant Selection Dialog
+    if (showVariantDialog && selectedProductForVariants != null) {
+        VariantSelectionDialog(
+            product = selectedProductForVariants!!,
+            variants = viewModel.mapToLabelPrintingVariants(selectedProductForVariants!!),
+            onDismiss = { showVariantDialog = false },
+            onVariantsSelected = { variants ->
+                val updated = selectedVariants + variants
+                viewModel.onUpdateVariants(updated)
+                showVariantDialog = false
+            }
+        )
+    }
+    
+    // Print Dialog
+    if (showPrintDialog) {
+        PrintDialog(
+            printers = discoveredPrinters,
+            onDismiss = { showPrintDialog = false },
+            onPrinterSelected = { printer ->
+                viewModel.onStartPrintingClicked(printer)
+                showPrintDialog = false
+            }
+        )
     }
 }
 
+@Composable
+fun ProductAutocomplete(
+    searchQuery: String,
+    onQueryChange: (String) -> Unit,
+    products: List<Products>,
+    onProductSelected: (Products) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var showDropdown by remember { mutableStateOf(false) }
+    
+    val filtered = remember(searchQuery, products) {
+        if (searchQuery.length >= 3) {
+            products.filter {
+                it.name?.contains(searchQuery, ignoreCase = true) == true ||
+                it.barCode?.contains(searchQuery, ignoreCase = true) == true
+            }
+        } else {
+            emptyList()
+        }
+    }
+    
+    Column {
+        BaseOutlinedEditTextSmallHeight(
+            value = searchQuery,
+            onValueChange = { query ->
+                onQueryChange(query)
+                showDropdown = query.length >= 3 && filtered.isNotEmpty()
+            },
+            placeholder = "Choose Product",
+            modifier = Modifier.fillMaxWidth()
+        )
+        
+        // Dropdown
+        if (showDropdown && filtered.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    filtered.take(5).forEach { product ->
+                        BaseText(
+                            text = product.name ?: "Unknown Product",
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onProductSelected(product)
+                                    onQueryChange("")
+                                    showDropdown = false
+                                }
+                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                            color = Color.Black
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BarcodeLabelItem(
+    variant: LabelPrintingVariantModel,
+    onRemove: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey)),
+        border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline))
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Remove button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove",
+                            tint = Color.Red,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                
+                // Barcode info
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    BaseText(
+                        text = variant.productName,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 2,
+                        color = Color.Black
+                    )
+                    variant.variantName?.let {
+                        BaseText(
+                            text = it,
+                            fontSize = 10f,
+                            fontFamily = GeneralSans,
+                            color = Color.Gray,
+                            maxLines = 1
+                        )
+                    }
+                    BaseText(
+                        text = "Qty: ${variant.quantity}",
+                        fontSize = 10f,
+                        fontFamily = GeneralSans,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VariantSelectionDialog(
+    product: Products,
+    variants: List<LabelPrintingVariantModel>,
+    onDismiss: () -> Unit,
+    onVariantsSelected: (List<LabelPrintingVariantModel>) -> Unit
+) {
+    var selectedVariants by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.75f)
+                .fillMaxHeight(0.7f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BaseText(
+                        text = product.name ?: "Select Variants",
+                        fontSize = 18f,
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close"
+                        )
+                    }
+                }
+                
+                // Variants List
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(variants.size) { index ->
+                        val variant = variants[index]
+                        val isSelected = selectedVariants.contains(index)
+                        
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    if (isSelected) {
+                                        selectedVariants = selectedVariants - index
+                                    } else {
+                                        selectedVariants = selectedVariants + index
+                                    }
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) Color(0xFFE3F2FD) else Color.White
+                            ),
+                            border = if (isSelected) null else BorderStroke(1.dp, Color.LightGray)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                BaseText(
+                                    text = variant.variantName ?: variant.productName,
+                                    fontSize = 14f,
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                BaseText(
+                                    text = "Barcode: ${variant.barcode}",
+                                    fontSize = 12f,
+                                    fontFamily = GeneralSans,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            val selected = variants.filterIndexed { index, _ ->
+                                selectedVariants.contains(index)
+                            }
+                            onVariantsSelected(selected)
+                        },
+                        modifier = Modifier.height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        )
+                    ) {
+                        BaseText(text = "Add", fontSize = 14f, fontFamily = GeneralSans, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PrintDialog(
+    printers: List<DiscoveredPrinterInfo>,
+    onDismiss: () -> Unit,
+    onPrinterSelected: (DiscoveredPrinterInfo) -> Unit
+) {
+    var selectedPrinter by remember { mutableStateOf<DiscoveredPrinterInfo?>(null) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.5f),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                BaseText(
+                    text = "Select Printer",
+                    fontSize = 18f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // Printer Dropdown
+                var expanded by remember { mutableStateOf(false) }
+                val printerNames = listOf("Select Printer") + printers.map { it.modelName }
+                
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedPrinter?.modelName ?: "Select Printer",
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
+                        )
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        printerNames.forEachIndexed { index, name ->
+                            if (index == 0) {
+                                DropdownMenuItem(
+                                    text = { BaseText(text = name, fontSize = 14f, fontFamily = GeneralSans) },
+                                    onClick = {
+                                        selectedPrinter = null
+                                        expanded = false
+                                    }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { BaseText(text = name, fontSize = 14f, fontFamily = GeneralSans) },
+                                    onClick = {
+                                        selectedPrinter = printers[index - 1]
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.height(44.dp)
+                    ) {
+                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(
+                        onClick = {
+                            selectedPrinter?.let { onPrinterSelected(it) }
+                        },
+                        modifier = Modifier.height(44.dp),
+                        enabled = selectedPrinter != null,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        )
+                    ) {
+                        BaseText(text = "Print", fontSize = 14f, fontFamily = GeneralSans, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+fun checkUsbPermission(
+    context: Context,
+    viewModel: LabelPrintingViewModel,
+    permissionAction: String,
+    onReceiverCreated: (BroadcastReceiver) -> Unit
+) {
+    val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+    val brotherDevice = usbManager.deviceList.values.firstOrNull { it.vendorId == 0x04F9 }
+    
+    if (brotherDevice == null) {
+        DialogHandler.showDialog(
+            message = "No Brother printer found",
+            buttonText = "OK",
+            iconRes = R.drawable.cross_red
+        ) {}
+        return
+    }
+    
+    val filter = IntentFilter(permissionAction)
+    val usbPermissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == permissionAction) {
+                val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                if (granted) {
+                    viewModel.startSearchUSBPrinter(context)
+                } else {
+                    try {
+                        if (usbManager.hasPermission(brotherDevice)) {
+                            viewModel.startSearchUSBPrinter(context)
+                        } else {
+                            DialogHandler.showDialog(
+                                message = "USB permission not granted",
+                                buttonText = "OK",
+                                iconRes = R.drawable.cross_red
+                            ) {}
+                        }
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                }
+                
+                try {
+                    context?.unregisterReceiver(this)
+                } catch (e: Exception) {
+                    // Already unregistered
+                }
+            }
+        }
+    }
+    
+    ContextCompat.registerReceiver(
+        context,
+        usbPermissionReceiver,
+        filter,
+        ContextCompat.RECEIVER_NOT_EXPORTED
+    )
+    
+    onReceiverCreated(usbPermissionReceiver)
+    
+    if (!usbManager.hasPermission(brotherDevice)) {
+        val permissionIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(permissionAction),
+            PendingIntent.FLAG_IMMUTABLE
+        )
+        usbManager.requestPermission(brotherDevice, permissionIntent)
+    } else {
+        viewModel.startSearchUSBPrinter(context)
+    }
+}
