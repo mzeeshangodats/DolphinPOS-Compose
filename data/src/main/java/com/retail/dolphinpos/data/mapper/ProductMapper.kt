@@ -375,6 +375,8 @@ object ProductMapper {
                 val type = object : com.google.gson.reflect.TypeToken<List<String>>() {}.type
                 gson.fromJson<List<String>>(it, type)
             } ?: emptyList(),
+            sku = product.sku,
+            plu = product.plu,
             //varients = emptyMap(), // Can be derived from variants if needed
             cashPrice = product.cashPrice,
             cardPrice = product.cardPrice,
