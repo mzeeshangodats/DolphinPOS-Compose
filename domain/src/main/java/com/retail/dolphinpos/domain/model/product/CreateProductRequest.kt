@@ -22,7 +22,8 @@ data class CreateProductRequest(
     val customsInformation: String? = null,
     val barCode: String? = null,
     val secondaryBarCodes: List<String> = emptyList(),
-    //val varients: Map<String, List<String>> = emptyMap(), // Note: API uses "varients" not "variants"
+    val sku: String? = null,
+    val plu: String? = null,
     val cashPrice: String? = null,
     val cardPrice: String? = null,
     val variants: List<ProductVariantRequest> = emptyList()

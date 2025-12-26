@@ -31,4 +31,5 @@
     <color name="bgColorLabels">#0C7AF7</color>
     <color name="bgColorTextView">#000000</color>
     <color name="textColorPrimary">#000000</color>
+    <color name="color_grey">#D5D5D5</color>
 </resources>

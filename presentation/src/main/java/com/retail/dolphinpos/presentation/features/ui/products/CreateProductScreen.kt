@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -50,29 +52,52 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
+import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.DropdownSelector
+import com.retail.dolphinpos.common.components.DropdownSelectorSmallHeight
 import com.retail.dolphinpos.common.components.HeaderAppBar
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.utils.uriToFile
+import com.retail.dolphinpos.data.util.safeApiCall
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import java.io.File
 import java.io.FileOutputStream
+
+/**
+ * Filters input to only allow digits and one dot (for decimal numbers)
+ * Removes commas, minus signs, and other special characters
+ */
+private fun filterNumericInput(input: String): String {
+    var hasDot = false
+    return input.filter { char ->
+        when {
+            char.isDigit() -> true
+            char == '.' && !hasDot -> {
+                hasDot = true
+                true
+            }
+            else -> false // Filter out commas, minus, and other special characters
+        }
+    }
+}
 
 @Composable
 fun CreateProductScreen(
@@ -83,6 +108,7 @@ fun CreateProductScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf("Product Details") } // Default to "Product Details"
 
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
@@ -132,7 +158,7 @@ fun CreateProductScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(colorResource(id = R.color.light_grey))
     ) {
         // Header App Bar
         HeaderAppBarWithBack(
@@ -146,149 +172,332 @@ fun CreateProductScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Top Row: Tab Bar + Content (Left Column + Right Column)
             item {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Left Column
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    // Tab Bar (Half Width, Right Aligned)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(0.25f)
+                            .align(Alignment.End) ,
+                        horizontalArrangement = Arrangement.End
                     ) {
-                        ProductDetailsSection(
-                            productName = uiState.productName,
-                            barcode = uiState.barcode,
-                            alternateBarcode = uiState.alternateBarcode,
-                            description = uiState.description,
-                            onProductNameChange = { viewModel.updateProductName(it) },
-                            onBarcodeChange = { viewModel.updateBarcode(it) },
-                            onBarcodeGenerate = { viewModel.generateProductBarcode() },
-                            onAlternateBarcodeChange = { viewModel.updateAlternateBarcode(it) },
-                            onDescriptionChange = { viewModel.updateDescription(it) }
-                        )
-
-                        InventorySection(
-                            quantity = uiState.quantity,
-                            trackQuantity = uiState.trackQuantity,
-                            continueSellingWhenOutOfStock = uiState.continueSellingWhenOutOfStock,
-                            hasSkuOrBarcode = uiState.hasSkuOrBarcode,
-                            isEBTEligible = uiState.isEBTEligible,
-                            onQuantityChange = { viewModel.updateQuantity(it) },
-                            onTrackQuantityChange = { viewModel.updateTrackQuantity(it) },
-                            onContinueSellingChange = { viewModel.updateContinueSellingWhenOutOfStock(it) },
-                            onHasSkuOrBarcodeChange = { viewModel.updateHasSkuOrBarcode(it) },
-                            onEBTEligibleChange = { viewModel.updateIsEBTEligible(it) }
-                        )
-
-                        ProductOrganizationSection(
-                            productVendor = uiState.productVendor,
-                            productVendorId = uiState.productVendorId,
-                            vendors = uiState.vendors,
-                            categoryName = uiState.categoryName,
-                            categoryId = uiState.categoryId,
-                            categories = uiState.categories,
-                            onProductVendorChange = { viewModel.updateProductVendor(it) },
-                            onCategoryChange = { viewModel.updateCategory(it) }
+                        TabBar(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it },
+                            modifier = Modifier.weight(0.5f)
                         )
                     }
 
-                    // Right Column
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        PreviewImagesSection(
-                            images = uiState.productImages,
-                            onImageRemove = { viewModel.removeProductImage(it) },
-                            onImageAdd = { url, name -> viewModel.addProductImage(url, name) },
-                            context = LocalContext.current
-                        )
+                    // Content based on selected tab
+                    if (selectedTab == "Product Details") {
+                        // Show all cards: Left Column + Right Column
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Left Column: Create Product + Inventory + Product Organization
+                            Column(
+                                modifier = Modifier.weight(0.5f),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Create Product Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Product Information",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black
+                                        )
 
-                        PricingDetailsSection(
-                            price = uiState.price,
-                            compareAtPrice = uiState.compareAtPrice,
-                            chargeTax = uiState.chargeTaxOnThisProduct,
-                            costPerItem = uiState.costPerItem,
-                            profit = uiState.profit,
-                            margin = uiState.margin,
-                            onPriceChange = { viewModel.updatePrice(it) },
-                            onCompareAtPriceChange = { viewModel.updateCompareAtPrice(it) },
-                            onChargeTaxChange = { viewModel.updateChargeTax(it) },
-                            onCostPerItemChange = { viewModel.updateCostPerItem(it) },
-                            onProfitChange = { viewModel.updateProfit(it) },
-                            onMarginChange = { viewModel.updateMargin(it) }
-                        )
+                                        // Product Details (full width, no image section)
+                                        ProductDetailsSection(
+                                            productName = uiState.productName,
+                                            barcode = uiState.barcode,
+                                            sku = uiState.sku,
+                                            alternateBarcode = uiState.alternateBarcode,
+                                            plu = uiState.plu,
+                                            description = uiState.description,
+                                            onProductNameChange = { viewModel.updateProductName(it) },
+                                            onBarcodeChange = { viewModel.updateBarcode(it) },
+                                            onBarcodeGenerate = { viewModel.generateProductBarcode() },
+                                            onSkuChange = { viewModel.updateSku(it) },
+                                            onAlternateBarcodeChange = { viewModel.updateAlternateBarcode(it) },
+                                            onPluChange = { viewModel.updatePlu(it) },
+                                            onDescriptionChange = { viewModel.updateDescription(it) }
+                                        )
+                                    }
+                                }
+
+                                // Inventory Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Inventory",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                        )
+                                        InventorySection(
+                                            quantity = uiState.quantity,
+                                            trackQuantity = uiState.trackQuantity,
+                                            continueSellingWhenOutOfStock = uiState.continueSellingWhenOutOfStock,
+                                            hasSkuOrBarcode = uiState.hasSkuOrBarcode,
+                                            isEBTEligible = uiState.isEBTEligible,
+                                            onQuantityChange = { viewModel.updateQuantity(it) },
+                                            onTrackQuantityChange = { viewModel.updateTrackQuantity(it) },
+                                            onContinueSellingChange = { viewModel.updateContinueSellingWhenOutOfStock(it) },
+                                            onHasSkuOrBarcodeChange = { viewModel.updateHasSkuOrBarcode(it) },
+                                            onEBTEligibleChange = { viewModel.updateIsEBTEligible(it) }
+                                        )
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+                                }
+
+                                // Product Organization Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Product Organization",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(bottom = 12.dp)
+                                        )
+                                        ProductOrganizationSection(
+                                            productVendor = uiState.productVendor,
+                                            productVendorId = uiState.productVendorId,
+                                            vendors = uiState.vendors,
+                                            categoryName = uiState.categoryName,
+                                            categoryId = uiState.categoryId,
+                                            categories = uiState.categories,
+                                            onProductVendorChange = { viewModel.updateProductVendor(it) },
+                                            onCategoryChange = { viewModel.updateCategory(it) }
+                                        )
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                    }
+                                }
+                            }
+
+                            // Right Column: Preview Images + Pricing Details
+                            Column(
+                                modifier = Modifier.weight(0.5f),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Preview Images Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        PreviewImagesSection(
+                                            images = uiState.productImages,
+                                            onImageRemove = { viewModel.removeProductImage(it) },
+                                            onImageAdd = { url, name -> viewModel.addProductImage(url, name) },
+                                            context = LocalContext.current
+                                        )
+                                    }
+                                }
+
+                                // Dual Pricing Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Dual Pricing",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                        )
+                                        DualPricingSection(
+                                            price = uiState.price,
+                                            compareAtPrice = uiState.compareAtPrice,
+                                            chargeTax = uiState.chargeTaxOnThisProduct,
+                                            onPriceChange = { viewModel.updatePrice(it) },
+                                            onCompareAtPriceChange = { viewModel.updateCompareAtPrice(it) },
+                                            onChargeTaxChange = { viewModel.updateChargeTax(it) }
+                                        )
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+                                }
+
+                                // Pricing Details Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Pricing Details",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                        )
+                                        PricingDetailsSection(
+                                            costPerItem = uiState.costPerItem,
+                                            profit = uiState.profit,
+                                            margin = uiState.margin,
+                                            onCostPerItemChange = { viewModel.updateCostPerItem(it) },
+                                            onProfitChange = { viewModel.updateProfit(it) },
+                                            onMarginChange = { viewModel.updateMargin(it) }
+                                        )
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                    }
+                                }
+
+                                // Label Printer Card
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(0.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp)
+                                    ) {
+                                        BaseText(
+                                            text = "Print Label",
+                                            fontSize = 18f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                        )
+
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // Variant tab: Show only Variants Card (Full Width)
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(0.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                VariantsSection(
+                                    selectedVariantType = uiState.selectedVariantType,
+                                    activeVariantTypes = uiState.activeVariantTypes,
+                                    sizeValues = uiState.sizeValues,
+                                    colorValues = uiState.colorValues,
+                                    customAttributes = uiState.customAttributes,
+                                    variants = uiState.variants,
+                                    onVariantTypeSelected = { viewModel.setSelectedVariantType(it) },
+                                    onSizeValueAdded = { viewModel.addSizeValue(it) },
+                                    onSizeValueRemoved = { viewModel.removeSizeValue(it) },
+                                    onColorValueAdded = { viewModel.addColorValue(it) },
+                                    onColorValueRemoved = { viewModel.removeColorValue(it) },
+                                    onCustomAttributeAdded = { name, value -> viewModel.addCustomAttribute(name, value) },
+                                    onCustomAttributeRemoved = { name, value -> viewModel.removeCustomAttribute(name, value) },
+                                    onGenerateVariants = { viewModel.generateVariants() },
+                                    onVariantUpdate = { viewModel.updateVariant(it) },
+                                    onVariantRemove = { viewModel.removeVariant(it) },
+                                    context = LocalContext.current,
+                                    viewModel,
+                                )
+                            }
+                        }
                     }
                 }
             }
 
-            item {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        VariantsSection(
-                            selectedVariantType = uiState.selectedVariantType,
-                            activeVariantTypes = uiState.activeVariantTypes,
-                            sizeValues = uiState.sizeValues,
-                            colorValues = uiState.colorValues,
-                            customAttributes = uiState.customAttributes,
-                            variants = uiState.variants,
-                            onVariantTypeSelected = { viewModel.setSelectedVariantType(it) },
-                            onSizeValueAdded = { viewModel.addSizeValue(it) },
-                            onSizeValueRemoved = { viewModel.removeSizeValue(it) },
-                            onColorValueAdded = { viewModel.addColorValue(it) },
-                            onColorValueRemoved = { viewModel.removeColorValue(it) },
-                            onCustomAttributeAdded = { name, value -> viewModel.addCustomAttribute(name, value) },
-                            onCustomAttributeRemoved = { name, value -> viewModel.removeCustomAttribute(name, value) },
-                            onGenerateVariants = { viewModel.generateVariants() },
-                            onVariantUpdate = { viewModel.updateVariant(it) },
-                            onVariantRemove = { viewModel.removeVariant(it) },
-                            context = LocalContext.current,
-                            viewModel,
-                        )
-                    }
 
-            }
 
+            // Save Button
             item {
                 Spacer(modifier = Modifier.height(16.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
                 ) {
-                // Save Button
-                Box(
-                    modifier = Modifier
-                        .width(180.dp)
-                        .height(48.dp)
-                        .background(
-                            color = if (uiState.isLoading) 
-                                colorResource(id = R.color.primary).copy(alpha = 0.6f)
-                            else 
-                                colorResource(id = R.color.primary),
-                            shape = RoundedCornerShape(8.dp)
+                    Box(
+                        modifier = Modifier
+                            .width(180.dp)
+                            .height(48.dp)
+                            .background(
+                                color = if (uiState.isLoading)
+                                    colorResource(id = R.color.primary).copy(alpha = 0.6f)
+                                else
+                                    colorResource(id = R.color.primary),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable(enabled = !uiState.isLoading) {
+                                if (!uiState.isLoading) {
+                                    viewModel.createProduct()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BaseText(
+                            text = if (uiState.isLoading) "Saving..." else "Save Product",
+                            fontSize = 16f,
+                            fontWeight = FontWeight.Medium,
+                            fontFamily = GeneralSans,
+                            color = Color.White
                         )
-                        .clickable(enabled = !uiState.isLoading) { 
-                            if (!uiState.isLoading) {
-                                viewModel.createProduct()
-                            }
-                        },
-                    contentAlignment = Alignment.Center,
-
-                ) {
-                    BaseText(
-                        text = if (uiState.isLoading) "Saving..." else "Save Product",
-                        fontSize = 16f,
-                        fontWeight = FontWeight.Medium,
-                        fontFamily = GeneralSans,
-                        color = Color.White
-                    )
-                }
+                    }
                 }
                 Spacer(modifier = Modifier.height(30.dp))
             }
         }
+
     }
 
     // Logout Confirmation Dialog
@@ -322,8 +531,9 @@ fun ProductImageSection(
             )
         }
     }
-    
+
     Column {
+
         BaseText(
             text = "Product Image",
             fontSize = 14f,
@@ -339,9 +549,13 @@ fun ProductImageSection(
                 .width(205.dp)
                 .height(221.dp)
                 .background(Color.White)
-                .clickable { imagePickerLauncher.launch(PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                )) },
+                .clickable {
+                    imagePickerLauncher.launch(
+                        PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                        )
+                    )
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -385,60 +599,156 @@ fun ProductImageSection(
 fun ProductDetailsSection(
     productName: String,
     barcode: String,
+    sku: String,
     alternateBarcode: String,
+    plu: String,
     description: String,
     onProductNameChange: (String) -> Unit,
     onBarcodeChange: (String) -> Unit,
     onBarcodeGenerate: () -> Unit,
+    onSkuChange: (String) -> Unit,
     onAlternateBarcodeChange: (String) -> Unit,
+    onPluChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit
 ) {
     Column(
-        modifier = Modifier.padding(start = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        BaseText(
-            text = "Product Name*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = productName,
-            onValueChange = onProductNameChange,
-            placeholder = "Enter name"
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Product Name
+                BaseText(
+                    text = "Product Name*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = productName,
+                    onValueChange = onProductNameChange,
+                    placeholder = "Enter name"
+                )
+            }
 
-        BaseText(
-            text = "Barcode*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        Box(modifier = Modifier.clickable { onBarcodeGenerate() }) {
-            BaseOutlinedEditText(
-                value = barcode,
-                onValueChange = onBarcodeChange,
-                placeholder = "Tap to generate",
-                enabled = false
-            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Barcode
+                BaseText(
+                    text = "Barcode*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                Box(modifier = Modifier.clickable { onBarcodeGenerate() }) {
+                    BaseOutlinedEditTextSmallHeight(
+                        value = barcode,
+                        onValueChange = onBarcodeChange,
+                        placeholder = "Tap to generate",
+                        enabled = false
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // SKU
+                BaseText(
+                    text = "SKU*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = sku,
+                    onValueChange = onSkuChange,
+                    placeholder = "Enter SKU"
+                )
+            }
         }
 
-        BaseText(
-            text = "Alternate Barcode",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = alternateBarcode,
-            onValueChange = onAlternateBarcodeChange,
-            placeholder = "Enter code"
-        )
+        Spacer(modifier = Modifier.height(15.dp))
 
+        // Alternate Barcode and PLU (side by side, 50% each)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Alternate Barcode (50% width)
+            Column(
+                modifier = Modifier.weight(0.5f)
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.wrapContentWidth()
+                ) {
+                    BaseText(
+                        text = "Alternate Barcode",
+                        fontSize = 12f,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = GeneralSans,
+                        color = colorResource(id = R.color.primary)
+                    )
+                    IconButton(
+                        onClick = { /* Add alternate barcode action */ },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.add_quantity),
+                            contentDescription = "Add",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                BaseOutlinedEditTextSmallHeight(
+                    value = alternateBarcode,
+                    onValueChange = onAlternateBarcodeChange,
+                    placeholder = "Enter code",
+                    trailingIcon = {
+                        Icon(
+                            painter = painterResource(id = R.drawable.image_bar_code_scan),
+                            contentDescription = "Scan Barcode",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
+
+            // PLU (50% width)
+            Column(
+                modifier = Modifier.weight(0.5f).padding(top = 8.dp)
+            ) {
+                BaseText(
+                    text = "PLU*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = plu,
+                    onValueChange = onPluChange,
+                    placeholder = "Enter PLU"
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Product Description (below PLU)
         BaseText(
             text = "Product Description*",
             fontSize = 12f,
@@ -446,13 +756,22 @@ fun ProductDetailsSection(
             fontFamily = GeneralSans,
             color = colorResource(id = R.color.primary)
         )
+        Spacer(modifier = Modifier.height( 5.dp))
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
-            placeholder = { Text("Enter description") },
+            placeholder = {
+                Text(
+                    text = "Enter Description",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontFamily = GeneralSans,
+                        fontWeight = FontWeight.Light,
+                        color = Color.Gray,
+                        fontSize = 11.sp // Smaller font for placeholder
+                    ))},
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp),
+                .height(100.dp).padding(bottom = 15.dp),
             singleLine = false,
             maxLines = 4,
             colors = OutlinedTextFieldDefaults.colors(
@@ -461,7 +780,7 @@ fun ProductDetailsSection(
             ),
             textStyle = TextStyle(
                 fontFamily = GeneralSans,
-                fontSize = 14.sp
+                fontSize = 12.sp
             )
         )
     }
@@ -484,38 +803,61 @@ fun InventorySection(
         modifier = Modifier.padding(start = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BaseText(
-            text = "Quantity*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = quantity,
-            onValueChange = onQuantityChange,
-            placeholder = "Enter quantity",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
+        // Row 1: Quantity (half width) + Continue Selling checkbox (right side)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Left: Quantity field (half width)
+            Column(
+                modifier = Modifier.weight(0.5f),
+            ) {
+                BaseText(
+                    text = "Quantity*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = quantity,
+                    onValueChange = onQuantityChange,
+                    placeholder = "Enter quantity",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
 
+            // Right: Continue Selling checkbox + SKU/Barcode checkbox
+            Column(
+                modifier = Modifier.weight(0.5f),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                Spacer(modifier = Modifier.height(20.dp)) // Align with quantity field
+                CheckboxRow(
+                    text = "Continue Selling When Out Of Stock",
+                    checked = continueSellingWhenOutOfStock,
+                    onCheckedChange = onContinueSellingChange
+                )
+
+                Spacer(modifier = Modifier.height(15.dp))
+
+                // This Product Has A SKU Or Barcode checkbox (below Continue Selling)
+                CheckboxRow(
+                    text = "This Product Has A SKU Or Barcode",
+                    checked = hasSkuOrBarcode,
+                    onCheckedChange = onHasSkuOrBarcodeChange
+                )
+            }
+        }
+
+        // Row 2: Track Quantity checkbox (below quantity field, left side)
         CheckboxRow(
             text = "Track Quantity",
             checked = trackQuantity,
             onCheckedChange = onTrackQuantityChange
         )
 
-        CheckboxRow(
-            text = "Continue Selling When Out Of Stock",
-            checked = continueSellingWhenOutOfStock,
-            onCheckedChange = onContinueSellingChange
-        )
-
-        CheckboxRow(
-            text = "This Product Has A SKU Or Barcode",
-            checked = hasSkuOrBarcode,
-            onCheckedChange = onHasSkuOrBarcodeChange
-        )
-
+        // EBT Eligible checkbox
         CheckboxRow(
             text = "This Product is EBT Eligible",
             checked = isEBTEligible,
@@ -539,7 +881,7 @@ fun ProductOrganizationSection(
         modifier = Modifier.padding(start = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        DropdownSelector(
+        DropdownSelectorSmallHeight(
             label = "Product Vendor*",
             items = vendors.map { it.title },
             selectedText = productVendor.ifEmpty { "--select vendor--" },
@@ -548,7 +890,7 @@ fun ProductOrganizationSection(
             }
         )
 
-        DropdownSelector(
+        DropdownSelectorSmallHeight(
             label = "Choose Category*",
             items = categories.map { it.title },
             selectedText = categoryName.ifEmpty { "--select category--" },
@@ -589,9 +931,9 @@ fun VariantsSection(
     // Variant Type Dropdown using DropdownSelector
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(start = 8.dp)
+        modifier = Modifier.padding(start = 8.dp).fillMaxSize(0.38f)
     ) {
-        DropdownSelector(
+        DropdownSelectorSmallHeight(
             label = "Add Variant",
             items = variantTypeOptions,
             selectedText = selectedVariantType ?: "--select--",
@@ -602,7 +944,7 @@ fun VariantsSection(
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(start = 8.dp)
+        modifier = Modifier.padding(start = 8.dp).fillMaxSize(0.5f)
     ) {
 
         // Size Section - Show only if active
@@ -620,7 +962,7 @@ fun VariantsSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    BaseOutlinedEditText(
+                    BaseOutlinedEditTextSmallHeight(
                         value = sizeInput,
                         onValueChange = { sizeInput = it },
                         placeholder = "Enter size",
@@ -681,7 +1023,7 @@ fun VariantsSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    BaseOutlinedEditText(
+                    BaseOutlinedEditTextSmallHeight(
                         value = colorInput,
                         onValueChange = { colorInput = it },
                         placeholder = "Enter color",
@@ -742,13 +1084,13 @@ fun VariantsSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    BaseOutlinedEditText(
+                    BaseOutlinedEditTextSmallHeight(
                         value = customNameInput,
                         onValueChange = { customNameInput = it },
                         placeholder = "New",
                         modifier = Modifier.weight(1f)
                     )
-                    BaseOutlinedEditText(
+                    BaseOutlinedEditTextSmallHeight(
                         value = customValueInput,
                         onValueChange = { customValueInput = it },
                         placeholder = "Value",
@@ -794,7 +1136,12 @@ fun VariantsSection(
                 }
             }
         }
+    }
 
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(start = 8.dp)
+    ) {
         // Generate Variant Button
         if (sizeValues.isNotEmpty() || colorValues.isNotEmpty() || customAttributes.isNotEmpty()) {
             Row(
@@ -828,7 +1175,7 @@ fun VariantsSection(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // Table Header - Full width grey bar
                 VariantTableHeader()
-                
+
                 // Variant Rows
                 variants.forEach { variant ->
                     VariantTableRow(
@@ -847,6 +1194,7 @@ fun VariantsSection(
         }
     }
 }
+
 
 @Composable
 fun VariantChip(
@@ -889,72 +1237,112 @@ fun VariantTableHeader() {
         modifier = Modifier
             .fillMaxWidth()
             .background(color = colorResource(R.color.primary))
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(vertical = 12.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        BaseText(
-            text = "Variant",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1.5f)
-        )
-        BaseText(
-            text = "Image",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "SKU",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "Price",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "Dual Price Card",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "Cost Price",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "Quantity",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1f)
-        )
-        BaseText(
-            text = "Variant Barcode",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.weight(1.5f)
-        )
-        BaseText(
-            text = "",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            modifier = Modifier.width(40.dp)
-        )
+        Box(
+            modifier = Modifier.weight(1.5f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Variant",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Image",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "SKU",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Price",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Dual Price Card",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Cost Price",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Quantity",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.weight(1.5f),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Variant Barcode",
+                fontSize = 12f,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = GeneralSans,
+                textAlign = TextAlign.Center
+            )
+        }
+        Box(
+            modifier = Modifier.width(40.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // Empty space for delete icon
+        }
     }
 }
 
@@ -975,7 +1363,7 @@ fun VariantTableRow(
             onImageUpload(file, file.name)
         }
     }
-    
+
     // Get first image URL for display
     val displayImageUrl = variant.images?.firstOrNull()?.fileURL
 
@@ -992,91 +1380,121 @@ fun VariantTableRow(
             fontSize = 12f,
             fontFamily = GeneralSans,
             modifier = Modifier.weight(1.5f),
-            color = colorResource(R.color.grey_text_colour)
+            color = colorResource(R.color.grey_text_colour),
+            textAlign = TextAlign.Center,
+            maxLines = 2
         )
-        
+
         // Image
         Box(
             modifier = Modifier
                 .weight(1f)
-                .size(60.dp)
-                .border(1.dp, Color.Gray, RoundedCornerShape(4.dp))
-                .clickable { imagePickerLauncher.launch("image/*") },
+                .size(60.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (displayImageUrl != null) {
-                AsyncImage(
-                    model = displayImageUrl,
-                    contentDescription = "Variant image",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.cart_icon),
-                        contentDescription = "Upload",
-                        modifier = Modifier.size(24.dp),
-                        tint = Color.Gray
+            Box(
+                modifier = Modifier
+                    // .weight(1f)
+                    //.size(60.dp)
+                    .height(60.dp)
+                    .width(60.dp)
+                    .border(0.5.dp, Color.Gray, RoundedCornerShape(4.dp))
+                    .clickable { imagePickerLauncher.launch("image/*") }
+                    .background(color = colorResource(R.color.light_grey)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (displayImageUrl != null) {
+                    AsyncImage(
+                        model = displayImageUrl,
+                        contentDescription = "Variant image",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
                     )
-                    BaseText(
-                        text = "Upload",
-                        fontSize = 10f,
-                        fontFamily = GeneralSans,
-                        color = Color.Gray
-                    )
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_select_img),
+                            contentDescription = "Upload",
+                            modifier = Modifier.size(24.dp),
+                            tint = colorResource(R.color.primary)
+                        )
+                        BaseText(
+                            text = "Upload\nImage",
+                            fontSize = 10f,
+                            fontFamily = GeneralSans,
+                            color = colorResource(R.color.primary),
+                            maxLines = 2,
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                lineHeight = 12.sp
+                            )
+                        )
+                    }
                 }
             }
         }
-        
+
+
         // SKU
-        BaseOutlinedEditText(
+        BaseOutlinedEditTextSmallHeight(
             value = variant.sku,
             onValueChange = { onUpdate(variant.copy(sku = it)) },
             placeholder = "SKU",
             modifier = Modifier.weight(1f)
         )
-        
+
+
         // Price
-        BaseOutlinedEditText(
+        BaseOutlinedEditTextSmallHeight(
             value = variant.price,
-            onValueChange = { onUpdate(variant.copy(price = it)) },
-            placeholder = "0.0",
+            onValueChange = {
+                // Filter input: only allow digits and one dot
+                val filtered = filterNumericInput(it)
+                onUpdate(variant.copy(price = filtered))
+            },
+            placeholder = "\$0.00",
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
-        
+
         // Dual Price Card (uneditable, auto-calculated)
-        BaseOutlinedEditText(
+        BaseOutlinedEditTextSmallHeight(
             value = variant.dualPrice,
             onValueChange = {},
-            placeholder = "0.0",
+            placeholder = "\$0.00",
             enabled = false,
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
-        
+
         // Cost Price
-        BaseOutlinedEditText(
+        BaseOutlinedEditTextSmallHeight(
             value = variant.costPrice,
-            onValueChange = { onUpdate(variant.copy(costPrice = it)) },
-            placeholder = "0.0",
+            onValueChange = {
+                // Filter input: only allow digits and one dot
+                val filtered = filterNumericInput(it)
+                onUpdate(variant.copy(costPrice = filtered))
+            },
+            placeholder = "\$0.00",
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
-        
+
         // Quantity
-        BaseOutlinedEditText(
+        BaseOutlinedEditTextSmallHeight(
             value = variant.quantity,
-            onValueChange = { onUpdate(variant.copy(quantity = it)) },
+            onValueChange = {
+                // Filter input: only allow digits (no decimal for quantity)
+                val filtered = it.filter { char -> char.isDigit() }
+                onUpdate(variant.copy(quantity = filtered))
+            },
             placeholder = "0",
             modifier = Modifier.weight(1f),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
-        
+
         // Variant Barcode
         Column(
             modifier = Modifier.weight(1.5f),
@@ -1085,11 +1503,11 @@ fun VariantTableRow(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { 
+                    .clickable {
                         viewModel.generateVariantBarcode(variant)
                     }
             ) {
-                BaseOutlinedEditText(
+                BaseOutlinedEditTextSmallHeight(
                     value = variant.barcode,
                     onValueChange = { onUpdate(variant.copy(barcode = it)) },
                     placeholder = "Tap to generate",
@@ -1098,7 +1516,7 @@ fun VariantTableRow(
                 )
             }
         }
-        
+
         // Delete Icon
         IconButton(
             onClick = onRemove,
@@ -1111,77 +1529,6 @@ fun VariantTableRow(
                 tint = colorResource(id = R.color.primary)
             )
         }
-    }
-}
-
-@Composable
-fun VariantRow(
-    variant: ProductVariantData,
-    onRemove: () -> Unit,
-    onUpdate: (ProductVariantData) -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BaseText(
-                text = variant.title,
-                fontSize = 12f,
-                fontFamily = GeneralSans,
-                color = Color.Black
-            )
-            IconButton(onClick = onRemove) {
-                Icon(
-                    painter = painterResource(id = R.drawable.close_icon),
-                    contentDescription = "Delete",
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                BaseText(
-                    text = "SKU",
-                    fontSize = 10f,
-                    fontFamily = GeneralSans,
-                    color = Color.Gray
-                )
-                BaseOutlinedEditText(
-                    value = variant.sku,
-                    onValueChange = { onUpdate(variant.copy(sku = it)) },
-                    placeholder = "Enter SKU",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                BaseText(
-                    text = "Price",
-                    fontSize = 10f,
-                    fontFamily = GeneralSans,
-                    color = Color.Gray
-                )
-                BaseOutlinedEditText(
-                    value = variant.price,
-                    onValueChange = { onUpdate(variant.copy(price = it)) },
-                    placeholder = "$ 0.00",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        }
-
-        // Similar rows for Cost Price, Quantity, Barcode
     }
 }
 
@@ -1200,27 +1547,29 @@ fun PreviewImagesSection(
             onImageAdd(file.absolutePath, file.name)
         }
     }
-    
+
     Column {
         BaseText(
             text = "Preview Images",
-            fontSize = 14f,
+            fontSize = 18f,
             fontWeight = FontWeight.SemiBold,
             fontFamily = GeneralSans,
             color = Color.Black,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 8.dp, start = 10.dp)
         )
 
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp, vertical = 10.dp),
+
+            ) {
             // Add image button as first item
             item {
                 Box(
                     modifier = Modifier
-                        .width(151.dp)
-                        .height(138.dp)
-                        .clickable { 
+                        .width(125.dp)
+                        .height(110.dp)
+                        .clickable {
                             imagePickerLauncher.launch(
                                 PickVisualMediaRequest(
                                     ActivityResultContracts.PickVisualMedia.ImageOnly
@@ -1235,7 +1584,7 @@ fun PreviewImagesSection(
                         tint = Color.Unspecified,
                         modifier = Modifier.fillMaxSize()
                     )
-                    
+
                     // Content with 2dp inner padding
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1255,18 +1604,25 @@ fun PreviewImagesSection(
                             text = "Select image from\nyour device",
                             fontSize = 10f,
                             fontFamily = GeneralSans,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
+                            color = colorResource(R.color.primary),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                lineHeight = 12.sp
+                            )
                         )
                     }
                 }
             }
-            
+
+            // All selected pictures appear after the "Select image" box
             items(images) { image ->
                 Box(
                     modifier = Modifier
-                        .width(151.dp)
-                        .height(138.dp)
+                        .width(125.dp)
+                        .height(110.dp)
 
                 ) {
                     // Border image background
@@ -1276,7 +1632,7 @@ fun PreviewImagesSection(
                         tint = Color.Unspecified,
                         modifier = Modifier.fillMaxSize()
                     )
-                    
+
                     // Image content with 2dp inner padding
                     Box(
                         modifier = Modifier
@@ -1290,19 +1646,20 @@ fun PreviewImagesSection(
                                 File(image.url)
                             },
                             contentDescription = "Product image",
-                            modifier = Modifier.width(135.dp)
+                            modifier = Modifier
+                                .width(135.dp)
                                 .height(133.dp),
                             //contentScale = ContentScale.Crop
                         )
                     }
-                    
+
                     // Close icon at top right, slightly outside the border
                     IconButton(
                         onClick = { onImageRemove(image) },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .offset(x = 9.dp, y = (-20).dp)
-                            //.size(24.dp)
+                            .offset(x = 11.dp, y = (-22).dp)
+                        //.size(24.dp)
                     ) {
                         Icon(
                             painter = painterResource(id = R.drawable.ic_close),
@@ -1318,16 +1675,78 @@ fun PreviewImagesSection(
 }
 
 @Composable
-fun PricingDetailsSection(
+fun DualPricingSection(
     price: String,
     compareAtPrice: String,
     chargeTax: Boolean,
+    onPriceChange: (String) -> Unit,
+    onCompareAtPriceChange: (String) -> Unit,
+    onChargeTaxChange: (Boolean) -> Unit
+) {
+    Column(
+        modifier = Modifier.padding(start = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // First Row: Cash Price (left) and Card Price (right)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Left: Cash Price field
+            Column(
+                modifier = Modifier.weight(0.5f),
+            ) {
+                BaseText(
+                    text = "Cash Price*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = price,
+                    onValueChange = onPriceChange,
+                    placeholder = "\$0.00",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
+
+            // Right: Card Price field
+            Column(
+                modifier = Modifier.weight(0.5f),
+            ) {
+                BaseText(
+                    text = "Card Price*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = compareAtPrice,
+                    onValueChange = {},
+                    placeholder = "\$0.00",
+                    enabled = false,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(5.dp))
+        // Checkbox: Charge Tax On This Product (below Cash Price field, left side)
+        CheckboxRow(
+            text = "Charge Tax On This Product",
+            checked = chargeTax,
+            onCheckedChange = onChargeTaxChange
+        )
+    }
+}
+
+@Composable
+fun PricingDetailsSection(
     costPerItem: String,
     profit: String,
     margin: String,
-    onPriceChange: (String) -> Unit,
-    onCompareAtPriceChange: (String) -> Unit,
-    onChargeTaxChange: (Boolean) -> Unit,
     onCostPerItemChange: (String) -> Unit,
     onProfitChange: (String) -> Unit,
     onMarginChange: (String) -> Unit
@@ -1336,84 +1755,135 @@ fun PricingDetailsSection(
         modifier = Modifier.padding(start = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BaseText(
-            text = "Price*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = price,
-            onValueChange = onPriceChange,
-            placeholder = "Enter price",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
+        // Row: Cost Per Item (left), Profit (middle), Margin (right)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Left: Cost Per Item
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                BaseText(
+                    text = "Cost Per Item*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = costPerItem,
+                    onValueChange = onCostPerItemChange,
+                    placeholder = "Enter price",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
 
-        BaseText(
-            text = "Dual Price Card*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = compareAtPrice,
-            onValueChange = {},
-            placeholder = "Auto-calculated",
-            enabled = false,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
+            // Middle: Profit
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                BaseText(
+                    text = "Profit*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = profit,
+                    onValueChange = {},
+                    placeholder = "Enter price",
+                    enabled = false,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
 
-        CheckboxRow(
-            text = "Charge Tax On This Product",
-            checked = chargeTax,
-            onCheckedChange = onChargeTaxChange
-        )
+            // Right: Margin
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                BaseText(
+                    text = "Margin*",
+                    fontSize = 12f,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    color = colorResource(id = R.color.primary)
+                )
+                BaseOutlinedEditTextSmallHeight(
+                    value = margin,
+                    onValueChange = {},
+                    placeholder = "Enter price",
+                    enabled = false,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
+        }
+    }
+}
 
-        BaseText(
-            text = "Cost Per Item*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = costPerItem,
-            onValueChange = onCostPerItemChange,
-            placeholder = "Enter price",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
+@Composable
+fun TabBar(
+    selectedTab: String,
+    onTabSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .background(
+                color = colorResource(id = R.color.color_grey), // Use color_grey as background
+                shape = RoundedCornerShape(8.dp)
+            )
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        // Product Details Tab
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .background(
+                    color = if (selectedTab == "Product Details") Color.White else Color.Transparent,
+                    shape = RoundedCornerShape(6.dp)
+                )
+                .clickable { onTabSelected("Product Details") }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Product Details",
+                fontSize = 14f,
+                fontWeight = FontWeight.Medium,
+                fontFamily = GeneralSans,
+                color = if (selectedTab == "Product Details")
+                    colorResource(id = R.color.primary)
+                else
+                    Color(0xFF666666) // Dark grey for unselected
+            )
+        }
 
-        BaseText(
-            text = "Profit*",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = profit,
-            onValueChange = {},
-            placeholder = "Auto-calculated",
-            enabled = false,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
-
-        BaseText(
-            text = "Markup %",
-            fontSize = 12f,
-            fontWeight = FontWeight.SemiBold,
-            fontFamily = GeneralSans,
-            color = colorResource(id = R.color.primary)
-        )
-        BaseOutlinedEditText(
-            value = margin,
-            onValueChange = {},
-            placeholder = "Auto-calculated",
-            enabled = false,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-        )
+        // Variant Tab
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .background(
+                    color = if (selectedTab == "Variant") Color.White else Color.Transparent,
+                    shape = RoundedCornerShape(6.dp)
+                )
+                .clickable { onTabSelected("Variant") }
+                .padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            BaseText(
+                text = "Variant",
+                fontSize = 14f,
+                fontWeight = FontWeight.Medium,
+                fontFamily = GeneralSans,
+                color = if (selectedTab == "Variant")
+                    colorResource(id = R.color.primary)
+                else
+                    Color(0xFF666666) // Dark grey for unselected
+            )
+        }
     }
 }
 
