@@ -52,6 +52,9 @@ interface ProductsDao {
     @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
     suspend fun getProductById(productId: Int): ProductsEntity?
 
+    @Query("SELECT * FROM products WHERE server_id = :serverId LIMIT 1")
+    suspend fun getProductByServerId(serverId: Int): ProductsEntity?
+
     @Query("SELECT * FROM products WHERE name LIKE '%' || :query || '%' OR barCode LIKE '%' || :query || '%'")
     suspend fun searchProducts(query: String): List<ProductsEntity>
 
@@ -66,6 +69,9 @@ interface ProductsDao {
 
     @Query("SELECT * FROM variants WHERE plu = :plu LIMIT 1")
     suspend fun searchVariantByPLU(plu: String): VariantsEntity?
+
+    @Query("SELECT * FROM variants WHERE server_id = :serverId LIMIT 1")
+    suspend fun getVariantByServerId(serverId: Int): VariantsEntity?
 
     @Query("SELECT * FROM variants WHERE sku LIKE '%' || :query || '%'")
     suspend fun searchVariantsBySku(query: String): List<VariantsEntity>
@@ -95,6 +101,9 @@ interface ProductsDao {
 
     @Query("SELECT * FROM product_images WHERE productId = :productId")
     suspend fun getProductImagesByProductId(productId: Int): List<ProductImagesEntity>
+
+    @Query("DELETE FROM product_images WHERE productId = :productId")
+    suspend fun deleteProductImagesByProductId(productId: Int)
 
     @Query("SELECT * FROM variant_images WHERE variantId = :variantId")
     suspend fun getVariantImagesByVariantId(variantId: Int): List<VariantImagesEntity>

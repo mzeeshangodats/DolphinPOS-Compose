@@ -11,8 +11,10 @@ import com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData
 import com.retail.dolphinpos.domain.model.product.VendorItem
 import com.retail.dolphinpos.domain.usecases.product.CreateProductUseCase
 import com.retail.dolphinpos.domain.usecases.product.GetCategoriesUseCase
+import com.retail.dolphinpos.domain.usecases.product.GetProductUseCase
 import com.retail.dolphinpos.domain.usecases.product.GetVendorsUseCase
 import com.retail.dolphinpos.domain.usecases.product.SyncProductUseCase
+import com.retail.dolphinpos.domain.usecases.product.UpdateProductUseCase
 import com.retail.dolphinpos.domain.usecases.product.UploadFileUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -31,6 +33,8 @@ class CreateProductViewModel @Inject constructor(
     private val uploadFileUseCase: UploadFileUseCase,
     private val getVendorsUseCase: GetVendorsUseCase,
     private val getCategoriesUseCase: GetCategoriesUseCase,
+    private val getProductUseCase: GetProductUseCase,
+    private val updateProductUseCase: UpdateProductUseCase,
     private val preferenceManager: PreferenceManager,
     private val userDao: UserDao
 ) : ViewModel() {
@@ -147,13 +151,19 @@ class CreateProductViewModel @Inject constructor(
     }
 
     fun updatePlu(plu: String) {
-        _uiState.value = _uiState.value.copy(plu = plu)
+        // Filter: only allow digits (0-9), no special characters including dot
+        val filtered = plu.filter { it.isDigit() }
+        // Limit to 4 characters
+        val limited = if (filtered.length > 4) filtered.take(4) else filtered
+        _uiState.value = _uiState.value.copy(plu = limited)
     }
 
     fun updateQuantity(quantity: String) {
         // Filter: only allow digits (no decimal for quantity)
         val filtered = quantity.filter { it.isDigit() }
-        _uiState.value = _uiState.value.copy(quantity = filtered)
+        // Limit to 6 characters
+        val limited = if (filtered.length > 6) filtered.take(6) else filtered
+        _uiState.value = _uiState.value.copy(quantity = limited)
     }
 
     fun updateTrackQuantity(trackQuantity: Boolean) {
@@ -265,8 +275,10 @@ class CreateProductViewModel @Inject constructor(
     fun updateCostPerItem(costPerItem: String) {
         // Filter: only allow digits and one dot
         val filtered = filterNumericInput(costPerItem)
+        // Limit to 8 characters
+        val limited = if (filtered.length > 8) filtered.take(8) else filtered
         val currentState = _uiState.value
-        val costPerItemValue = filtered.toDoubleOrNull()
+        val costPerItemValue = limited.toDoubleOrNull()
         val priceValue = currentState.price.toDoubleOrNull()
         
         // Calculate Profit (Price - Cost Per Item) - calculate if both values are valid
@@ -285,7 +297,7 @@ class CreateProductViewModel @Inject constructor(
         }
         
         _uiState.value = currentState.copy(
-            costPerItem = filtered,
+            costPerItem = limited,
             profit = profit,
             margin = markup
         )
@@ -493,11 +505,13 @@ class CreateProductViewModel @Inject constructor(
             val filteredPrice = filterNumericInput(variant.price)
             val limitedPrice = if (filteredPrice.length > 8) filteredPrice.take(8) else filteredPrice
             
-            // Filter costPrice
+            // Filter and limit costPrice to 8 characters
             val filteredCostPrice = filterNumericInput(variant.costPrice)
+            val limitedCostPrice = if (filteredCostPrice.length > 8) filteredCostPrice.take(8) else filteredCostPrice
             
-            // Filter quantity (only digits, no decimal)
+            // Filter quantity (only digits, no decimal) and limit to 6 characters
             val filteredQuantity = variant.quantity.filter { it.isDigit() }
+            val limitedQuantity = if (filteredQuantity.length > 6) filteredQuantity.take(6) else filteredQuantity
             
             // Calculate dual price for variant when price changes
             val priceValue = limitedPrice.toDoubleOrNull()
@@ -509,8 +523,8 @@ class CreateProductViewModel @Inject constructor(
             }
             val updatedVariant = variant.copy(
                 price = limitedPrice,
-                costPrice = filteredCostPrice,
-                quantity = filteredQuantity,
+                costPrice = limitedCostPrice,
+                quantity = limitedQuantity,
                 dualPrice = calculatedDualPrice
             )
             currentVariants[index] = updatedVariant
@@ -632,29 +646,31 @@ class CreateProductViewModel @Inject constructor(
                     val filesToUpload = localFiles.map { it.first }
                     val uploadResult = uploadFileUseCase(filesToUpload, "product")
                     
-                    uploadResult.onSuccess { response ->
-                        // Parse response - response.data.images.images is a List<FileUploadImage>
-                        val uploadedImageList = response.data.images.images
-                        
-                        // Match uploaded images with their original file names
-                        uploadedImageList.forEachIndexed { index, uploadedImage ->
-                            val originalName = if (index < localFiles.size) {
-                                localFiles[index].second
-                            } else {
-                                uploadedImage.originalname ?: "image_${System.currentTimeMillis()}.jpg"
-                            }
-                            
-                            uploadedImages.add(
-                                ProductImageData(
-                                    url = uploadedImage.url,
-                                    originalName = originalName
-                                )
-                            )
-                        }
-                    }.onFailure { error ->
+                    val uploadResponse = uploadResult.getOrNull()
+                    if (uploadResponse == null) {
                         _uiState.value = _uiState.value.copy(isLoading = false)
-                        _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to upload images: ${error.message}"))
+                        val errorMessage = uploadResult.exceptionOrNull()?.message ?: "Failed to upload images"
+                        _uiEvent.emit(CreateProductUiEvent.ShowError(errorMessage))
                         return@launch
+                    }
+                    
+                    // Parse response - response.data.images.images is a List<FileUploadImage>
+                    val uploadedImageList = uploadResponse.data.images.images
+                    
+                    // Match uploaded images with their original file names
+                    uploadedImageList.forEachIndexed { index, uploadedImage ->
+                        val originalName = if (index < localFiles.size) {
+                            localFiles[index].second
+                        } else {
+                            uploadedImage.originalname ?: "image_${System.currentTimeMillis()}.jpg"
+                        }
+                        
+                        uploadedImages.add(
+                            ProductImageData(
+                                url = uploadedImage.url,
+                                originalName = originalName
+                            )
+                        )
                     }
                 }
                 
@@ -670,9 +686,8 @@ class CreateProductViewModel @Inject constructor(
 //                    uploadedImages
 //                }
                 
-                // Step 2: Update state with uploaded image URLs
-                val updatedState = state.copy(productImages = uploadedImages)
-                _uiState.value = updatedState
+                // Step 2: Update state with uploaded image URLs (use current state, not old state)
+                _uiState.value = _uiState.value.copy(productImages = uploadedImages)
                 
                 // Validate that we have at least one image after upload
                 if (uploadedImages.isEmpty()) {
@@ -681,19 +696,37 @@ class CreateProductViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Step 3: Create product with uploaded image URLs
+                // Step 3: Create or update product with uploaded image URLs
+                // Use the latest state which has uploaded images
+                val currentState = _uiState.value
                 val request = buildCreateProductRequest()
-                val result = createProductUseCase(request)
+                val currentProductId = currentState.productId
                 
-                result.onSuccess { productId ->
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                    _uiEvent.emit(CreateProductUiEvent.ProductCreated(productId))
+                if (currentProductId != null) {
+                    // Update existing product
+                    val result = updateProductUseCase(currentProductId, request)
                     
-                    // Try to sync immediately
-                    syncProduct(productId)
-                }.onFailure { error ->
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                    _uiEvent.emit(CreateProductUiEvent.ShowError(error.message ?: "Failed to create product"))
+                    result.onSuccess { productId ->
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiEvent.emit(CreateProductUiEvent.ProductUpdated(productId))
+                    }.onFailure { error ->
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiEvent.emit(CreateProductUiEvent.ShowError(error.message ?: "Failed to update product"))
+                    }
+                } else {
+                    // Create new product
+                    val result = createProductUseCase(request)
+                    
+                    result.onSuccess { productId ->
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiEvent.emit(CreateProductUiEvent.ProductCreated(productId))
+                        
+                        // Try to sync immediately
+                        syncProduct(productId)
+                    }.onFailure { error ->
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                        _uiEvent.emit(CreateProductUiEvent.ShowError(error.message ?: "Failed to create product"))
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(isLoading = false)
@@ -774,6 +807,109 @@ class CreateProductViewModel @Inject constructor(
         )
     }
 
+    fun loadProduct(productId: Int) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+            getProductUseCase(productId).onSuccess { product ->
+                product?.let { populateUiStateFromProduct(it) }
+                _uiState.value = _uiState.value.copy(isLoading = false)
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(isLoading = false)
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load product: ${error.message}"))
+            }
+        }
+    }
+
+    private fun populateUiStateFromProduct(product: com.retail.dolphinpos.domain.model.home.catrgories_products.Products) {
+        // Map product images
+        val productImages = product.images?.map { image ->
+            ProductImageData(
+                url = image.fileURL ?: "",
+                originalName = image.originalName ?: ""
+            )
+        } ?: emptyList()
+
+        // Map variants
+        val variants = product.variants?.map { variant ->
+            val variantImages = variant.images.map { image ->
+                ProductImageRequest(
+                    fileURL = image.fileURL ?: "",
+                    originalName = image.originalName ?: ""
+                )
+            }
+            ProductVariantData(
+                id = variant.id.toString(),
+                title = variant.title ?: "",
+                price = variant.price ?: "",
+                costPrice = "", // Cost price not in Variant domain model
+                quantity = variant.quantity.toString(),
+                barcode = variant.barCode ?: "",
+                sku = variant.sku ?: "",
+                dualPrice = variant.cardPrice ?: "",
+                images = if (variantImages.isNotEmpty()) variantImages else null
+            )
+        } ?: emptyList()
+
+        // Calculate dual price from price if compareAtPrice is not available
+        val priceValue = product.price?.toDoubleOrNull() ?: 0.0
+        val compareAtPrice = if (priceValue > 0) {
+            val multiplier = 1.0 + (dualPricePercentage / 100.0)
+            String.format("%.2f", priceValue * multiplier)
+        } else {
+            product.compareAtPrice ?: ""
+        }
+
+        // Calculate profit and markup
+        val costPriceValue = product.costPrice?.toDoubleOrNull()
+        val profit = if (priceValue > 0 && costPriceValue != null) {
+            String.format("%.2f", priceValue - costPriceValue)
+        } else {
+            ""
+        }
+        val markup = if (priceValue > 0 && costPriceValue != null && costPriceValue > 0) {
+            val markupValue = ((priceValue - costPriceValue) / costPriceValue) * 100
+            String.format("%.2f", markupValue)
+        } else {
+            ""
+        }
+
+        _uiState.value = _uiState.value.copy(
+            productId = product.id,
+            productName = product.name ?: "",
+            barcode = product.barCode ?: "",
+            sku = product.sku?:"", // SKU not in Products domain model
+            alternateBarcode = product.secondaryBarcodes?.firstOrNull()?.secondaryBarCode ?: "",
+            plu = product.plu ?: "",
+            description = product.description ?: "",
+            quantity = product.quantity.toString(),
+            trackQuantity = product.trackQuantity,
+            continueSellingWhenOutOfStock = product.continueSellingWhenOutOfStock ?: false,
+            hasSkuOrBarcode = true, // Default
+            productVendorId = product.vendor?.id,
+            productVendor = product.vendor?.title ?: "",
+            categoryId = product.categoryId,
+            categoryName = "", // Will be populated from categories list
+            isEBTEligible = product.isEBTEligible,
+            isIDRequired = product.isIDRequired,
+            price = product.price ?: "",
+            compareAtPrice = compareAtPrice,
+            chargeTaxOnThisProduct = product.chargeTaxOnThisProduct ?: false,
+            costPerItem = product.costPrice ?: "",
+            profit = profit,
+            margin = markup,
+            cashPrice = product.cashPrice,
+            cardPrice = product.cardPrice,
+            variants = variants,
+            productImages = productImages
+        )
+
+        // Update category name from categories list
+        val category = _uiState.value.categories.find { it.id == product.categoryId }
+        if (category != null) {
+            _uiState.value = _uiState.value.copy(categoryName = category.title)
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             // Just clear preferences and navigate, no API call
@@ -783,6 +919,7 @@ class CreateProductViewModel @Inject constructor(
 }
 
 data class CreateProductUiState(
+    val productId: Int? = null, // Server product ID for update mode
     val productName: String = "",
     val barcode: String = "",
     val sku: String = "",
@@ -840,6 +977,7 @@ data class ProductImageData(
 
 sealed class CreateProductUiEvent {
     data class ProductCreated(val productId: Long) : CreateProductUiEvent()
+    data class ProductUpdated(val productId: Int) : CreateProductUiEvent()
     object ProductSynced : CreateProductUiEvent()
     data class SyncFailed(val message: String) : CreateProductUiEvent()
     data class ShowError(val message: String) : CreateProductUiEvent()

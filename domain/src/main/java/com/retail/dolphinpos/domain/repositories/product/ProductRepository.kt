@@ -12,6 +12,8 @@ interface ProductRepository {
     suspend fun uploadFiles(files: List<File>, type: String = "product"): Result<FileUploadResponse>
     suspend fun getVendors(): Result<VendorListResponse>
     suspend fun getCategories(): List<CategoryData>
+    suspend fun getProductById(productId: Int): Result<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>
+    suspend fun updateProduct(productId: Int, request: CreateProductRequest): Result<Int>
 //    suspend fun getUnsyncedProducts(): List<Long>
 }
 
