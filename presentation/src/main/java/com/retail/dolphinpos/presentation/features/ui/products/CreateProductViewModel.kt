@@ -752,6 +752,8 @@ class CreateProductViewModel @Inject constructor(
         val locationId = preferenceManager.getOccupiedLocationID()
         
         // Build variants from variant options
+        // Include variant ID only when updating (productId is not null)
+        val isUpdateMode = state.productId != null
         val variants = state.variants.map { variantData ->
             ProductVariantRequest(
                 title = variantData.title,
@@ -763,7 +765,13 @@ class CreateProductViewModel @Inject constructor(
                 cashPrice = variantData.price, // Use price as cashPrice
                 cardPrice = variantData.dualPrice, // Use dualPrice as cardPrice
                 locationId = locationId,
-                images = variantData.images
+                images = variantData.images,
+                id = if (isUpdateMode) {
+                    // Only include ID when updating - convert String ID to Int
+                    variantData.id.toIntOrNull()
+                } else {
+                    null // Don't include ID when creating
+                }
             )
         }
         
