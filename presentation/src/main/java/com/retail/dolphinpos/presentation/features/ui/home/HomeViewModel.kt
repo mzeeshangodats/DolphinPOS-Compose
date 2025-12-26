@@ -2321,23 +2321,25 @@ class HomeViewModel @Inject constructor(
     /**
      * Update current tender amount in split payment mode
      * Automatically calculates remaining amount
-     * Remaining = Total - Tender Amount (simplified calculation)
+     * Remaining = Total - Total Paid - Current Tender Amount
      */
     fun updateSplitPaymentTenderAmount(tenderAmount: Double) {
         if (!_isSplitPaymentEnabled.value) return
 
         // Use the stored split payment total (not current cardTotal which might change)
         val total = _splitPaymentTotal.value
+        val totalPaid = _splitTransactions.value.sumOf { it.amount }
+        val remainingDue = total - totalPaid // Amount still due after previous payments
 
-        // Cap tender amount at total amount
-        val cappedTender = tenderAmount.coerceIn(0.0, total)
+        // Cap tender amount at remaining due amount
+        val cappedTender = tenderAmount.coerceIn(0.0, remainingDue)
         _currentTenderAmount.value = cappedTender
 
-        // Calculate remaining amount: remaining = total - tender amount
-        val remaining = total - cappedTender
+        // Calculate remaining amount: remaining = total - totalPaid - currentTender
+        val remaining = remainingDue - cappedTender
         _remainingAmount.value = remaining.coerceAtLeast(0.0)
 
-        Log.d("SplitPayment", "Tender updated: $cappedTender, Remaining: ${_remainingAmount.value}, Total: $total")
+        Log.d("SplitPayment", "Tender updated: $cappedTender, Remaining: ${_remainingAmount.value}, Total: $total, Total Paid: $totalPaid, Remaining Due: $remainingDue")
     }
 
     /**
