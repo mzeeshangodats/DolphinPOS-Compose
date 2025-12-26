@@ -13,6 +13,7 @@
     <item name="ccProcessingScreen" type="id" />
     <item name="customerDisplayScreen" type="id" />
     <item name="printerScreen" type="id" />
+    <item name="labelPrinterScreen" type="id" />
     <item name="dualPriceScreen" type="id" />
     <item name="batchReportScreen" type="id" />
     <item name="batchHistoryScreen" type="id" />

@@ -30,6 +30,7 @@ class SetupViewModel @Inject constructor() : ViewModel() {
             BottomMenu(menuName = "Credit Card Processing", destinationId = R.id.ccProcessingScreen),
             BottomMenu(menuName = "Customer Display", destinationId = R.id.customerDisplayScreen),
             BottomMenu(menuName = "Printer", destinationId = R.id.printerScreen),
+            BottomMenu(menuName = "Label Printer", destinationId = R.id.labelPrinterScreen),
 //            BottomMenu(menuName = "Dual Pricing", destinationId = R.id.dualPriceScreen)
         )
         // Set default selection to "Printer Setup" (index 1, since Home is index 0)
