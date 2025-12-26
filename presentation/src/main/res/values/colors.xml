@@ -32,4 +32,5 @@
     <color name="bgColorTextView">#000000</color>
     <color name="textColorPrimary">#000000</color>
     <color name="color_grey">#D5D5D5</color>
+    <color name="color_grey1">#E1E2E9</color>
 </resources>

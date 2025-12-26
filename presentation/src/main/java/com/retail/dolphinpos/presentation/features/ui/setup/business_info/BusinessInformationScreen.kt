@@ -4,22 +4,29 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditText
+import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
@@ -116,146 +123,249 @@ fun BusinessInformationScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(4.dp)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    // Store Name
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 10.dp)
-                    ) {
-                        BaseText(
-                            text = "Store Name",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = storeName,
-                            onValueChange = { viewModel.updateStoreName(it) },
-                            placeholder = "Enter Store Name"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Address Line 1
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                    ) {
-                        BaseText(
-                            text = "Address Line 1",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = addressLine1,
-                            onValueChange = { viewModel.updateAddressLine1(it) },
-                            placeholder = "Enter Address Line 1"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Address Line 2
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                    ) {
-                        BaseText(
-                            text = "Address Line 2",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = addressLine2,
-                            onValueChange = { viewModel.updateAddressLine2(it) },
-                            placeholder = "Enter Address Line 2"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Zip Code
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                    ) {
-                        BaseText(
-                            text = "Zip Code",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = zipCode,
-                            onValueChange = { viewModel.updateZipCode(it) },
-                            placeholder = "Enter Zip Code"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Phone Number
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp)
-                    ) {
-                        BaseText(
-                            text = "Phone Number",
-                            color = Color.Black,
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        BaseOutlinedEditText(
-                            value = phoneNumber,
-                            onValueChange = { viewModel.updatePhoneNumber(it) },
-                            placeholder = "Enter Phone Number"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Action Buttons (Save and Cancel)
+                    // 1. Store Name Section
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 16.dp),
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Left: Blue store icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_store),
+                            contentDescription = "Store Name",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Center-left: Label
+                        BaseText(
+                            text = "Store Name*",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Right: TextField
+                        Box(
+                            modifier = Modifier
+                                .weight(1.5f)
+
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = storeName,
+                                onValueChange = { viewModel.updateStoreName(it) },
+                                placeholder = "Store Name",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    // 2. Address Section Header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colorResource(R.color.color_grey1),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Left: Blue user/location icon
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_address),
+                            contentDescription = "Address 1",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Label
+                        BaseText(
+                            text = "Address 1*",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // 3. Address Fields Row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Address Line 1
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = addressLine1,
+                                onValueChange = { viewModel.updateAddressLine1(it) },
+                                placeholder = "Address Line 1",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        // Address Line 2
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = addressLine2,
+                                onValueChange = { viewModel.updateAddressLine2(it) },
+                                placeholder = "Address Line 2",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        // Address Line 3
+//                        Box(
+//                            modifier = Modifier
+//                                .weight(1f)
+//
+//                        ) {
+//                            BaseOutlinedEditTextSmallHeight(
+//                                value = zipCode,
+//                                onValueChange = { viewModel.updateZipCode(it) },
+//                                placeholder = "Address Line 3",
+//                                modifier = Modifier.fillMaxSize()
+//                            )
+//                        }
+                    }
+
+                    // 4. ZIP Code Section
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Left: Blue user icon
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "ZIP Code",
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        // Label
+                        BaseText(
+                            text = "ZIP Code*",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        // Right: TextField
+                        Box(
+                            modifier = Modifier
+                                .weight(1.5f)
+
+                        ) {
+                            BaseOutlinedEditTextSmallHeight(
+                                value = zipCode,
+                                onValueChange = { viewModel.updateZipCode(it) },
+                                placeholder = "ZIP Code*",
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+
+                    // 5. Phone Number Section
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colorResource(id = R.color.light_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(15.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Left: Blue phone icon
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = "Phone Number",
+                                tint = colorResource(id = R.color.primary),
+                                modifier = Modifier.size(24.dp)
+                            )
+                            // Label
+                            BaseText(
+                                text = "Phone Number*",
+                                color = Color.Black,
+                                fontSize = 14f,
+                                fontFamily = GeneralSans,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            // Right: TextField with Badge
+                            Box(
+                                modifier = Modifier
+                                    .weight(1.5f)
+
+                            ) {
+                                BaseOutlinedEditTextSmallHeight(
+                                    value = phoneNumber,
+                                    onValueChange = { viewModel.updatePhoneNumber(it) },
+                                    placeholder = "Phone Number",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 6. Bottom Buttons (aligned to end/right)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         BaseButton(
                             text = "Cancel",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             backgroundColor = Color.White,
                             textColor = Color.Black,
                             border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
                             onClick = { navigateToHome() }
                         )
 
+                        Spacer(modifier = Modifier.width(12.dp))
+
                         BaseButton(
                             text = "Save",
                             modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
+                                .height(45.dp),
                             enabled = !isLoading,
                             onClick = {
                                 viewModel.saveStoreInformation()

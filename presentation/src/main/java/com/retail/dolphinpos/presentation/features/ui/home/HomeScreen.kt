@@ -53,6 +53,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Switch
@@ -61,6 +63,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -94,6 +97,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.launch
 import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -277,7 +281,7 @@ fun HomeScreen(
                                 val userId = preferenceManager.getUserID()
                                 val storeId = preferenceManager.getStoreID()
                                 val registerId = preferenceManager.getOccupiedRegisterID()
-                                
+
                                 if (userId != 0 && storeId != 0 && registerId != 0) {
                                     navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
                                         popUpTo(0) { inclusive = true }
@@ -290,7 +294,7 @@ fun HomeScreen(
                             val userId = preferenceManager.getUserID()
                             val storeId = preferenceManager.getStoreID()
                             val registerId = preferenceManager.getOccupiedRegisterID()
-                            
+
                             if (userId != 0 && storeId != 0 && registerId != 0) {
                                 navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
                                     popUpTo(0) { inclusive = true }
@@ -344,7 +348,7 @@ fun HomeScreen(
                 Log.d("HomeScreen", "Calling checkBatchStatus()")
                 val batchStatus = viewModel.checkBatchStatus()
                 Log.d("HomeScreen", "Batch status result: $batchStatus")
-                
+
                 when (batchStatus) {
                     true -> {
                         // Batch status is "closed", show message dialog and stop here
@@ -665,7 +669,7 @@ fun HomeScreen(
                                     )
                                 } else {
                                     val tenderAmount = splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                                    
+
                                     if (tenderAmount <= 0) {
                                         DialogHandler.showDialog(
                                             message = "Tender amount cannot be zero. Please enter the tender amount.",
@@ -768,7 +772,7 @@ fun HomeScreen(
                                     )
                                 } else {
                                     val tenderAmount = splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
-                                    
+
                                     if (tenderAmount <= 0) {
                                         DialogHandler.showDialog(
                                             message = "Tender amount cannot be zero. Please enter the tender amount.",
@@ -1006,19 +1010,34 @@ fun HomeScreen(
             })
         }
 
-        if (selectedProductForVariant != null) {
+        selectedProductForVariant?.let { product ->
             VariantSelectionDialog(
-                product = selectedProductForVariant!!,
+                product = product,
+                cartItems = cartItems,
                 onDismiss = { selectedProductForVariant = null },
-                onVariantSelected = { variant ->
-                    // Add variant to cart
-                    val success = viewModel.addVariantToCart(selectedProductForVariant!!, variant)
-                    if (success) {
-                        selectedProductForVariant = null
-                    } else {
-                        DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
-                        selectedProductForVariant = null
+                onVariantSelected = { variant, quantity ->
+                    // Check if variant already exists in cart
+                    val existingCartItem = cartItems.find {
+                        it.productVariantId == variant.id
                     }
+
+                    if (existingCartItem != null) {
+                        // Update existing cart item quantity
+                        val updatedCartItem = existingCartItem.copy(quantity = quantity)
+                        viewModel.updateCartItem(updatedCartItem)
+                    } else {
+                        // Add new variant to cart with specified quantity
+                        val success = viewModel.addVariantToCartWithQuantity(
+                            product,
+                            variant,
+                            quantity
+                        )
+                        if (!success) {
+                            DialogHandler.showDialog("You can't add product after applying cash discount. If you want to add click on card first")
+                            return@VariantSelectionDialog
+                        }
+                    }
+                    selectedProductForVariant = null
                 })
         }
 
@@ -1045,13 +1064,13 @@ fun HomeScreen(
                     onDone = {
                         // Get remaining amount before dismissing (for setting tender and checking if order should be created)
                         val remainingBeforeDismiss = remainingAmount
-                        
+
                         // Dismiss dialog and update tender/remaining amounts
                         viewModel.dismissSplitPaymentSuccessDialog()
-                        
+
                         // Update UI tender amount to the remaining amount (which is now 0, but we use the value before dismiss)
                         splitTenderAmount = viewModel.formatAmount(remainingBeforeDismiss)
-                        
+
                         // If remaining amount was 0 (meaning all payments are complete), create order now
                         // This happens when the final payment dialog is dismissed
                         if (remainingBeforeDismiss <= 0.01) {
@@ -1754,8 +1773,8 @@ fun CartItemRow(
 
 @Composable
 fun PaymentInput(
-    paymentAmount: String, 
-    onPaymentAmountChange: (String) -> Unit, 
+    paymentAmount: String,
+    onPaymentAmountChange: (String) -> Unit,
     onRemoveDigit: () -> Unit,
     enabled: Boolean = true,
     showLabel: Boolean = true
@@ -1794,7 +1813,7 @@ fun PaymentInput(
                 value = paymentAmount, onValueChange = { newValue ->
                     // Only allow changes if enabled
                     if (!enabled) return@BasicTextField
-                    
+
                     // Prevent deletion below 0.00
                     val currentAmount =
                         paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
@@ -1815,8 +1834,8 @@ fun PaymentInput(
                             }
                         }
                     }, textStyle = TextStyle(
-                    fontFamily = GeneralSans, 
-                    fontSize = 14.sp, 
+                    fontFamily = GeneralSans,
+                    fontSize = 14.sp,
                     color = if (enabled) Color.Black else Color.Gray
                 ), cursorBrush = SolidColor(Color.Transparent), // Hide cursor
                 readOnly = !enabled, // Read-only when disabled
@@ -2435,19 +2454,19 @@ fun ActionButtonsPanel(
     val subtotal by viewModel.subtotal.collectAsStateWithLifecycle()
     val cashDiscountTotal by viewModel.cashDiscountTotal.collectAsStateWithLifecycle()
     val orderDiscountTotal by viewModel.orderDiscountTotal.collectAsStateWithLifecycle()
-    
+
     Column(
         modifier = modifier
     ) {
         // Row 1
         ActionButtonRow(
-            rowIndex = 0, 
+            rowIndex = 0,
             buttons = listOf(
                 ActionButton("EBT"),
                 ActionButton("Split"),
                 ActionButton("Customer"),
                 ActionButton("Discount"),
-            ), 
+            ),
             isSplitPaymentEnabled = isSplitPaymentEnabled,
             onActionClick = { action ->
                 when (action) {
@@ -2481,13 +2500,13 @@ fun ActionButtonsPanel(
 
         // Row 2
         ActionButtonRow(
-            rowIndex = 1, 
+            rowIndex = 1,
             buttons = listOf(
                 ActionButton("Custom Sales"),
                 ActionButton("PLU Search"),
                 ActionButton("Pay In/Out"),
                 ActionButton("Refund"),
-            ), 
+            ),
             isSplitPaymentEnabled = isSplitPaymentEnabled,
             onActionClick = { action ->
                 when (action) {
@@ -2505,13 +2524,13 @@ fun ActionButtonsPanel(
 
         // Row 3
         ActionButtonRow(
-            rowIndex = 2, 
+            rowIndex = 2,
             buttons = listOf(
                 ActionButton("Weight Scale"), ActionButton("Rewards"), ActionButton(
                     if (isTaxExempt) "Apply Tax" else "Tax-Exempt"
                 ), ActionButton("Void")
 
-            ), 
+            ),
             isSplitPaymentEnabled = isSplitPaymentEnabled,
             onActionClick = { action ->
                 when (action) {
@@ -3704,95 +3723,430 @@ fun AddCustomerDialog(
 
 @Composable
 fun VariantSelectionDialog(
-    product: Products, onDismiss: () -> Unit, onVariantSelected: (Variant) -> Unit
+    product: Products,
+    cartItems: List<CartItem>,
+    onDismiss: () -> Unit,
+    onVariantSelected: (Variant, Int) -> Unit
 ) {
-    AlertDialog(onDismissRequest = onDismiss, title = {
-        Text(
-            text = product.name ?: "Select Variant",
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.SemiBold
-        )
-    }, text = {
-        LazyColumn(
+    var allowMultipleSelection by remember { mutableStateOf(false) }
+    var selectedVariants by remember { mutableStateOf<Set<Int>>(emptySet()) }
+
+    // Initialize quantity from existing cart item if variant is already in cart
+    val initialQuantity = remember(product, cartItems) {
+        if (selectedVariants.isNotEmpty()) {
+            val firstSelectedVariantId = selectedVariants.first()
+            cartItems.find { it.productVariantId == firstSelectedVariantId }?.quantity ?: 1
+        } else {
+            1
+        }
+    }
+    var quantity by remember { mutableStateOf(initialQuantity) }
+
+    // Update quantity when selection changes
+    LaunchedEffect(selectedVariants) {
+        if (selectedVariants.isNotEmpty() && !allowMultipleSelection) {
+            val selectedVariantId = selectedVariants.first()
+            val existingItem = cartItems.find { it.productVariantId == selectedVariantId }
+            quantity = existingItem?.quantity ?: 1
+        } else if (selectedVariants.isEmpty()) {
+            quantity = 1
+        }
+    }
+
+    Dialog(onDismissRequest = onDismiss,  properties = DialogProperties(
+        usePlatformDefaultWidth = false
+    )) {
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(400.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .fillMaxWidth(0.5f)
+                .heightIn(max = 650.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            ),
+            elevation = CardDefaults.cardElevation(8.dp)
         ) {
-            items(product.variants.orEmpty()) { variant ->
-                Card(
-                    onClick = { onVariantSelected(variant) },
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Top Header
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(8.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Left: Icon + Title
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Variant image (shown first)
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_variant),
+                            contentDescription = null,
+                            tint = colorResource(id = R.color.primary),
+                            modifier = Modifier.size(50.dp)
+                        )
+                        BaseText(
+                            text = product.name ?: "Select Variant",
+                            color = Color.Black,
+                            fontSize = 18f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Right: Checkbox with label
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(
+                            checked = allowMultipleSelection,
+                            onCheckedChange = {
+                                allowMultipleSelection = it
+                                // If switching to single selection, keep only first selected
+                                if (!it && selectedVariants.size > 1) {
+                                    selectedVariants = setOf(selectedVariants.first())
+                                }
+                            },
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = colorResource(id = R.color.primary)
+                            )
+                        )
+
+                        BaseText(
+                            text = "Select Multiple Variants",
+                            color = Color.Black,
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                    }
+                }
+
+
+                Spacer(modifier = Modifier.height(15.dp))
+
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color.LightGray)
+
+                )
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Variants Section
+                BaseText(
+                    text = "Variants",
+                    color = Color.Black,
+                    fontSize = 16f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Variants Grid
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(product.variants.orEmpty()) { variant ->
+                        val isSelected = selectedVariants.contains(variant.id)
                         Box(
-                            modifier = Modifier
-                                .size(50.dp)
-                                .background(Color.White, RoundedCornerShape(4.dp))
-                                .clip(RoundedCornerShape(4.dp)), contentAlignment = Alignment.Center
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                         ) {
-                            if (variant.images.isNotEmpty() && variant.images.first().fileURL != null && variant.images.first().fileURL!!.isNotEmpty()) {
-                                AsyncImage(
-                                    model = variant.images.first().fileURL,
-                                    contentDescription = variant.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Image(
-                                    painter = painterResource(id = R.drawable.logo),
-                                    contentDescription = "Product Placeholder",
-                                    modifier = Modifier.size(40.dp),
-                                    contentScale = ContentScale.Fit
-                                )
+                        Card(
+                            onClick = {
+                                if (allowMultipleSelection) {
+                                    selectedVariants = if (isSelected) {
+                                        selectedVariants - variant.id
+                                    } else {
+                                        selectedVariants + variant.id
+                                    }
+                                } else {
+                                    selectedVariants = if (isSelected) {
+                                        emptySet()
+                                    } else {
+                                        setOf(variant.id)
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .then(
+                                    if (!isSelected) {
+                                        Modifier.border(
+                                            1.dp,
+                                            colorResource(id = R.color.borderOutline),
+                                            RoundedCornerShape(12.dp)
+                                        )
+                                    } else {
+                                        Modifier
+                                    }
+                                ),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) {
+                                    Color(0xFFE3F2FD) // Light blue
+                                } else {
+                                    Color.White
+                                }
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Product image on the left
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (variant.images.isNotEmpty() &&
+                                            variant.images.first().fileURL != null &&
+                                            variant.images.first().fileURL!!.isNotEmpty()) {
+                                            AsyncImage(
+                                                model = variant.images.first().fileURL,
+                                                contentDescription = variant.title,
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = ContentScale.Crop
+                                            )
+                                        } else {
+                                            Image(
+                                                painter = painterResource(id = R.drawable.logo),
+                                                contentDescription = "Product Placeholder",
+                                                modifier = Modifier.size(40.dp),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        }
+                                    }
+
+                                    // Variant name and subtitle
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        BaseText(
+                                            text = variant.title ?: "Variant",
+                                            color = Color.Black,
+                                            fontSize = 14f,
+                                            fontFamily = GeneralSans,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        // Subtitle - using quantity as subtitle (e.g., "100 ML")
+                                        BaseText(
+                                            text = "${variant.quantity} units",
+                                            color = Color.Gray,
+                                            fontSize = 12f,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+
+                                    // Price on the right
+                                    BaseText(
+                                        text = "$${variant.cardPrice?.toDoubleOrNull() ?: 0.0}",
+                                        color = Color.Black,
+                                        fontSize = 14f,
+                                        fontFamily = GeneralSans,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.width(12.dp))
+                            // Green check icon at top-right when selected
+                            if (isSelected) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.ic_tick),
+                                    contentDescription = "Selected",
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(8.dp)
+                                        .size(20.dp)
+                                        .offset(x = 13.dp, y = (-17).dp)
+                                )
+                            }
+                    }}
+                }
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = variant.title ?: "Variant",
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp,
-                                color = Color.Black
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Price: $${variant.cardPrice?.toDoubleOrNull() ?: 0.0}",
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Qty: ${variant.quantity}",
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.Medium,
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                        }
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Quantity Section
+                BaseText(
+                    text = "Quantity",
+                    color = Color.Black,
+                    fontSize = 16f,
+                    fontFamily = GeneralSans,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Quantity Counter
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Minus button
+                    Button(
+                        onClick = { if (quantity > 1) quantity-- },
+                        modifier = Modifier.width(60.dp).height(45.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline)),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        BaseText(
+                            text = "-",
+                            color = Color.Black,
+                            fontSize = 35f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Quantity display
+                    Box(
+                        modifier = Modifier
+                            .width(80.dp)
+                            .height(44.dp)
+                            .background(
+                                color = colorResource(id = R.color.color_grey),
+                                shape = RoundedCornerShape(8.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BaseText(
+                            text = quantity.toString(),
+                            color = Color.Black,
+                            fontSize = 16f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Plus button
+                    Button(
+                        onClick = { quantity++ },
+                        modifier = Modifier.width(60.dp).height(45.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        BaseText(
+                            text = "+",
+                            color = Color.White,
+                            fontSize = 35f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Bottom Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Cancel button
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color.Black
+                        ),
+                        border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline))
+                    ) {
+                        BaseText(
+                            text = "Cancel",
+                            color = Color.Black,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    // Save button
+                    Button(
+                        onClick = {
+                            // Validate quantity
+                            if (quantity <= 0) {
+                                DialogHandler.showDialog("Quantity must be at least 1")
+                                return@Button
+                            }
+
+                            // If single selection mode and a variant is selected, call onVariantSelected
+                            // If multiple selection mode, handle accordingly
+                            if (selectedVariants.isNotEmpty()) {
+                                if (allowMultipleSelection) {
+                                    // Handle multiple variants - add/update each selected variant
+                                    selectedVariants.forEach { variantId ->
+                                        val selectedVariant = product.variants?.find {
+                                            it.id == variantId
+                                        }
+                                        selectedVariant?.let {
+                                            onVariantSelected(it, quantity)
+                                        }
+                                    }
+                                } else {
+                                    // Single selection - only process first selected variant
+                                    val selectedVariant = product.variants?.find {
+                                        it.id == selectedVariants.first()
+                                    }
+                                    selectedVariant?.let {
+                                        onVariantSelected(it, quantity)
+                                    }
+                                }
+                            } else {
+                                DialogHandler.showDialog("Please select at least one variant")
+                            }
+                        },
+                        modifier = Modifier.height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        )
+                    ) {
+                        BaseText(
+                            text = "Save",
+                            color = Color.White,
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }
         }
-    }, confirmButton = {
-        TextButton(onClick = onDismiss) {
-            Text("Cancel", fontFamily = GeneralSans)
-        }
-    })
+    }
 }
 
 @Composable
@@ -4396,274 +4750,274 @@ fun PriceCheckDialog(
                                     .verticalScroll(scrollState),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                            HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-
-                            // Product Name
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                BaseText(
-                                    text = "Product Name:",
-                                    fontSize = 14f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
-                                BaseText(
-                                    text = priceCheckProduct.name ?: "Unknown",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans
-                                )
-                            }
-
-                            // Description
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                BaseText(
-                                    text = "Description:",
-                                    fontSize = 14f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
-                                BaseText(
-                                    text = priceCheckProduct.description ?: "-",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans,
-                                    modifier = Modifier.weight(1f),
-                                    textAlign = TextAlign.End
-                                )
-                            }
-
-                            // Barcode
-                            if (!priceCheckProduct.barCode.isNullOrEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Barcode:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = priceCheckProduct.barCode!!,
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-                            }
-
-                            // Quantity
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                BaseText(
-                                    text = "Quantity:",
-                                    fontSize = 14f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
-                                BaseText(
-                                    text = "${priceCheckProduct.quantity}",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans
-                                )
-                            }
-
-                            // Cash Price
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                BaseText(
-                                    text = "Cash Price:",
-                                    fontSize = 14f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
-                                BaseText(
-                                    text = "$${
-                                        String.format(
-                                            Locale.US,
-                                            "%.2f",
-                                            priceCheckProduct.cashPrice.toDoubleOrNull() ?: 0.0
-                                        )
-                                    }",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans
-                                )
-                            }
-
-                            // Card Price
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                BaseText(
-                                    text = "Card Price:",
-                                    fontSize = 14f,
-                                    color = Color.Gray,
-                                    fontFamily = GeneralSans
-                                )
-                                BaseText(
-                                    text = "$${
-                                        String.format(
-                                            Locale.US,
-                                            "%.2f",
-                                            priceCheckProduct.cardPrice.toDoubleOrNull() ?: 0.0
-                                        )
-                                    }",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans
-                                )
-                            }
-
-                            // Status
-                            if (!priceCheckProduct.status.isNullOrEmpty()) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Status:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = priceCheckProduct.status!!,
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-                            }
-
-                            // Variants
-                            if (priceCheckProduct.variants != null && priceCheckProduct.variants!!.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(4.dp))
                                 HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                                Spacer(modifier = Modifier.height(4.dp))
-                                BaseText(
-                                    text = "Variants:",
-                                    fontSize = 14f,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.Black,
-                                    fontFamily = GeneralSans
-                                )
-                                Column(
+
+                                // Product Name
+                                Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    priceCheckProduct.variants!!.forEach { variant ->
-                                        Column(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .background(
-                                                    color = Color(0xFFF5F5F5),
-                                                    shape = RoundedCornerShape(8.dp)
-                                                )
-                                                .padding(12.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            BaseText(
-                                                text = variant.title ?: "Unknown Variant",
-                                                fontSize = 13f,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color.Black,
-                                                fontFamily = GeneralSans
+                                    BaseText(
+                                        text = "Product Name:",
+                                        fontSize = 14f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = priceCheckProduct.name ?: "Unknown",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+
+                                // Description
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Description:",
+                                        fontSize = 14f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = priceCheckProduct.description ?: "-",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans,
+                                        modifier = Modifier.weight(1f),
+                                        textAlign = TextAlign.End
+                                    )
+                                }
+
+                                // Barcode
+                                if (!priceCheckProduct.barCode.isNullOrEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Barcode:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = priceCheckProduct.barCode!!,
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+                                }
+
+                                // Quantity
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Quantity:",
+                                        fontSize = 14f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "${priceCheckProduct.quantity}",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+
+                                // Cash Price
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Cash Price:",
+                                        fontSize = 14f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "$${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                priceCheckProduct.cashPrice.toDoubleOrNull() ?: 0.0
                                             )
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
+                                        }",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+
+                                // Card Price
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    BaseText(
+                                        text = "Card Price:",
+                                        fontSize = 14f,
+                                        color = Color.Gray,
+                                        fontFamily = GeneralSans
+                                    )
+                                    BaseText(
+                                        text = "$${
+                                            String.format(
+                                                Locale.US,
+                                                "%.2f",
+                                                priceCheckProduct.cardPrice.toDoubleOrNull() ?: 0.0
+                                            )
+                                        }",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                }
+
+                                // Status
+                                if (!priceCheckProduct.status.isNullOrEmpty()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Status:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = priceCheckProduct.status!!,
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+                                }
+
+                                // Variants
+                                if (priceCheckProduct.variants != null && priceCheckProduct.variants!!.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    BaseText(
+                                        text = "Variants:",
+                                        fontSize = 14f,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color.Black,
+                                        fontFamily = GeneralSans
+                                    )
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        priceCheckProduct.variants!!.forEach { variant ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .background(
+                                                        color = Color(0xFFF5F5F5),
+                                                        shape = RoundedCornerShape(8.dp)
+                                                    )
+                                                    .padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
                                                 BaseText(
-                                                    text = "Cash: ${
-                                                        String.format(
-                                                            Locale.US,
-                                                            "%.2f",
-                                                            variant.cashPrice?.toDoubleOrNull() ?: 0.0
-                                                        )
-                                                    }",
-                                                    fontSize = 12f,
-                                                    color = Color.Gray,
-                                                    fontFamily = GeneralSans
-                                                )
-                                                BaseText(
-                                                    text = "Card: ${
-                                                        String.format(
-                                                            Locale.US,
-                                                            "%.2f",
-                                                            variant.cardPrice?.toDoubleOrNull() ?: 0.0
-                                                        )
-                                                    }",
-                                                    fontSize = 12f,
-                                                    color = Color.Gray,
-                                                    fontFamily = GeneralSans
-                                                )
-                                            }
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                BaseText(
-                                                    text = "Quantity:",
-                                                    fontSize = 12f,
-                                                    color = Color.Gray,
-                                                    fontFamily = GeneralSans
-                                                )
-                                                BaseText(
-                                                    text = "${variant.quantity}",
-                                                    fontSize = 12f,
+                                                    text = variant.title ?: "Unknown Variant",
+                                                    fontSize = 13f,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color.Black,
                                                     fontFamily = GeneralSans
                                                 )
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    BaseText(
+                                                        text = "Cash: ${
+                                                            String.format(
+                                                                Locale.US,
+                                                                "%.2f",
+                                                                variant.cashPrice?.toDoubleOrNull() ?: 0.0
+                                                            )
+                                                        }",
+                                                        fontSize = 12f,
+                                                        color = Color.Gray,
+                                                        fontFamily = GeneralSans
+                                                    )
+                                                    BaseText(
+                                                        text = "Card: ${
+                                                            String.format(
+                                                                Locale.US,
+                                                                "%.2f",
+                                                                variant.cardPrice?.toDoubleOrNull() ?: 0.0
+                                                            )
+                                                        }",
+                                                        fontSize = 12f,
+                                                        color = Color.Gray,
+                                                        fontFamily = GeneralSans
+                                                    )
+                                                }
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    BaseText(
+                                                        text = "Quantity:",
+                                                        fontSize = 12f,
+                                                        color = Color.Gray,
+                                                        fontFamily = GeneralSans
+                                                    )
+                                                    BaseText(
+                                                        text = "${variant.quantity}",
+                                                        fontSize = 12f,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = Color.Black,
+                                                        fontFamily = GeneralSans
+                                                    )
+                                                }
                                             }
                                         }
                                     }
                                 }
                             }
                         }
+                        searchInput.isNotEmpty() && priceCheckProduct == null -> {
+                            BaseText(
+                                text = "No product found",
+                                fontSize = 16f,
+                                fontFamily = GeneralSans,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        else -> {
+                            BaseText(
+                                text = "Enter product name or scan barcode",
+                                fontSize = 16f,
+                                fontFamily = GeneralSans,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
-                    searchInput.isNotEmpty() && priceCheckProduct == null -> {
-                        BaseText(
-                            text = "No product found",
-                            fontSize = 16f,
-                            fontFamily = GeneralSans,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    else -> {
-                        BaseText(
-                            text = "Enter product name or scan barcode",
-                            fontSize = 16f,
-                            fontFamily = GeneralSans,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -4701,7 +5055,7 @@ fun ClosingAmountDialog(
     onConfirm: (Double?) -> Unit
 ) {
     var closingAmount by remember { mutableStateOf("0.00") }
-    
+
     // Non-cancelable dialog - can only be dismissed via Cancel button
     Dialog(onDismissRequest = {}) {
         Card(
@@ -4748,13 +5102,13 @@ fun ClosingAmountDialog(
                             closingAmount = filtered
                         }
                     },
-                    label = { 
+                    label = {
                         BaseText(
                             text = "Closing Amount",
                             fontSize = 14f,
                             fontFamily = GeneralSans,
                             color = colorResource(id = R.color.primary),
-                        ) 
+                        )
                     },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
