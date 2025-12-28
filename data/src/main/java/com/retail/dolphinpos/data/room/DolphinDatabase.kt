@@ -53,6 +53,10 @@ import com.retail.dolphinpos.data.entities.user.StoreLogoUrlEntity
 import com.retail.dolphinpos.data.entities.user.TaxDetailEntity
 import com.retail.dolphinpos.data.entities.user.UserEntity
 import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
+import com.retail.dolphinpos.data.entities.refund.RefundEntity
+import com.retail.dolphinpos.data.entities.refund.RefundStatusConverter
+import com.retail.dolphinpos.data.entities.refund.RefundTypeConverter
+import com.retail.dolphinpos.data.dao.RefundDao
 
 @Database(
     entities = [UserEntity::class, StoreEntity::class, StoreLogoUrlEntity::class, LocationEntity::class, RegisterEntity::class,
@@ -60,8 +64,8 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         ProductImagesEntity::class, VariantsEntity::class, VariantImagesEntity::class, VendorEntity::class, CustomerEntity::class,
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class,
-        SyncCommandEntity::class, SyncLockEntity::class, SyncSequenceEntity::class],
-    version = 14,
+        SyncCommandEntity::class, SyncLockEntity::class, SyncSequenceEntity::class, RefundEntity::class],
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(
@@ -69,7 +73,9 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
     ProductTypeConverters::class,
     SyncTypeConverters::class,
     BatchSyncStatusConverter::class,
-    OrderSyncStatusConverter::class
+    OrderSyncStatusConverter::class,
+    RefundStatusConverter::class,
+    RefundTypeConverter::class
 )
 abstract class DolphinDatabase : RoomDatabase() {
 
@@ -85,6 +91,7 @@ abstract class DolphinDatabase : RoomDatabase() {
     abstract fun batchReportDao(): BatchReportDao
     abstract fun syncCommandDao(): SyncCommandDao
     abstract fun syncLockDao(): SyncLockDao
+    abstract fun refundDao(): RefundDao
 
     companion object {
         @Volatile
@@ -100,7 +107,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -487,6 +494,44 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_batch_id ON sync_command(batchId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_order_id ON sync_command(orderId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_idempotency ON sync_command(idempotencyKey)")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add refund fields to orders table
+                db.execSQL("ALTER TABLE orders ADD COLUMN total_refunded_amount REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE orders ADD COLUMN refund_status TEXT NOT NULL DEFAULT 'NONE'")
+                
+                // Create refunds table
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS refunds (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        refund_id TEXT NOT NULL,
+                        order_id INTEGER NOT NULL,
+                        order_no TEXT NOT NULL,
+                        refund_type TEXT NOT NULL,
+                        refund_amount REAL NOT NULL,
+                        refunded_items TEXT NOT NULL,
+                        payment_method TEXT NOT NULL,
+                        refund_status TEXT NOT NULL,
+                        server_id INTEGER,
+                        store_id INTEGER NOT NULL,
+                        location_id INTEGER NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        batch_no TEXT,
+                        reason TEXT,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Create indexes for refunds table
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_refunds_order_id ON refunds(order_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_refunds_order_no ON refunds(order_no)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_refunds_refund_id ON refunds(refund_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_refunds_status ON refunds(refund_status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_refunds_server_id ON refunds(server_id)")
             }
         }
 

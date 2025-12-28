@@ -6,6 +6,7 @@ package com.retail.dolphinpos.data.entities.sync
 enum class CommandType {
     OPEN_BATCH,
     CREATE_ORDER,
-    CLOSE_BATCH
+    CLOSE_BATCH,
+    CREATE_REFUND
 }
 

@@ -67,6 +67,11 @@ data class OrderEntity(
     @ColumnInfo(name = "user_id") val userId: Int = 0,
     @ColumnInfo(name = "void_reason") val voidReason: String? = null,
     @ColumnInfo(name = "is_void") val isVoid: Boolean = false,
+    
+    // Refund fields
+    @ColumnInfo(name = "total_refunded_amount") val totalRefundedAmount: Double = 0.0,
+    @ColumnInfo(name = "refund_status") val refundStatus: String = "NONE", // "NONE", "PARTIAL", "FULL"
+    
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
     @ColumnInfo(name = "updated_at") val updatedAt: Long = System.currentTimeMillis()
 )

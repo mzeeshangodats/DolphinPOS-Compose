@@ -17,6 +17,8 @@ import com.retail.dolphinpos.data.entities.sync.CommandType
 import com.retail.dolphinpos.data.entities.sync.SyncCommandEntity
 import com.retail.dolphinpos.data.entities.user.BatchSyncStatus
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
+import com.retail.dolphinpos.data.repositories.refund.RefundRepositoryImpl
+import com.retail.dolphinpos.data.dao.RefundDao
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
 import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchOpenRequest
@@ -34,6 +36,8 @@ class PosSyncWorker @AssistedInject constructor(
     private val orderDao: OrderDao,
     private val apiService: ApiService,
     private val orderRepository: OrderRepositoryImpl,
+    private val refundRepository: RefundRepositoryImpl,
+    private val refundDao: RefundDao,
     private val gson: Gson
 ) : CoroutineWorker(context, params) {
 
@@ -81,6 +85,7 @@ class PosSyncWorker @AssistedInject constructor(
                             CommandType.OPEN_BATCH -> executeOpenBatch(command)
                             CommandType.CREATE_ORDER -> executeCreateOrder(command)
                             CommandType.CLOSE_BATCH -> executeCloseBatch(command)
+                            CommandType.CREATE_REFUND -> executeCreateRefund(command)
                         }
 
                         // Mark command as DONE
@@ -243,6 +248,34 @@ class PosSyncWorker @AssistedInject constructor(
         userDao.updateBatch(updatedBatch)
 
         Log.d(TAG, "Batch closed successfully: $batchId")
+    }
+    
+    /**
+     * Execute CREATE_REFUND command
+     */
+    private suspend fun executeCreateRefund(command: SyncCommandEntity) {
+        val refundId = command.orderId ?: throw IllegalArgumentException("refundId is null for CREATE_REFUND command")
+        
+        // Get refund from database
+        val refund = refundDao.getRefundByRefundId(refundId)
+            ?: throw IllegalStateException("Refund not found: $refundId")
+        
+        // Get order to get server ID
+        val order = orderDao.getOrderByOrderNumber(refund.orderNo)
+            ?: throw IllegalStateException("Order not found: ${refund.orderNo}")
+        
+        val serverOrderId = order.serverId
+            ?: throw IllegalStateException("Order not synced to server yet: ${refund.orderNo}")
+        
+        Log.d(TAG, "Syncing refund $refundId to server...")
+        
+        // Sync refund to server using repository
+        val result = refundRepository.syncRefundToServer(
+            com.retail.dolphinpos.data.mapper.RefundMapper.toRefund(refund)
+        )
+        result.getOrThrow() // Throw exception if failed
+        
+        Log.d(TAG, "Refund $refundId synced successfully")
     }
 }
 

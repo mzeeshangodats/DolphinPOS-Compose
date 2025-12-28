@@ -422,5 +422,9 @@ class OrdersViewModel @Inject constructor(
             }
         }
     }
+    
+    suspend fun getOrderByOrderNumber(orderNumber: String): com.retail.dolphinpos.data.entities.order.OrderEntity? {
+        return orderRepository.getOrderByOrderNumber(orderNumber)
+    }
 }
 

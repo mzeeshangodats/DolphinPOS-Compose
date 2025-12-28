@@ -7,6 +7,8 @@ import com.retail.dolphinpos.data.dao.BatchReportDao
 import com.retail.dolphinpos.data.dao.CustomerDao
 import com.retail.dolphinpos.data.dao.OrderDao
 import com.retail.dolphinpos.data.dao.ProductsDao
+import com.retail.dolphinpos.data.dao.RefundDao
+import com.retail.dolphinpos.data.dao.SyncCommandDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.repositories.auth.CashDenominationRepositoryImpl
 import com.retail.dolphinpos.data.repositories.auth.LoginRepositoryImpl
@@ -28,8 +30,12 @@ import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 import com.retail.dolphinpos.domain.repositories.product.ProductRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
+import com.retail.dolphinpos.domain.repositories.refund.RefundRepository
 import com.retail.dolphinpos.domain.repositories.setup.HardwareSetupRepository
 import com.retail.dolphinpos.data.repositories.product.ProductRepositoryImpl
+import com.retail.dolphinpos.data.repositories.refund.RefundLocalDataSource
+import com.retail.dolphinpos.data.repositories.refund.RefundRemoteDataSource
+import com.retail.dolphinpos.data.repositories.refund.RefundRepositoryImpl
 import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
 import com.retail.dolphinpos.data.usecases.sync.ScheduleSyncUseCaseImpl
 import dagger.Module
@@ -149,6 +155,42 @@ object RepositoryModule {
     @Singleton
     fun provideScheduleSyncUseCase(): ScheduleSyncUseCase {
         return ScheduleSyncUseCaseImpl()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideRefundLocalDataSource(refundDao: RefundDao): RefundLocalDataSource {
+        return RefundLocalDataSource(refundDao)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideRefundRemoteDataSource(apiService: ApiService): RefundRemoteDataSource {
+        return RefundRemoteDataSource(apiService)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideRefundRepository(
+        localDataSource: RefundLocalDataSource,
+        remoteDataSource: RefundRemoteDataSource,
+        orderDao: OrderDao,
+        productsDao: ProductsDao,
+        syncCommandDao: SyncCommandDao,
+        networkMonitor: NetworkMonitor,
+        scheduleSyncUseCase: ScheduleSyncUseCase,
+        gson: Gson
+    ): RefundRepository {
+        return RefundRepositoryImpl(
+            localDataSource,
+            remoteDataSource,
+            orderDao,
+            productsDao,
+            syncCommandDao,
+            networkMonitor,
+            scheduleSyncUseCase,
+            gson
+        )
     }
 
 }

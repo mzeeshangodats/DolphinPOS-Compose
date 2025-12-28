@@ -35,6 +35,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.ui.platform.LocalContext
@@ -64,8 +65,16 @@ import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.features.ui.refund.RefundDialog
+import com.retail.dolphinpos.presentation.features.ui.refund.RefundItemSelection
+import com.retail.dolphinpos.presentation.features.ui.refund.RefundViewModel
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
+import com.retail.dolphinpos.domain.model.refund.RefundType
+import com.retail.dolphinpos.domain.model.refund.RefundRequest
+import com.retail.dolphinpos.domain.model.refund.RefundedItemRequest
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -75,6 +84,7 @@ import java.util.TimeZone
 fun OrdersScreen(
     navController: NavController,
     viewModel: OrdersViewModel = hiltViewModel(),
+    refundViewModel: RefundViewModel = hiltViewModel(),
     preferenceManager: PreferenceManager
 ) {
     val orders by viewModel.orders.collectAsState()
@@ -84,6 +94,9 @@ fun OrdersScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedOrder by remember { mutableStateOf<OrderDetailList?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showRefundDialog by remember { mutableStateOf<OrderDetailList?>(null) }
+    val refundUiState by refundViewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
     val displayDateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val apiDateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val dismiss = stringResource(id = R.string.dismiss)
@@ -625,10 +638,18 @@ fun OrdersScreen(
                                     }
                                 )
                                 // Refund Button
+                                val orderTotal = order.total.toDoubleOrNull() ?: 0.0
+                                val refundedTotal = order.refundedTotal.toDoubleOrNull() ?: 0.0
+                                val isFullyRefunded = refundedTotal >= orderTotal
+                                val isVoided = order.status.lowercase() == "void"
+                                val orderStatus = order.status.lowercase()
+                                // Allow refunds for both completed and pending orders
+                                val canRefund = !isFullyRefunded && !isVoided && (orderStatus == "completed" || orderStatus == "pending")
+                                
                                 BaseButton(
-                                    text = "REFUND",
+                                    text = if (isFullyRefunded) "REFUNDED" else "REFUND",
                                     modifier = Modifier.weight(1f),
-                                    backgroundColor = colorResource(R.color.red_error),
+                                    backgroundColor = if (canRefund) colorResource(R.color.red_error) else Color.Gray,
                                     textColor = Color.White,
                                     fontSize = 9,
                                     fontWeight = FontWeight.SemiBold,
@@ -639,11 +660,20 @@ fun OrdersScreen(
                                     ),
                                     cornerRadius = 4.dp,
                                     onClick = {
-                                        // Handle refund action
-                                        DialogHandler.showDialog(
-                                            message = "Refund will be implemented soon",
-                                            buttonText = "OK"
-                                        ) {}
+                                        if (canRefund) {
+                                            // Show refund dialog
+                                            showRefundDialog = order
+                                        } else {
+                                            val message = when {
+                                                isFullyRefunded -> "Order is already fully refunded"
+                                                isVoided -> "Cannot refund a voided order"
+                                                else -> "Only completed or pending orders can be refunded"
+                                            }
+                                            DialogHandler.showDialog(
+                                                message = message,
+                                                buttonText = "OK"
+                                            ) {}
+                                        }
                                     }
                                 )
                             }
@@ -673,6 +703,72 @@ fun OrdersScreen(
                 },
                 onDismiss = { showLogoutDialog = false }
             )
+        }
+        
+        // Refund Dialog
+        showRefundDialog?.let { order ->
+            RefundDialog(
+                order = order,
+                onDismiss = { showRefundDialog = null },
+                onRefund = { refundType, refundItems, customAmount ->
+                    coroutineScope.launch {
+                        // Get order ID from database
+                        val orderEntity = viewModel.getOrderByOrderNumber(order.orderNumber)
+                        if (orderEntity == null) {
+                            DialogHandler.showDialog(
+                                message = "Order not found in database",
+                                buttonText = "OK"
+                            ) {}
+                            showRefundDialog = null
+                            return@launch
+                        }
+                        
+                        // Build refund request
+                        val refundRequest = RefundRequest(
+                            orderId = orderEntity.id,
+                            refundType = refundType,
+                            refundedItems = refundItems?.map { item ->
+                                RefundedItemRequest(
+                                    productId = item.productId,
+                                    productVariantId = item.productVariantId,
+                                    quantity = item.quantity
+                                )
+                            },
+                            customAmount = customAmount,
+                            paymentMethod = order.paymentMethod.lowercase(),
+                            reason = null
+                        )
+                        
+                        // Process refund
+                        refundViewModel.processRefund(refundRequest)
+                        showRefundDialog = null
+                    }
+                }
+            )
+        }
+        
+        // Handle refund events
+        LaunchedEffect(Unit) {
+            refundViewModel.uiEvent.collect { event ->
+                when (event) {
+                    is com.retail.dolphinpos.presentation.features.ui.refund.RefundEvent.RefundSuccess -> {
+                        DialogHandler.showDialog(
+                            message = "Refund processed successfully. Amount: $${String.format(Locale.US, "%.2f", event.refund.refundAmount)}",
+                            buttonText = "OK",
+                            iconRes = R.drawable.success_circle_icon
+                        ) {
+                            // Reload orders to show updated refund status
+                            viewModel.loadOrders(searchQuery, reset = true)
+                        }
+                    }
+                    is com.retail.dolphinpos.presentation.features.ui.refund.RefundEvent.RefundError -> {
+                        DialogHandler.showDialog(
+                            message = event.message,
+                            buttonText = "OK"
+                        ) {}
+                    }
+                }
+            }
         }
     }
 }

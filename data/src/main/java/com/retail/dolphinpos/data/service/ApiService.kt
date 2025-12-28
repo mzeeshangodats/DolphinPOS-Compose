@@ -33,6 +33,8 @@ import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistor
 import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryResponse
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
 import com.retail.dolphinpos.domain.model.transaction.TransactionResponse
+import com.retail.dolphinpos.domain.model.refund.CreateRefundRequest
+import com.retail.dolphinpos.domain.model.refund.CreateRefundResponse
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.Body
@@ -160,5 +162,8 @@ interface ApiService {
         @Query("orderBy") orderBy: String = "createdAt",
         @Query("order") order: String = "DESC"
     ): VendorListResponse
+
+    @POST("refund")
+    suspend fun createRefund(@Body createRefundRequest: CreateRefundRequest): CreateRefundResponse
 
 }

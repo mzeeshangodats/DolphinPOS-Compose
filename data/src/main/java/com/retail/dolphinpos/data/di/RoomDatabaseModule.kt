@@ -15,6 +15,7 @@ import com.retail.dolphinpos.data.dao.TransactionDao
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.data.dao.SyncCommandDao
 import com.retail.dolphinpos.data.dao.SyncLockDao
+import com.retail.dolphinpos.data.dao.RefundDao
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.online_order.OnlineOrderRepository
@@ -136,6 +137,11 @@ object RoomDatabaseModule {
     @Provides
     fun provideSyncLockDao(database: DolphinDatabase): SyncLockDao {
         return database.syncLockDao()
+    }
+
+    @Provides
+    fun provideRefundDao(database: DolphinDatabase): RefundDao {
+        return database.refundDao()
     }
 
     @Provides
