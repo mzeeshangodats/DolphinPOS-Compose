@@ -1292,7 +1292,7 @@ fun VariantTableHeader() {
             contentAlignment = Alignment.Center
         ) {
             BaseText(
-                text = "Price",
+                text = "Cash Price",
                 fontSize = 12f,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = GeneralSans,
@@ -1304,7 +1304,7 @@ fun VariantTableHeader() {
             contentAlignment = Alignment.Center
         ) {
             BaseText(
-                text = "Dual Price Card",
+                text = "Card Price",
                 fontSize = 12f,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = GeneralSans,
