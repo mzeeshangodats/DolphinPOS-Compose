@@ -452,43 +452,23 @@ class CreateProductViewModel @Inject constructor(
                     }
                 }
             }
-
-            val variantPrice = state.price
-            val priceValue = variantPrice.toDoubleOrNull()
-            val calculatedDualPrice = if (priceValue != null && priceValue > 0) {
-                val multiplier = 1.0 + (dualPricePercentage / 100.0)
-                String.format("%.2f", priceValue * multiplier)
-            } else {
-                ""
-            }
             
+            // Start with empty data - user must enter separately
             ProductVariantData(
                 id = java.util.UUID.randomUUID().toString(),
                 title = title,
-                price = variantPrice,
-                costPrice = "", // Start with empty cost price - user must enter separately
-                quantity = "0",
+                price = "",
+                costPrice = "",
+                quantity = "",
                 barcode = "",
                 sku = "",
-                dualPrice = calculatedDualPrice,
+                dualPrice = "",
                 images = null
             )
         }
 
         // Replace existing variants with generated ones
         _uiState.value = _uiState.value.copy(variants = newVariants)
-    }
-
-    private fun generateSku(title: String): String {
-        // Generate a simple SKU from title (can be improved)
-        val cleaned = title.replace(" - ", "").replace(" ", "").lowercase()
-        return "SKU-${cleaned.take(12)}-${System.currentTimeMillis().toString().takeLast(4)}"
-    }
-
-    fun addVariant(variant: ProductVariantData) {
-        val currentVariants = _uiState.value.variants.toMutableList()
-        currentVariants.add(variant)
-        _uiState.value = _uiState.value.copy(variants = currentVariants)
     }
 
     fun removeVariant(variant: ProductVariantData) {
