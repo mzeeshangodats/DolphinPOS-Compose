@@ -67,6 +67,7 @@ object ProductMapper {
             secondaryBarCodes = secondaryBarCodesJson,
             trackQuantity = products.trackQuantity,
             continueSellingWhenOutOfStock = products.continueSellingWhenOutOfStock == true,
+            productVendorId = products.productVendorId,
             isEBTEligible = products.isEBTEligible,
             isIDRequired = products.isIDRequired
         )
@@ -88,6 +89,7 @@ object ProductMapper {
             cardPrice = variants.cardPrice,
             cashPrice = variants.cashPrice,
             price = variants.price,
+            costPrice = variants.costPrice,
             quantity = variants.quantity,
             title = variants.title,
             sku = variants.sku,
@@ -202,6 +204,7 @@ object ProductMapper {
             cardPrice = productEntity.cardPrice,
             barCode = productEntity.barCode,
             plu = productEntity.plu,
+            sku = productEntity.sku,
             locationId = productEntity.locationId,
             chargeTaxOnThisProduct = productEntity.chargeTaxOnThisProduct,
             vendor = null,
@@ -215,7 +218,8 @@ object ProductMapper {
             continueSellingWhenOutOfStock = productEntity.continueSellingWhenOutOfStock,
             price = productEntity.price,
             compareAtPrice = productEntity.compareAtPrice,
-            costPrice = productEntity.costPrice
+            costPrice = productEntity.costPrice,
+            productVendorId = productEntity.productVendorId
         )
     }
 
@@ -237,6 +241,7 @@ object ProductMapper {
             plu = variantsEntity.plu,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
+            costPrice = variantsEntity.costPrice,
             barCode = variantsEntity.barCode,
             attributes = null,
             images = emptyList()
@@ -253,6 +258,7 @@ object ProductMapper {
             plu = variantsEntity.plu,
             cardPrice = variantsEntity.cardPrice,
             cashPrice = variantsEntity.cashPrice,
+            costPrice = variantsEntity.costPrice,
             barCode = variantsEntity.barCode,
             attributes = null,
             images = variantImages

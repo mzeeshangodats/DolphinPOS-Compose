@@ -35,6 +35,7 @@ data class Products(
     val updatedAt: String? = "",
     val variants: List<Variant>?,
     val vendor: Vendor?,
+    val productVendorId: Int? = null,
     val taxAmount: Double? = null,
     val taxDetails: List<TaxDetail>? = null
 )

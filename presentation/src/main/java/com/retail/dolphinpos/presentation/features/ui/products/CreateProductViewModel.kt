@@ -829,7 +829,7 @@ class CreateProductViewModel @Inject constructor(
                 id = variant.id.toString(),
                 title = variant.title ?: "",
                 price = variant.price ?: "",
-                costPrice = "", // Cost price not in Variant domain model
+                costPrice = variant.costPrice ?: "",
                 quantity = variant.quantity.toString(),
                 barcode = variant.barCode ?: "",
                 sku = variant.sku ?: "",
@@ -873,8 +873,8 @@ class CreateProductViewModel @Inject constructor(
             trackQuantity = product.trackQuantity,
             continueSellingWhenOutOfStock = product.continueSellingWhenOutOfStock ?: false,
             hasSkuOrBarcode = true, // Default
-            productVendorId = product.vendor?.id,
-            productVendor = product.vendor?.title ?: "",
+            productVendorId = product.productVendorId,
+            productVendor = product.vendor?.title ?: _uiState.value.vendors.find { it.id == product.productVendorId }?.title ?: "",
             categoryId = product.categoryId,
             categoryName = "", // Will be populated from categories list
             isEBTEligible = product.isEBTEligible,
