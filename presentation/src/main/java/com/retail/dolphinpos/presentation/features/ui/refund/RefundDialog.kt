@@ -20,8 +20,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.RadioButton
@@ -42,7 +40,6 @@ import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailList
-import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
 import com.retail.dolphinpos.domain.model.refund.RefundType
 import com.retail.dolphinpos.presentation.R
 import java.util.Locale
@@ -691,7 +688,6 @@ data class RefundCalculations(
     val refundTotal: Double = 0.0
 )
 
-@Composable
 fun calculateRefundAmounts(
     order: OrderDetailList,
     selectedItems: Map<Int, RefundItemSelection>,

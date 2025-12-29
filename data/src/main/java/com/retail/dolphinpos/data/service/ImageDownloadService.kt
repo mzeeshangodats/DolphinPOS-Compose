@@ -3,9 +3,15 @@ package com.retail.dolphinpos.data.service
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.net.URL
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -15,6 +21,14 @@ class ImageDownloadService @Inject constructor(
 ) {
 
     private val imagesDir = File(context.filesDir, "cached_images")
+    
+    // OkHttpClient configured for image downloads with proper timeout and retry settings
+    private val okHttpClient = OkHttpClient.Builder()
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .build()
 
     init {
         if (!imagesDir.exists()) {
@@ -23,22 +37,70 @@ class ImageDownloadService @Inject constructor(
     }
 
     suspend fun downloadImage(imageUrl: String): String? = withContext(Dispatchers.IO) {
+        val fileName = generateFileName(imageUrl)
+        val file = File(imagesDir, fileName)
+        
         try {
-            val url = URL(imageUrl)
-            val fileName = generateFileName(imageUrl)
-            val file = File(imagesDir, fileName)
+            val request = Request.Builder()
+                .url(imageUrl)
+                .get()
+                .build()
 
-            // Download the image
-            url.openStream().use { input ->
-                FileOutputStream(file).use { output ->
-                    input.copyTo(output)
+            val response = okHttpClient.newCall(request).execute()
+            
+            if (!response.isSuccessful) {
+                // Clean up if file was partially created
+                if (file.exists()) {
+                    file.delete()
                 }
+                return@withContext null
             }
 
-            return@withContext file.absolutePath
-        } catch (e: Exception) {
-            e.printStackTrace()
+            response.body?.let { body ->
+                body.byteStream().use { input ->
+                    FileOutputStream(file).use { output ->
+                        input.copyTo(output)
+                        output.flush()
+                    }
+                }
+                
+                // Verify file was downloaded successfully
+                if (file.exists() && file.length() > 0) {
+                    return@withContext file.absolutePath
+                } else {
+                    // Clean up invalid file
+                    file.delete()
+                    return@withContext null
+                }
+            } ?: run {
+                return@withContext null
+            }
+        } catch (e: SocketException) {
+            // Connection reset or other socket errors
+            cleanupPartialFile(file)
             return@withContext null
+        } catch (e: SocketTimeoutException) {
+            // Timeout errors
+            cleanupPartialFile(file)
+            return@withContext null
+        } catch (e: IOException) {
+            // Network I/O errors (including unexpected end of stream)
+            cleanupPartialFile(file)
+            return@withContext null
+        } catch (e: Exception) {
+            // Any other unexpected errors
+            cleanupPartialFile(file)
+            return@withContext null
+        }
+    }
+    
+    private fun cleanupPartialFile(file: File) {
+        try {
+            if (file.exists()) {
+                file.delete()
+            }
+        } catch (e: Exception) {
+            // Ignore cleanup errors
         }
     }
 
