@@ -428,6 +428,9 @@ class CreateProductViewModel @Inject constructor(
             combinations = listOf(emptyList())
         }
 
+        // Get existing variants to preserve them
+        val existingVariants = state.variants.toMutableList()
+        
         // Create variant data for each combination
         val newVariants = combinations.map { combination ->
             val title = if (combination.isEmpty()) {
@@ -453,22 +456,37 @@ class CreateProductViewModel @Inject constructor(
                 }
             }
             
-            // Start with empty data - user must enter separately
-            ProductVariantData(
-                id = java.util.UUID.randomUUID().toString(),
-                title = title,
-                price = "",
-                costPrice = "",
-                quantity = "",
-                barcode = "",
-                sku = "",
-                dualPrice = "",
-                images = null
-            )
+            // Check if variant with same title already exists
+            val existingVariant = existingVariants.find { it.title == title }
+            if (existingVariant != null) {
+                // Return existing variant to preserve its data
+                existingVariant
+            } else {
+                // Start with empty data - user must enter separately
+                ProductVariantData(
+                    id = java.util.UUID.randomUUID().toString(),
+                    title = title,
+                    price = "",
+                    costPrice = "",
+                    quantity = "",
+                    barcode = "",
+                    sku = "",
+                    dualPrice = "",
+                    images = null
+                )
+            }
         }
+        
+        // Combine existing variants (that weren't regenerated) with new variants
+        // First, remove variants that were regenerated (matched by title)
+        val regeneratedTitles = newVariants.map { it.title }.toSet()
+        val preservedVariants = existingVariants.filter { it.title !in regeneratedTitles }
+        
+        // Combine preserved variants with newly generated variants
+        val allVariants = preservedVariants + newVariants
 
-        // Replace existing variants with generated ones
-        _uiState.value = _uiState.value.copy(variants = newVariants)
+        // Update variants list (append new ones, keep existing ones)
+        _uiState.value = _uiState.value.copy(variants = allVariants)
     }
 
     fun removeVariant(variant: ProductVariantData) {
