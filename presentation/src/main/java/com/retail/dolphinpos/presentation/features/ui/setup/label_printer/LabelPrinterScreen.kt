@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -26,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -33,15 +35,18 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
+import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -51,18 +56,27 @@ fun LabelPrinterScreen(
 ) {
     val context = LocalContext.current
     val viewState by viewModel.viewState.collectAsStateWithLifecycle()
-    
+
     var searchQuery by remember { mutableStateOf("") }
     var showVariantDialog by remember { mutableStateOf(false) }
-    var selectedProductForVariants by remember { mutableStateOf<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>(null) }
+    var selectedProductForVariants by remember {
+        mutableStateOf<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>(
+            null
+        )
+    }
     var showPrintDialog by remember { mutableStateOf(false) }
-    var discoveredPrinters by remember { mutableStateOf<List<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo>>(emptyList()) }
+    var discoveredPrinters by remember {
+        mutableStateOf<List<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo>>(
+            emptyList()
+        )
+    }
     var selectedVariants by remember { mutableStateOf<List<LabelPrintingVariantModel>>(emptyList()) }
-    
+
     // USB Permission handling
-    val usbPermissionAction = "com.retail.dolphinpos.presentation.features.ui.setup.printer.USB_PERMISSION"
+    val usbPermissionAction =
+        "com.retail.dolphinpos.presentation.features.ui.setup.printer.USB_PERMISSION"
     var usbPermissionReceiver: BroadcastReceiver? by remember { mutableStateOf(null) }
-    
+
     // Filter products based on search query
     val filteredProducts = remember(searchQuery, viewState.products) {
         if (searchQuery.isEmpty()) {
@@ -70,18 +84,24 @@ fun LabelPrinterScreen(
         } else {
             viewState.products.filter {
                 it.name?.contains(searchQuery, ignoreCase = true) == true ||
-                it.barCode?.contains(searchQuery, ignoreCase = true) == true
+                        it.barCode?.contains(searchQuery, ignoreCase = true) == true
             }
         }
     }
-    
+
     // Handle ViewEffects
     LaunchedEffect(Unit) {
+
+        checkUsbPermission(context, viewModel, usbPermissionAction) { receiver ->
+            usbPermissionReceiver = receiver
+        }
+
         viewModel.viewEffect.collectLatest { effect ->
             when (effect) {
                 is LabelPrintingViewEffect.NavigateToBack -> {
                     navController.navigateUp()
                 }
+
                 is LabelPrintingViewEffect.ShowErrorSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,
@@ -89,6 +109,7 @@ fun LabelPrinterScreen(
                         iconRes = R.drawable.cross_red
                     ) {}
                 }
+
                 is LabelPrintingViewEffect.ShowInformationSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,
@@ -96,6 +117,7 @@ fun LabelPrinterScreen(
                         iconRes = R.drawable.info_icon
                     ) {}
                 }
+
                 is LabelPrintingViewEffect.ShowSuccessSnackBar -> {
                     DialogHandler.showDialog(
                         message = effect.message,
@@ -103,6 +125,7 @@ fun LabelPrinterScreen(
                         iconRes = R.drawable.success_circle_icon
                     ) {}
                 }
+
                 is LabelPrintingViewEffect.Loading -> {
                     if (effect.isLoading) {
                         Loader.show("Please wait...")
@@ -110,6 +133,7 @@ fun LabelPrinterScreen(
                         Loader.hide()
                     }
                 }
+
                 is LabelPrintingViewEffect.ShowPrintDialog -> {
                     if (effect.printers.isNotEmpty()) {
                         discoveredPrinters = effect.printers
@@ -122,11 +146,13 @@ fun LabelPrinterScreen(
                         ) {}
                     }
                 }
+
                 is LabelPrintingViewEffect.CheckAndSearchPrinters -> {
                     checkUsbPermission(context, viewModel, usbPermissionAction) { receiver ->
                         usbPermissionReceiver = receiver
                     }
                 }
+
                 is LabelPrintingViewEffect.ShowDialog -> {
                     DialogHandler.showDialog(
                         message = effect.message,
@@ -137,7 +163,7 @@ fun LabelPrinterScreen(
             }
         }
     }
-    
+
     // Cleanup USB receiver
     DisposableEffect(Unit) {
         onDispose {
@@ -151,50 +177,35 @@ fun LabelPrinterScreen(
             Loader.hide()
         }
     }
-    
+
     // Update selected variants from viewState
     LaunchedEffect(viewState.selectedVariants) {
         selectedVariants = viewState.selectedVariants
     }
-    
+
+    // Function to navigate to home
+    val navigateToHome = {
+        navController.navigate("home") {
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(colorResource(id = R.color.light_grey))
-            .padding(6.dp)
+
     ) {
         // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 6.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = { navController.navigateUp() },
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = Color.Red,
-                        shape = RoundedCornerShape(20.dp)
-                    )
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_delete),
-                    contentDescription = "Back",
-                    tint = colorResource(id = R.color.light_grey)
-                )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            BaseText(
-                text = "Label Printing",
-                fontSize = 20f,
-                fontFamily = GeneralSans,
-                fontWeight = FontWeight.Bold,
-                color = colorResource(id = R.color.colorTextLightMode)
-            )
-        }
-        
+        HeaderAppBarWithBack(
+            title = "Label Printer Setup",
+            onBackClick = navigateToHome
+        )
+
         // Two cards side by side
         Row(
             modifier = Modifier
@@ -223,9 +234,9 @@ fun LabelPrinterScreen(
                         fontSize = 14f,
                         fontFamily = GeneralSans,
                         fontWeight = FontWeight.Medium,
-                        //color = colorResource(id = R.color.colorDarkRedBoth)
+                        color = colorResource(id = R.color.black)
                     )
-                    
+
                     // Product Autocomplete
                     ProductAutocomplete(
                         searchQuery = searchQuery,
@@ -241,7 +252,7 @@ fun LabelPrinterScreen(
                                 ) {}
                                 return@ProductAutocomplete
                             }
-                            if (product.variants != null /*&& product.variants.isNotEmpty()*/) {
+                            if (product.variants != null /*&& (product.variants.size<0)*/) {
                                 selectedProductForVariants = product
                                 showVariantDialog = true
                             } else {
@@ -259,16 +270,16 @@ fun LabelPrinterScreen(
                             }
                         }
                     )
-                    
+
                     Spacer(modifier = Modifier.height(20.dp))
-                    
+
                     // Print Button
                     BaseButton(
                         text = "Print",
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(45.dp),
-                        backgroundColor = Color.Green,
+                        backgroundColor = colorResource(R.color.primary),
                         textColor = Color.White,
                         onClick = {
                             viewModel.onPrintClicked()
@@ -277,7 +288,7 @@ fun LabelPrinterScreen(
                     )
                 }
             }
-            
+
             // Right Card (60% width) - Barcode Labels Grid
             Card(
                 modifier = Modifier
@@ -310,7 +321,7 @@ fun LabelPrinterScreen(
             }
         }
     }
-    
+
     // Variant Selection Dialog
     if (showVariantDialog && selectedProductForVariants != null) {
         VariantSelectionDialog(
@@ -324,7 +335,7 @@ fun LabelPrinterScreen(
             }
         )
     }
-    
+
     // Print Dialog
     if (showPrintDialog) {
         PrintDialog(
@@ -347,18 +358,18 @@ fun ProductAutocomplete(
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
-    
+
     val filtered = remember(searchQuery, products) {
         if (searchQuery.length >= 3) {
             products.filter {
                 it.name?.contains(searchQuery, ignoreCase = true) == true ||
-                it.barCode?.contains(searchQuery, ignoreCase = true) == true
+                        it.barCode?.contains(searchQuery, ignoreCase = true) == true
             }
         } else {
             emptyList()
         }
     }
-    
+
     Column {
         BaseOutlinedEditTextSmallHeight(
             value = searchQuery,
@@ -369,7 +380,7 @@ fun ProductAutocomplete(
             placeholder = "Choose Product",
             modifier = Modifier.fillMaxWidth()
         )
-        
+
         // Dropdown
         if (showDropdown && filtered.isNotEmpty()) {
             Card(
@@ -418,63 +429,126 @@ fun BarcodeLabelItem(
             .fillMaxWidth()
             .aspectRatio(1f),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.light_grey)),
+        colors = CardDefaults.cardColors(containerColor = colorResource(id = R.color.white)),
         border = BorderStroke(1.dp, colorResource(id = R.color.borderOutline))
     ) {
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
+            // Remove button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = onRemove,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove",
+                        tint = Color.Red,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .padding(8.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Remove button
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(
-                        onClick = onRemove,
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Remove",
-                            tint = Color.Red,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-                
+
+                Spacer(modifier = Modifier.height(20.dp))
                 // Barcode info
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    BaseText(
-                        text = variant.productName,
-                        fontSize = 12f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 2,
-                        color = Color.Black
-                    )
-                    variant.variantName?.let {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                         BaseText(
-                            text = it,
-                            fontSize = 10f,
+                            text = variant.productName,
+                            fontSize = 12f,
                             fontFamily = GeneralSans,
-                            color = Color.Gray,
-                            maxLines = 1
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            color = Color.Black
+                        )
+                        variant.variantName?.let {
+                            BaseText(
+                                text = " - $it",
+                                fontSize = 12f,
+                                fontFamily = GeneralSans,
+                                color = Color.Black,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 25.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BaseText(
+                            text = "Cash",
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            color = Color.Black
+                        )
+                        BaseText(
+                            text = "Card",
+                            fontSize = 12f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 2,
+                            color = Color.Black
                         )
                     }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 25.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BaseText(
+                            text = "\$${variant.cashPrice}",
+                            fontSize = 16f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            color = Color.Black
+                        )
+                        BaseText(
+                            text = "\$${variant.cardPrice}",
+                            fontSize = 16f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            color = Color.Black
+                        )
+                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_barcode_printer),
+                        contentDescription = "barcode",
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                    )
+
+
                     BaseText(
-                        text = "Qty: ${variant.quantity}",
-                        fontSize = 10f,
+                        text = variant.barcode,
+                        fontSize = 12f,
                         fontFamily = GeneralSans,
-                        color = Color.Gray
+                        color = Color.Black,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -490,7 +564,7 @@ fun VariantSelectionDialog(
     onVariantsSelected: (List<LabelPrintingVariantModel>) -> Unit
 ) {
     var selectedVariants by remember { mutableStateOf<Set<Int>>(emptySet()) }
-    
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -515,10 +589,11 @@ fun VariantSelectionDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     BaseText(
-                        text = product.name ?: "Select Variants",
+                        text = "  Select Variants",
                         fontSize = 18f,
                         fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(
@@ -527,7 +602,7 @@ fun VariantSelectionDialog(
                         )
                     }
                 }
-                
+
                 // Variants List
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -539,7 +614,7 @@ fun VariantSelectionDialog(
                     items(variants.size) { index ->
                         val variant = variants[index]
                         val isSelected = selectedVariants.contains(index)
-                        
+
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -566,7 +641,8 @@ fun VariantSelectionDialog(
                                     text = variant.variantName ?: variant.productName,
                                     fontSize = 14f,
                                     fontFamily = GeneralSans,
-                                    fontWeight = FontWeight.Medium
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black
                                 )
                                 BaseText(
                                     text = "Barcode: ${variant.barcode}",
@@ -578,7 +654,7 @@ fun VariantSelectionDialog(
                         }
                     }
                 }
-                
+
                 // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -589,7 +665,7 @@ fun VariantSelectionDialog(
                         onClick = onDismiss,
                         modifier = Modifier.height(44.dp)
                     ) {
-                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans)
+                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans, color = colorResource(R.color.gray_neutral))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
@@ -604,7 +680,12 @@ fun VariantSelectionDialog(
                             containerColor = colorResource(id = R.color.primary)
                         )
                     ) {
-                        BaseText(text = "Add", fontSize = 14f, fontFamily = GeneralSans, color = Color.White)
+                        BaseText(
+                            text = "Add",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -619,8 +700,12 @@ fun PrintDialog(
     onDismiss: () -> Unit,
     onPrinterSelected: (com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo) -> Unit
 ) {
-    var selectedPrinter by remember { mutableStateOf<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo?>(null) }
-    
+    var selectedPrinter by remember {
+        mutableStateOf<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo?>(
+            null
+        )
+    }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -643,11 +728,11 @@ fun PrintDialog(
                     fontFamily = GeneralSans,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 // Printer Dropdown
                 var expanded by remember { mutableStateOf(false) }
                 val printerNames = listOf("Select Printer") + printers.map { it.modelName }
-                
+
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = it }
@@ -672,7 +757,14 @@ fun PrintDialog(
                         printerNames.forEachIndexed { index, name ->
                             if (index == 0) {
                                 DropdownMenuItem(
-                                    text = { BaseText(text = name, fontSize = 14f, fontFamily = GeneralSans) },
+                                    text = {
+                                        BaseText(
+                                            text = name,
+                                            fontSize = 14f,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black
+                                        )
+                                    },
                                     onClick = {
                                         selectedPrinter = null
                                         expanded = false
@@ -680,7 +772,14 @@ fun PrintDialog(
                                 )
                             } else {
                                 DropdownMenuItem(
-                                    text = { BaseText(text = name, fontSize = 14f, fontFamily = GeneralSans) },
+                                    text = {
+                                        BaseText(
+                                            text = name,
+                                            fontSize = 14f,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Black
+                                        )
+                                    },
                                     onClick = {
                                         selectedPrinter = printers[index - 1]
                                         expanded = false
@@ -690,7 +789,7 @@ fun PrintDialog(
                         }
                     }
                 }
-                
+
                 // Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -700,7 +799,7 @@ fun PrintDialog(
                         onClick = onDismiss,
                         modifier = Modifier.height(44.dp)
                     ) {
-                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans)
+                        BaseText(text = "Cancel", fontSize = 14f, fontFamily = GeneralSans, color = colorResource(R.color.gray_neutral))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Button(
@@ -713,7 +812,12 @@ fun PrintDialog(
                             containerColor = colorResource(id = R.color.primary)
                         )
                     ) {
-                        BaseText(text = "Print", fontSize = 14f, fontFamily = GeneralSans, color = Color.White)
+                        BaseText(
+                            text = "Print",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            color = Color.White
+                        )
                     }
                 }
             }
@@ -729,7 +833,7 @@ fun checkUsbPermission(
 ) {
     val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     val brotherDevices = usbManager.deviceList.values.filter { it.vendorId == 0x04F9 }
-    
+
     if (brotherDevices.isEmpty()) {
         DialogHandler.showDialog(
             message = "No Brother printer found. Please connect a Brother printer via USB.",
@@ -738,38 +842,48 @@ fun checkUsbPermission(
         ) {}
         return
     }
-    
+
     // Check if any device needs permission
     val devicesNeedingPermission = brotherDevices.filter { !usbManager.hasPermission(it) }
-    
+
     if (devicesNeedingPermission.isEmpty()) {
         // All devices have permission, proceed with search
         viewModel.startSearchUSBPrinter(context)
         return
     }
-    
+
     // Request permission for the first device that needs it
     val deviceToRequest = devicesNeedingPermission.first()
-    
+
     val filter = IntentFilter(permissionAction)
     val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == permissionAction) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
-                
+
                 if (granted && device != null) {
                     // Permission granted, now search for printers
                     viewModel.startSearchUSBPrinter(context)
                 } else {
-                    // Permission denied
-                    DialogHandler.showDialog(
-                        message = "USB permission denied. Please grant USB permission to access the printer.",
-                        buttonText = "OK",
-                        iconRes = R.drawable.cross_red
-                    ) {}
+
+                    try {
+                        if(usbManager.hasPermission(device)) {
+                            viewModel.startSearchUSBPrinter(context)
+                        } else {
+                            // Permission denied
+                            DialogHandler.showDialog(
+                                message = "USB permission denied. Please grant USB permission to access the printer.",
+                                buttonText = "OK",
+                                iconRes = R.drawable.cross_red
+                            ) {}
+                        }
+
+                    }catch ( e : Exception){
+                        // ignore
+                    }
                 }
-                
+
                 try {
                     context?.unregisterReceiver(this)
                 } catch (e: Exception) {
@@ -778,16 +892,16 @@ fun checkUsbPermission(
             }
         }
     }
-    
+
     ContextCompat.registerReceiver(
         context,
         usbPermissionReceiver,
         filter,
         ContextCompat.RECEIVER_NOT_EXPORTED
     )
-    
+
     onReceiverCreated(usbPermissionReceiver)
-    
+
     // Request permission
     val permissionIntent = PendingIntent.getBroadcast(
         context,

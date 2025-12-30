@@ -22,7 +22,7 @@ class LabelBitmapGenerator @Inject constructor(
 ) {
 
     fun createLabelBitmapFromLayout(label: Label): Bitmap {
-        val widthDp = 370f
+        val widthDp = 386f
         val heightDp = 260f
         val widthPx = TypedValue.applyDimension(
             TypedValue.COMPLEX_UNIT_DIP, widthDp, context.resources.displayMetrics
@@ -39,7 +39,7 @@ class LabelBitmapGenerator @Inject constructor(
 
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG).apply {
             color = Color.BLACK
-            textSize = 22f
+            textSize = 25f
             textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT
         }
@@ -101,7 +101,7 @@ class LabelBitmapGenerator @Inject constructor(
         }
 
         // Barcode
-        val barcodeBitmap = generateBarcodeBitmap(label.barcode, 400, 100)
+        val barcodeBitmap = generateBarcodeBitmap(label.barcode, 500, 120)
         barcodeBitmap?.let {
             val barcodeY = 165f
             canvas.drawBitmap(it, (widthPx - it.width) / 2f, barcodeY, null)
