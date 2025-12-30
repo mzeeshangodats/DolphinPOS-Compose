@@ -103,6 +103,7 @@ private fun filterNumericInput(input: String): String {
 fun CreateProductScreen(
     navController: NavController,
     preferenceManager: PreferenceManager,
+    productId: Int? = null,
     onNavigateBack: () -> Unit,
     viewModel: CreateProductViewModel = hiltViewModel()
 ) {
@@ -110,12 +111,28 @@ fun CreateProductScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf("Product Details") } // Default to "Product Details"
 
+    // Load product data if productId is provided (update mode)
+    LaunchedEffect(productId) {
+        productId?.let { id ->
+            viewModel.loadProduct(id)
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.uiEvent.collect { event ->
             when (event) {
                 is CreateProductUiEvent.ProductCreated -> {
                     DialogHandler.showDialog(
                         message = "Product created successfully!",
+                        buttonText = "OK",
+                        iconRes = R.drawable.success_circle_icon
+                    ) {
+                        navController.popBackStack()
+                    }
+                }
+                is CreateProductUiEvent.ProductUpdated -> {
+                    DialogHandler.showDialog(
+                        message = "Product updated successfully!",
                         buttonText = "OK",
                         iconRes = R.drawable.success_circle_icon
                     ) {
@@ -162,7 +179,7 @@ fun CreateProductScreen(
     ) {
         // Header App Bar
         HeaderAppBarWithBack(
-            title = "Create Product",
+            title = if (productId != null) "Update Product" else "Create Product",
             onBackClick = onNavigateBack
         )
 
@@ -486,7 +503,7 @@ fun CreateProductScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         BaseText(
-                            text = if (uiState.isLoading) "Saving..." else "Save Product",
+                            text = if (uiState.isLoading) "Saving..." else if (productId != null) "Update Product" else "Save Product",
                             fontSize = 16f,
                             fontWeight = FontWeight.Medium,
                             fontFamily = GeneralSans,
@@ -741,7 +758,8 @@ fun ProductDetailsSection(
                 BaseOutlinedEditTextSmallHeight(
                     value = plu,
                     onValueChange = onPluChange,
-                    placeholder = "Enter PLU"
+                    placeholder = "Enter PLU",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
             }
         }
@@ -760,15 +778,7 @@ fun ProductDetailsSection(
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
-            placeholder = {
-                Text(
-                    text = "Enter Description",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.Light,
-                        color = Color.Gray,
-                        fontSize = 11.sp // Smaller font for placeholder
-                    ))},
+            placeholder = { Text("Enter description") },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp).padding(bottom = 15.dp),
@@ -1282,7 +1292,7 @@ fun VariantTableHeader() {
             contentAlignment = Alignment.Center
         ) {
             BaseText(
-                text = "Price",
+                text = "Cash Price",
                 fontSize = 12f,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = GeneralSans,
@@ -1294,7 +1304,7 @@ fun VariantTableHeader() {
             contentAlignment = Alignment.Center
         ) {
             BaseText(
-                text = "Dual Price Card",
+                text = "Card Price",
                 fontSize = 12f,
                 fontWeight = FontWeight.SemiBold,
                 fontFamily = GeneralSans,
@@ -1526,7 +1536,7 @@ fun VariantTableRow(
                 painter = painterResource(id = R.drawable.ic_delete),
                 contentDescription = "Delete variant",
                 modifier = Modifier.size(24.dp),
-                tint = Color.Unspecified
+                tint = colorResource(id = R.color.primary)
             )
         }
     }

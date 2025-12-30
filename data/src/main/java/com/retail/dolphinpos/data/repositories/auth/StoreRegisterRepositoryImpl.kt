@@ -209,10 +209,20 @@ class StoreRegisterRepositoryImpl(
         productId: Int
     ) {
         try {
+            // productId is the server ID, need to find the local product ID
+            val productEntity = productsDao.getProductByServerId(productId)
+                ?: productsDao.getProductById(productId)
+            
+            if (productEntity == null) {
+                // Product not found, skip image insertion
+                return
+            }
+            
+            val localProductId = productEntity.id
             val productImagesEntities = productImageList?.map { productImage ->
                 ProductMapper.toProductImagesEntity(
                     productImages = productImage,
-                    productId = productId
+                    productId = localProductId
                 )
             }
             productImagesEntities?.let { productsDao.insertProductImages(it) }
@@ -226,10 +236,20 @@ class StoreRegisterRepositoryImpl(
         productId: Int
     ) {
         try {
+            // productId is the server ID, need to find the local product ID
+            val productEntity = productsDao.getProductByServerId(productId)
+                ?: productsDao.getProductById(productId)
+            
+            if (productEntity == null) {
+                // Product not found, skip variant insertion
+                return
+            }
+            
+            val localProductId = productEntity.id
             val productVariantEntities = productVariantList.map { productVariant ->
                 ProductMapper.toProductVariantsEntity(
                     variants = productVariant,
-                    productId = productId
+                    productId = localProductId
                 )
             }
             productsDao.insertVariants(productVariantEntities)
@@ -243,10 +263,19 @@ class StoreRegisterRepositoryImpl(
         variantId: Int
     ) {
         try {
+            // variantId is the server ID, need to find the local variant ID
+            val variantEntity = productsDao.getVariantByServerId(variantId)
+            
+            if (variantEntity == null) {
+                // Variant not found, skip image insertion
+                return
+            }
+            
+            val localVariantId = variantEntity.id
             val variantImagesEntities = variantImageList.map { variantImage ->
                 ProductMapper.toVariantImagesEntity(
                     variantImages = variantImage,
-                    variantId = variantId
+                    variantId = localVariantId
                 )
             }
             productsDao.insertVariantImages(variantImagesEntities)
@@ -257,9 +286,19 @@ class StoreRegisterRepositoryImpl(
 
     override suspend fun insertVendorDetailsIntoLocalDB(vendor: Vendor, productId: Int) {
         try {
+            // productId is the server ID, need to find the local product ID
+            val productEntity = productsDao.getProductByServerId(productId)
+                ?: productsDao.getProductById(productId)
+            
+            if (productEntity == null) {
+                // Product not found, skip vendor insertion
+                return
+            }
+            
+            val localProductId = productEntity.id
             productsDao.insertVendor(
                 ProductMapper.toProductVendorEntity(
-                    vendor = vendor, productId = productId
+                    vendor = vendor, productId = localProductId
                 )
             )
         } catch (e: Exception) {

@@ -17,6 +17,7 @@ import com.retail.dolphinpos.domain.model.home.bottom_nav.BottomMenu
 import com.retail.dolphinpos.domain.model.home.create_order.CardDetails
 import com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem
 import com.retail.dolphinpos.domain.model.home.create_order.CreateOrderRequest
+import com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
 import com.retail.dolphinpos.domain.model.home.cart.DiscountType
 import com.retail.dolphinpos.domain.model.home.cart.getProductDiscountedPrice
@@ -45,6 +46,9 @@ import com.retail.dolphinpos.domain.model.home.cart.price
 import com.retail.dolphinpos.data.customer_display.CustomerDisplayManager
 import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
+import com.retail.dolphinpos.domain.model.auth.cash_denomination.BatchCloseRequest
+import com.retail.dolphinpos.domain.model.auth.select_registers.request.VerifyRegisterRequest
+import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,6 +61,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -88,6 +93,7 @@ class HomeViewModel @Inject constructor(
     private val dynamicTaxCalculationUseCase: DynamicTaxCalculationUseCase,
     private val posSyncRepository: PosSyncRepository,
     private val scheduleSyncUseCase: ScheduleSyncUseCase,
+    private val apiService: ApiService,
 ) : ViewModel() {
 
     var isCashSelected: Boolean = false
@@ -153,6 +159,33 @@ class HomeViewModel @Inject constructor(
 
     // PAX Terminal Session ID (stored as domain model, not SDK type)
     private var currentSessionId: String? = null
+
+    // Closing amount dialog state
+    private val _showClosingAmountDialog = MutableStateFlow(false)
+    val showClosingAmountDialog: StateFlow<Boolean> = _showClosingAmountDialog.asStateFlow()
+
+    // Split Payment state management
+    private val _isSplitPaymentEnabled = MutableStateFlow(false)
+    val isSplitPaymentEnabled: StateFlow<Boolean> = _isSplitPaymentEnabled.asStateFlow()
+
+    private val _splitTransactions = MutableStateFlow<List<CheckoutSplitPaymentTransactions>>(emptyList())
+    val splitTransactions: StateFlow<List<CheckoutSplitPaymentTransactions>> = _splitTransactions.asStateFlow()
+
+    // Store the original total amount when split payment is enabled (to prevent recalculation issues)
+    private val _splitPaymentTotal = MutableStateFlow(0.0)
+    
+    private val _remainingAmount = MutableStateFlow(0.0)
+    val remainingAmount: StateFlow<Double> = _remainingAmount.asStateFlow()
+
+    private val _currentTenderAmount = MutableStateFlow(0.0)
+    val currentTenderAmount: StateFlow<Double> = _currentTenderAmount.asStateFlow()
+
+    // Payment success dialog state for split payments
+    private val _showSplitPaymentSuccessDialog = MutableStateFlow(false)
+    val showSplitPaymentSuccessDialog: StateFlow<Boolean> = _showSplitPaymentSuccessDialog.asStateFlow()
+
+    private val _splitPaymentSuccessData = MutableStateFlow<Pair<Double, Double>>(Pair(0.0, 0.0)) // (tendered, remaining)
+    val splitPaymentSuccessData: StateFlow<Pair<Double, Double>> = _splitPaymentSuccessData.asStateFlow()
 
     init {
         loadCategories()
@@ -441,6 +474,27 @@ class HomeViewModel @Inject constructor(
             } else {
                 originalChargeTax  // Otherwise use product's original value
             }
+
+            // Calculate tax dynamically based on variant's actual prices
+            // Get tax details from Room database
+            val locationId = preferenceManager.getOccupiedLocationID()
+            val taxDetails = runBlocking(Dispatchers.IO) {
+                try {
+                    verifyPinRepository.getTaxDetailsByLocationId(locationId)
+                } catch (e: Exception) {
+                    Log.e("HomeViewModel", "Error getting tax details: ${e.message}")
+                    emptyList()
+                }
+            }
+
+            // Calculate tax based on variant's actual prices (not product's base price)
+            val taxResult = dynamicTaxCalculationUseCase.calculateTax(
+                cardPrice = variantCardPrice,
+                cashPrice = variantCashPrice,
+                taxDetails = taxDetails,
+                chargeTaxOnThisProduct = newChargeTax
+            )
+
             cartItemList.add(
                 CartItem(
                     productId = product.id,
@@ -455,8 +509,8 @@ class HomeViewModel @Inject constructor(
                     selectedPrice = variantCardPrice,  // Always add new products at card price
                     productTaxDetails = variant.taxDetails
                         ?: product.taxDetails,  // Prefer variant tax details, fallback to product
-                    cardTax = product.cardTax.toDouble(),  // Use product's cardTax for variants
-                    cashTax = product.cashTax.toDouble()  // Use product's cashTax for variants
+                    cardTax = taxResult.cardTax,  // Calculate tax based on variant's actual price
+                    cashTax = taxResult.cashTax  // Calculate tax based on variant's actual price
                 )
             )
         }
@@ -1774,6 +1828,24 @@ class HomeViewModel @Inject constructor(
                     Log.d("HomeViewModel", "Tax is exempt - taxDetails will be empty")
                 }
 
+                // Check if split payment is enabled and has transactions
+                val splitPaymentTransactions = if (_isSplitPaymentEnabled.value && _splitTransactions.value.isNotEmpty()) {
+                    // Update invoice numbers for all split transactions
+                    _splitTransactions.value.map { transaction ->
+                        transaction.copy(invoiceNo = invoiceNo)
+                    }
+                } else {
+                    null
+                }
+
+                // Use split payment transactions if available, otherwise use single payment method
+                val finalPaymentMethod = if (splitPaymentTransactions != null && splitPaymentTransactions.isNotEmpty()) {
+                    // Use first payment method as primary (for backward compatibility)
+                    splitPaymentTransactions.first().paymentMethod
+                } else {
+                    paymentMethod
+                }
+
                 val orderRequest = CreateOrderRequest(
                     orderNumber = orderNumber,
                     invoiceNo = invoiceNo,
@@ -1782,7 +1854,7 @@ class HomeViewModel @Inject constructor(
                     locationId = locationId,
                     storeRegisterId = registerId,
                     batchNo = batch.batchNo,
-                    paymentMethod = paymentMethod,
+                    paymentMethod = finalPaymentMethod,  // Use primary payment method from split or single payment
                     isRedeemed = false,
                     source = "point-of-sale",
                     items = orderItems,
@@ -1795,6 +1867,7 @@ class HomeViewModel @Inject constructor(
                     rewardDiscount = 0.0,
                     userId = userId,
                     cardDetails = cardDetails,
+                    transactions = splitPaymentTransactions,  // Include split payment transactions if available
                     taxDetails = orderTaxDetails,  // Empty list if tax is exempt, otherwise store-level default taxes breakdown
                     taxExempt = isTaxExempt  // Use tax exempt state
                 )
@@ -1914,6 +1987,9 @@ class HomeViewModel @Inject constructor(
 
                 // Clear cart after successful order creation
                 clearCart()
+                
+                // Reset split payment state after order is created
+                resetSplitPayment()
 
             } catch (e: Exception) {
                 Log.e("Order", "Failed to create order: ${e.message}")
@@ -1982,11 +2058,49 @@ class HomeViewModel @Inject constructor(
 
     private fun handleTransactionSuccess(cardDetails: CardDetails) {
         viewModelScope.launch {
-            _homeUiEvent.emit(
-                HomeUiEvent.ShowSuccess("Transaction Successful!")
-            )
-            delay(100)
-            createOrder("card", cardDetails)
+            // Check if split payment is enabled
+            if (_isSplitPaymentEnabled.value) {
+                // For split payments, add the card payment and show dialog
+                // Order will be created when dialog DONE is clicked
+                val remaining = _remainingAmount.value
+                val finalTenderAmount = if (remaining > 0.01) remaining else _currentTenderAmount.value
+                
+                if (finalTenderAmount > 0) {
+                    // Add the final card payment to split transactions
+                    val finalTransaction = CheckoutSplitPaymentTransactions(
+                        invoiceNo = null, // Will be set when order is created
+                        paymentMethod = "card",
+                        amount = finalTenderAmount,
+                        cardDetails = cardDetails,
+                        baseAmount = null,
+                        taxAmount = null,
+                        dualPriceAmount = null
+                    )
+                    
+                    val updatedTransactions = _splitTransactions.value.toMutableList()
+                    updatedTransactions.add(finalTransaction)
+                    _splitTransactions.value = updatedTransactions
+                    
+                    // Update remaining amount: remaining = total - sum of all paid amounts
+                    val total = _splitPaymentTotal.value
+                    val newTotalPaid = updatedTransactions.sumOf { it.amount }
+                    val newRemaining = total - newTotalPaid
+                    _remainingAmount.value = newRemaining.coerceAtLeast(0.0)
+                    
+                    // Show success dialog (order will be created when DONE is clicked)
+                    _splitPaymentSuccessData.value = Pair(finalTenderAmount, _remainingAmount.value)
+                    _showSplitPaymentSuccessDialog.value = true
+                    
+                    Log.d("SplitPayment", "Card payment added: $finalTenderAmount, Remaining: ${_remainingAmount.value}")
+                }
+            } else {
+                // Regular (non-split) card payment - create order immediately
+                _homeUiEvent.emit(
+                    HomeUiEvent.ShowSuccess("Transaction Successful!")
+                )
+                delay(100)
+                createOrder("card", cardDetails)
+            }
         }
     }
 
@@ -2040,6 +2154,329 @@ class HomeViewModel @Inject constructor(
         } catch (e: Exception) {
             // If any error occurs, default to 0.0
             0.0
+        }
+    }
+
+    /**
+     * Check batch status when user lands on home screen
+     * Returns true if batch is closed (needs closing dialog), false if active/open, null if error
+     */
+    suspend fun checkBatchStatus(): Boolean? {
+        Log.d("HomeViewModel", "checkBatchStatus() called")
+        
+        if (!preferenceManager.isLogin() || !preferenceManager.getRegister()) {
+            Log.d("HomeViewModel", "Not logged in or no register, skipping batch status check")
+            return null // Skip if not logged in or no register
+        }
+
+        val batchNo = preferenceManager.getBatchNo()
+        if (batchNo.isEmpty()) {
+            Log.d("HomeViewModel", "No batch number found, skipping batch status check")
+            return null // Skip if no batch number
+        }
+
+        val isNetworkAvailable = networkMonitor.isNetworkAvailable()
+        Log.d("HomeViewModel", "Network available: $isNetworkAvailable")
+
+        return try {
+            val batchReport = if (isNetworkAvailable) {
+                // Call API directly to get latest batch status from server
+                Log.d("HomeViewModel", "Calling getBatchReport API directly with batchNo: $batchNo")
+                apiService.getBatchReport(batchNo)
+            } else {
+                // No network - get from local database via repository
+                Log.d("HomeViewModel", "No network, getting batch report from local database with batchNo: $batchNo")
+                batchReportRepository.getBatchReport(batchNo)
+            }
+            
+            val status = batchReport.data.status?.lowercase()
+            val isClosed = batchReport.data.closed != null
+
+            Log.d("HomeViewModel", "Batch status response - status: $status, isClosed: $isClosed, source: ${if (isNetworkAvailable) "API" else "Local DB"}")
+
+            when {
+                status == "closed" || isClosed -> {
+                    // Batch is closed, show closing amount dialog
+                    Log.d("HomeViewModel", "Batch is closed, will show closing dialog")
+                    true
+                }
+                else -> {
+                    // Batch is active/open, do nothing
+                    Log.d("HomeViewModel", "Batch is active/open")
+                    false
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error checking batch status: ${e.message}", e)
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Verify register status when user lands on home screen
+     * Returns true if register is occupied, false if active (needs batch close), null if error
+     */
+    suspend fun verifyRegisterStatus(): Boolean? {
+        if (!networkMonitor.isNetworkAvailable()) {
+            return null // Skip verification if no network
+        }
+
+        if (!preferenceManager.isLogin() || !preferenceManager.getRegister()) {
+            return null // Skip if not logged in or no register
+        }
+
+        return try {
+            val storeId = preferenceManager.getStoreID()
+            val locationId = preferenceManager.getOccupiedLocationID()
+            val storeRegisterId = preferenceManager.getOccupiedRegisterID()
+
+            if (storeId == 0 || locationId == 0 || storeRegisterId == 0) {
+                Log.d("HomeViewModel", "Invalid register information")
+                return null
+            }
+
+            val verifyRequest = VerifyRegisterRequest(
+                storeId = storeId,
+                locationId = locationId,
+                storeRegisterId = storeRegisterId
+            )
+            val response = storeRegistersRepository.verifyStoreRegister(verifyRequest)
+            val status = response.data.status.lowercase()
+
+            Log.d("HomeViewModel", "Register status: $status")
+
+            when (status) {
+                "occupied" -> {
+                    // Register is occupied, do nothing
+                    true
+                }
+                "active" -> {
+                    // Register is active, need to close batch
+                    false
+                }
+                else -> {
+                    // Unknown status, do nothing
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error verifying register: ${e.message}", e)
+            null
+        }
+    }
+
+    /**
+     * Show closing amount dialog
+     */
+    fun showClosingAmountDialog() {
+        _showClosingAmountDialog.value = true
+    }
+
+    /**
+     * Hide closing amount dialog
+     */
+    fun hideClosingAmountDialog() {
+        _showClosingAmountDialog.value = false
+    }
+
+    /**
+     * Show batch closed dialog
+     */
+    fun showBatchClosedDialog() {
+        viewModelScope.launch {
+            _homeUiEvent.emit(HomeUiEvent.ShowBatchClosedDialog)
+        }
+    }
+
+    /**
+     * Toggle split payment mode on/off
+     * When enabled, initializes split payment with 50:50 default split
+     * Note: Should be called from UI thread to access current cardTotal
+     */
+    fun toggleSplitPayment(totalAmount: Double) {
+        val newState = !_isSplitPaymentEnabled.value
+        _isSplitPaymentEnabled.value = newState
+
+        if (newState) {
+            // Initialize split payment mode
+            // Store the original total amount to use consistently (prevents recalculation issues)
+            _splitPaymentTotal.value = totalAmount
+            _currentTenderAmount.value = totalAmount / 2.0 // Default 50:50 split
+            // Calculate remaining amount: remaining = total - tender amount
+            _remainingAmount.value = totalAmount - _currentTenderAmount.value
+            _splitTransactions.value = emptyList()
+            Log.d("SplitPayment", "Split payment enabled. Total: $totalAmount, Initial Tender: ${_currentTenderAmount.value}, Remaining: ${_remainingAmount.value}")
+        } else {
+            // Reset split payment state
+            _splitTransactions.value = emptyList()
+            _splitPaymentTotal.value = 0.0
+            _remainingAmount.value = 0.0
+            _currentTenderAmount.value = 0.0
+            _showSplitPaymentSuccessDialog.value = false
+            Log.d("SplitPayment", "Split payment disabled. State reset.")
+        }
+    }
+
+    /**
+     * Update current tender amount in split payment mode
+     * Automatically calculates remaining amount
+     * Remaining = Total - Tender Amount (simplified calculation)
+     */
+    fun updateSplitPaymentTenderAmount(tenderAmount: Double) {
+        if (!_isSplitPaymentEnabled.value) return
+
+        // Use the stored split payment total (not current cardTotal which might change)
+        val total = _splitPaymentTotal.value
+
+        // Cap tender amount at total amount
+        val cappedTender = tenderAmount.coerceIn(0.0, total)
+        _currentTenderAmount.value = cappedTender
+
+        // Calculate remaining amount: remaining = total - tender amount
+        val remaining = total - cappedTender
+        _remainingAmount.value = remaining.coerceAtLeast(0.0)
+
+        Log.d("SplitPayment", "Tender updated: $cappedTender, Remaining: ${_remainingAmount.value}, Total: $total")
+    }
+
+    /**
+     * Add a split payment transaction (cash or card)
+     * Stores payment locally and updates remaining amount
+     * Returns true if payment was added successfully, false if validation failed
+     */
+    fun addSplitPayment(paymentMethod: String, tenderAmount: Double, cardDetails: CardDetails? = null): Boolean {
+        if (!_isSplitPaymentEnabled.value) {
+            Log.e("SplitPayment", "Cannot add split payment: Split payment mode is not enabled")
+            return false
+        }
+
+        // Use the stored split payment total (not current cardTotal which might change)
+        val total = _splitPaymentTotal.value
+        val totalPaid = _splitTransactions.value.sumOf { it.amount }
+        val remaining = total - totalPaid
+
+        // Validate: tender amount must be greater than 0
+        if (tenderAmount <= 0) {
+            Log.e("SplitPayment", "Tender amount must be greater than 0")
+            return false
+        }
+
+        // Automatically cap tender amount at remaining amount if it exceeds (no error shown)
+        val cappedTenderAmount = tenderAmount.coerceIn(0.0, remaining)
+        if (cappedTenderAmount < tenderAmount) {
+            Log.d("SplitPayment", "Tender amount ($tenderAmount) capped to remaining amount ($remaining)")
+        }
+
+        // Create split payment transaction (use capped amount)
+        val transaction = CheckoutSplitPaymentTransactions(
+            invoiceNo = null, // Will be set when order is created
+            paymentMethod = paymentMethod.lowercase(),
+            amount = cappedTenderAmount, // Use capped amount
+            cardDetails = cardDetails,
+            baseAmount = null,
+            taxAmount = null,
+            dualPriceAmount = null
+        )
+
+        // Add to split transactions list
+        val updatedTransactions = _splitTransactions.value.toMutableList()
+        updatedTransactions.add(transaction)
+        _splitTransactions.value = updatedTransactions
+
+            // Update remaining amount: remaining = total - sum of all paid amounts
+            val newTotalPaid = updatedTransactions.sumOf { it.amount }
+            val newRemaining = total - newTotalPaid
+            _remainingAmount.value = newRemaining.coerceAtLeast(0.0)
+
+            // Don't update tender here - it will be updated when dialog DONE is clicked
+
+        // Show success dialog
+        _splitPaymentSuccessData.value = Pair(cappedTenderAmount, _remainingAmount.value)
+        _showSplitPaymentSuccessDialog.value = true
+
+        Log.d("SplitPayment", "Payment added: $paymentMethod, Amount: $cappedTenderAmount, Remaining: ${_remainingAmount.value}")
+
+        return true
+    }
+
+    /**
+     * Dismiss split payment success dialog
+     * Called when user clicks DONE on payment success dialog
+     * Updates tender amount to remaining amount and sets remaining to 0
+     */
+    fun dismissSplitPaymentSuccessDialog() {
+        _showSplitPaymentSuccessDialog.value = false
+        
+        // After payment is done, set tender amount to remaining amount and remaining to 0
+        val currentRemaining = _remainingAmount.value
+        _currentTenderAmount.value = currentRemaining
+        _remainingAmount.value = 0.0
+        
+        Log.d("SplitPayment", "Dialog dismissed. Tender set to: $currentRemaining, Remaining set to: 0.0")
+    }
+
+    /**
+     * Check if split payment is complete (remaining amount is 0)
+     */
+    fun isSplitPaymentComplete(): Boolean {
+        return _isSplitPaymentEnabled.value && _remainingAmount.value <= 0.01 // Use epsilon for floating point comparison
+    }
+
+    /**
+     * Reset split payment state (called after order is created or cancelled)
+     */
+    fun resetSplitPayment() {
+        _isSplitPaymentEnabled.value = false
+        _splitTransactions.value = emptyList()
+        _splitPaymentTotal.value = 0.0
+        _remainingAmount.value = 0.0
+        _currentTenderAmount.value = 0.0
+        _showSplitPaymentSuccessDialog.value = false
+        Log.d("SplitPayment", "Split payment state reset")
+    }
+
+    /**
+     * Close batch with closing cash amount
+     */
+    suspend fun closeBatch(closingCashAmount: Double?): Result<Unit> {
+        return try {
+            val batchNo = preferenceManager.getBatchNo()
+            if (batchNo.isEmpty()) {
+                return Result.failure(Exception("No batch number found"))
+            }
+
+            val userId = preferenceManager.getUserID()
+            val storeId = preferenceManager.getStoreID()
+            val locationId = preferenceManager.getOccupiedLocationID()
+
+            val batchCloseRequest = BatchCloseRequest(
+                cashierId = userId,
+                closedBy = userId,
+                closingCashAmount = closingCashAmount ?: 0.0,
+                locationId = locationId,
+                orders = emptyList(),
+                paxBatchNo = "",
+                storeId = storeId
+            )
+
+            val result = batchReportRepository.batchClose(batchNo, batchCloseRequest)
+            
+            result.map { response ->
+                Log.d("HomeViewModel", "Batch closed successfully: ${response.message}")
+                
+                // Close batch in local database using PosSyncRepository
+                posSyncRepository.closeBatch(batchNo, closingCashAmount)
+                
+                // Update preferences
+                preferenceManager.setBatchStatus("closed")
+                preferenceManager.setRegister(false)
+                
+                Unit
+            }
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error closing batch: ${e.message}", e)
+            Result.failure(e)
         }
     }
 }

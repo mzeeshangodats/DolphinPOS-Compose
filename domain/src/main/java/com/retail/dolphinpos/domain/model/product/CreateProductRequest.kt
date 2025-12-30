@@ -44,6 +44,7 @@ data class ProductVariantRequest(
     val cashPrice: String? = null,
     val cardPrice: String? = null,
     val locationId: Int,
-    val images: List<ProductImageRequest>? = null
+    val images: List<ProductImageRequest>? = null,
+    val id: Int? = null // Variant ID for update mode only
 )
 

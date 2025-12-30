@@ -98,6 +98,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.launch
+import android.util.Log
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -173,8 +175,16 @@ fun HomeScreen(
     val isSearchingPLU by viewModel.isSearchingPLU.collectAsStateWithLifecycle()
     val priceCheckProduct by viewModel.priceCheckProduct.collectAsStateWithLifecycle()
 
+    // Split Payment state
+    val isSplitPaymentEnabled by viewModel.isSplitPaymentEnabled.collectAsStateWithLifecycle()
+    val remainingAmount by viewModel.remainingAmount.collectAsStateWithLifecycle()
+    val currentTenderAmount by viewModel.currentTenderAmount.collectAsStateWithLifecycle()
+    val showSplitPaymentSuccessDialog by viewModel.showSplitPaymentSuccessDialog.collectAsStateWithLifecycle()
+    val splitPaymentSuccessData by viewModel.splitPaymentSuccessData.collectAsStateWithLifecycle()
+
     var selectedCategory by remember { mutableStateOf<CategoryData?>(null) }
     var paymentAmount by remember { mutableStateOf("0.00") }
+    var splitTenderAmount by remember { mutableStateOf("0.00") } // For split payment tender input
     var searchQuery by remember { mutableStateOf("") }
 
     // Barcode scanner state
@@ -205,7 +215,7 @@ fun HomeScreen(
             viewModel.homeUiEvent.collect { event ->
                 // Double-check we're still on home screen before processing events
                 if (navController.currentBackStackEntry?.destination?.route == "home") {
-                    when (event) {
+                     when (event) {
                         is HomeUiEvent.ShowLoading -> Loader.show("Please wait...")
                         is HomeUiEvent.HideLoading -> Loader.hide()
                         is HomeUiEvent.ShowError -> {
@@ -250,6 +260,47 @@ fun HomeScreen(
                                 popUpTo(0) { inclusive = true }
                             }
                         }
+
+                        HomeUiEvent.ShowClosingAmountDialog -> {
+                            // Dialog state is handled by showClosingAmountDialog StateFlow
+                            // No action needed here
+                        }
+
+                        HomeUiEvent.NavigateToSelectRegister -> {
+                            navController.navigate("selectRegister") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+
+                        HomeUiEvent.ShowBatchClosedDialog -> {
+                            DialogHandler.showDialog(
+                                message = "Your batch has been closed by someone from portal",
+                                buttonText = "Dismiss"
+                            ) {
+                                // Navigate to cash denomination screen after dismiss
+                                val userId = preferenceManager.getUserID()
+                                val storeId = preferenceManager.getStoreID()
+                                val registerId = preferenceManager.getOccupiedRegisterID()
+
+                                if (userId != 0 && storeId != 0 && registerId != 0) {
+                                    navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                }
+                            }
+                        }
+
+                        HomeUiEvent.NavigateToCashDenomination -> {
+                            val userId = preferenceManager.getUserID()
+                            val storeId = preferenceManager.getStoreID()
+                            val registerId = preferenceManager.getOccupiedRegisterID()
+
+                            if (userId != 0 && storeId != 0 && registerId != 0) {
+                                navController.navigate("cashDenomination/$userId/$storeId/$registerId") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -272,9 +323,74 @@ fun HomeScreen(
         }
     }
 
+    // Sync split tender amount with ViewModel state when split payment is enabled
+    LaunchedEffect(isSplitPaymentEnabled, currentTenderAmount, remainingAmount) {
+        if (isSplitPaymentEnabled) {
+            splitTenderAmount = viewModel.formatAmount(currentTenderAmount)
+        }
+    }
+
     // Load hold carts when screen loads
     LaunchedEffect(Unit) {
         viewModel.loadHoldCarts()
+    }
+
+    // Handle closing amount dialog state
+    val showClosingAmountDialog by viewModel.showClosingAmountDialog.collectAsStateWithLifecycle()
+
+    // Check batch status first, then register status when landing on home screen (only once)
+    LaunchedEffect(currentRoute) {
+        Log.d("HomeScreen", "LaunchedEffect triggered, currentRoute: $currentRoute, showClosingAmountDialog: $showClosingAmountDialog")
+        if (currentRoute == "home" && !showClosingAmountDialog) {
+            Log.d("HomeScreen", "Starting batch status check")
+            coroutineScope.launch {
+                // Step 1: First check batch status
+                Log.d("HomeScreen", "Calling checkBatchStatus()")
+                val batchStatus = viewModel.checkBatchStatus()
+                Log.d("HomeScreen", "Batch status result: $batchStatus")
+
+                when (batchStatus) {
+                    true -> {
+                        // Batch status is "closed", show message dialog and stop here
+                        // Event will be emitted from ViewModel
+                        viewModel.showBatchClosedDialog()
+                        return@launch
+                    }
+                    false -> {
+                        // Batch is active/open, proceed to Step 2: check register status
+                        val registerStatus = viewModel.verifyRegisterStatus()
+                        when (registerStatus) {
+                            false -> {
+                                // Register status is "active", show closing amount dialog
+                                viewModel.showClosingAmountDialog()
+                            }
+                            true -> {
+                                // Register status is "occupied", do nothing
+                            }
+                            null -> {
+                                // Error or skip, do nothing
+                            }
+                        }
+                    }
+                    null -> {
+                        // Error checking batch status, proceed to Step 2: check register status as fallback
+                        val registerStatus = viewModel.verifyRegisterStatus()
+                        when (registerStatus) {
+                            false -> {
+                                // Register status is "active", show closing amount dialog
+                                viewModel.showClosingAmountDialog()
+                            }
+                            true -> {
+                                // Register status is "occupied", do nothing
+                            }
+                            null -> {
+                                // Error or skip, do nothing
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Barcode scanner detection - debounce input to detect complete barcode scans
@@ -417,29 +533,119 @@ fun HomeScreen(
                     Column(
                         modifier = Modifier.align(Alignment.BottomCenter)
                     ) {
-                        // Payment Input
-                        PaymentInput(
-                            paymentAmount = paymentAmount,
-                            onPaymentAmountChange = { paymentAmount = it },
-                            onRemoveDigit = {
-                                val current =
-                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
-                                        ?: 0.0
-                                val newAmount = viewModel.removeLastDigit(current)
-                                paymentAmount = viewModel.formatAmount(newAmount)
-                            })
+                        // Conditional Payment Input: Show split payment fields or single payment field
+                        if (isSplitPaymentEnabled) {
+                            // Split Payment UI: Two fields (Amount Tender and Amount Remaining)
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Split Payment Heading
+                                BaseText(
+                                    text = "Split Payment",
+                                    fontSize = 14f,
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Amount Tender Field (Editable)
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        BaseText(
+                                            text = "Amount Tender",
+                                            fontSize = 12f,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Gray,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                        PaymentInput(
+                                            paymentAmount = splitTenderAmount,
+                                            onPaymentAmountChange = { newValue ->
+                                                splitTenderAmount = newValue
+                                                val tenderAmount = newValue.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+                                                viewModel.updateSplitPaymentTenderAmount(tenderAmount)
+                                            },
+                                            onRemoveDigit = {
+                                                val current =
+                                                    splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                                        ?: 0.0
+                                                val newAmount = viewModel.removeLastDigit(current)
+                                                splitTenderAmount = viewModel.formatAmount(newAmount)
+                                                viewModel.updateSplitPaymentTenderAmount(newAmount)
+                                            },
+                                            showLabel = false // Hide label in split payment mode
+                                        )
+                                    }
+
+                                    // Amount Remaining Field (Read-only)
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        BaseText(
+                                            text = "Amount Remaining",
+                                            fontSize = 12f,
+                                            fontFamily = GeneralSans,
+                                            color = Color.Gray,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                        PaymentInput(
+                                            paymentAmount = viewModel.formatAmount(remainingAmount),
+                                            onPaymentAmountChange = { }, // Read-only
+                                            onRemoveDigit = { }, // Read-only
+                                            enabled = false, // Make it read-only
+                                            showLabel = false // Hide label in split payment mode
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Single Payment Input (Default)
+                            PaymentInput(
+                                paymentAmount = paymentAmount,
+                                onPaymentAmountChange = { paymentAmount = it },
+                                onRemoveDigit = {
+                                    val current =
+                                        paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                            ?: 0.0
+                                    val newAmount = viewModel.removeLastDigit(current)
+                                    paymentAmount = viewModel.formatAmount(newAmount)
+                                })
+                        }
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        // Keypad
+                        // Keypad - Handle both split payment and regular payment modes
                         Keypad(isCashSelected = viewModel.isCashSelected, onDigitClick = { digit ->
-                            val current =
-                                paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
-                                    ?: 0.0
-                            val newAmount = viewModel.appendDigitToAmount(current, digit)
-                            paymentAmount = viewModel.formatAmount(newAmount)
+                            if (isSplitPaymentEnabled) {
+                                // Split payment mode: Update tender amount
+                                val current =
+                                    splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val newAmount = viewModel.appendDigitToAmount(current, digit)
+                                splitTenderAmount = viewModel.formatAmount(newAmount)
+                                viewModel.updateSplitPaymentTenderAmount(newAmount)
+                            } else {
+                                // Regular payment mode
+                                val current =
+                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val newAmount = viewModel.appendDigitToAmount(current, digit)
+                                paymentAmount = viewModel.formatAmount(newAmount)
+                            }
                         }, onAmountSet = { amount ->
-                            paymentAmount = viewModel.formatAmount(amount)
+                            if (isSplitPaymentEnabled) {
+                                splitTenderAmount = viewModel.formatAmount(amount)
+                                viewModel.updateSplitPaymentTenderAmount(amount)
+                            } else {
+                                paymentAmount = viewModel.formatAmount(amount)
+                            }
                         }, onExactAmount = {
                             // Calculate card total using PricingSummaryUseCase to match the displayed value
                             val summaryResult =
@@ -452,130 +658,218 @@ fun HomeScreen(
                                 )
                             paymentAmount = viewModel.formatAmount(summaryResult.cardTotal)
                         }, onCashSelected = {
-                            // Set cash as selected payment method
-                            viewModel.isCashSelected = true
-                            viewModel.updateCartPrices()
-
-                            // Validate and proceed with order creation
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                // Validate payment amount
-                                val currentPayment =
-                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
-                                        ?: 0.0
-
-                                // Use small epsilon for floating point comparison
-                                val epsilon = 0.01
-
-                                // Use PricingSummaryUseCase to get the correct cash total (matching displayed value)
-                                val summaryResult =
-                                    viewModel.pricingSummaryUseCase.calculatePricingSummary(
-                                        cartItems = cartItems,
-                                        subtotal = subtotal,
-                                        cashDiscountTotal = cashDiscountTotal,
-                                        orderDiscountTotal = orderDiscountTotal,
-                                        isCashSelected = true // Cash is selected at this point
-                                    )
-                                val cashTotalAmount = summaryResult.cashTotal
-
-                                if (cashTotalAmount > 0 && currentPayment < 0.01) {
-                                    // Switch to card when payment amount is zero
-                                    viewModel.isCashSelected = false
-                                    viewModel.updateCartPrices()
-                                    // Show error message only, don't auto-fill
+                            // Handle split payment or regular payment
+                            if (isSplitPaymentEnabled) {
+                                // Split payment mode: Add cash payment
+                                if (cartItems.isEmpty()) {
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
-                                        buttonText = "OK",
-                                        iconRes = R.drawable.info_icon
-                                    )
-                                } else if (cashTotalAmount > 0 && currentPayment < cashTotalAmount - epsilon) {
-                                    // Show error if payment is less than total
-                                    DialogHandler.showDialog(
-                                        message = "Payment amount ($${
-                                            viewModel.formatAmount(
-                                                currentPayment
-                                            )
-                                        }) is less than total amount ($${
-                                            viewModel.formatAmount(
-                                                cashTotalAmount
-                                            )
-                                        }). Please enter the full amount.",
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Payment equals or exceeds total amount - proceed with cash order
-                                    // Calculate amount tendered (change) if payment is greater than cash total
-                                    amountTendered = if (currentPayment > cashTotalAmount) {
-                                        currentPayment - cashTotalAmount
+                                    val tenderAmount = splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+
+                                    if (tenderAmount <= 0) {
+                                        DialogHandler.showDialog(
+                                            message = "Tender amount cannot be zero. Please enter the tender amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
                                     } else {
-                                        0.0 // Exact payment, no change
+                                        // Add split payment (don't create order here - order will be created when dialog DONE is clicked and remaining is 0)
+                                        // ViewModel will automatically cap tender amount at remaining amount if it exceeds
+                                        val success = viewModel.addSplitPayment("cash", tenderAmount)
+                                        if (!success) {
+                                            DialogHandler.showDialog(
+                                                message = "Failed to add payment. Please try again.",
+                                                buttonText = "OK",
+                                                iconRes = R.drawable.info_icon
+                                            )
+                                        }
+                                        // Note: Order creation happens in dialog DONE handler when remaining is 0
                                     }
-                                    viewModel.createOrder("cash")
+                                }
+                            } else {
+                                // Regular payment mode
+                                // Set cash as selected payment method
+                                viewModel.isCashSelected = true
+                                viewModel.updateCartPrices()
+
+                                // Validate and proceed with order creation
+                                if (cartItems.isEmpty()) {
+                                    DialogHandler.showDialog(
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
+                                        buttonText = "OK",
+                                        iconRes = R.drawable.info_icon
+                                    )
+                                } else {
+                                    // Validate payment amount
+                                    val currentPayment =
+                                        paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                            ?: 0.0
+
+                                    // Use small epsilon for floating point comparison
+                                    val epsilon = 0.01
+
+                                    // Use PricingSummaryUseCase to get the correct cash total (matching displayed value)
+                                    val summaryResult =
+                                        viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                                            cartItems = cartItems,
+                                            subtotal = subtotal,
+                                            cashDiscountTotal = cashDiscountTotal,
+                                            orderDiscountTotal = orderDiscountTotal,
+                                            isCashSelected = true // Cash is selected at this point
+                                        )
+                                    val cashTotalAmount = summaryResult.cashTotal
+
+                                    if (cashTotalAmount > 0 && currentPayment < 0.01) {
+                                        // Switch to card when payment amount is zero
+                                        viewModel.isCashSelected = false
+                                        viewModel.updateCartPrices()
+                                        // Show error message only, don't auto-fill
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount cannot be zero. Please enter the payment amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else if (cashTotalAmount > 0 && currentPayment < cashTotalAmount - epsilon) {
+                                        // Show error if payment is less than total
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount ($${
+                                                viewModel.formatAmount(
+                                                    currentPayment
+                                                )
+                                            }) is less than total amount ($${
+                                                viewModel.formatAmount(
+                                                    cashTotalAmount
+                                                )
+                                            }). Please enter the full amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else {
+                                        // Payment equals or exceeds total amount - proceed with cash order
+                                        // Calculate amount tendered (change) if payment is greater than cash total
+                                        amountTendered = if (currentPayment > cashTotalAmount) {
+                                            currentPayment - cashTotalAmount
+                                        } else {
+                                            0.0 // Exact payment, no change
+                                        }
+                                        viewModel.createOrder("cash")
+                                    }
                                 }
                             }
                         }, onCardSelected = {
-                            // Set card as selected payment method
-                            viewModel.isCashSelected = false
-                            viewModel.updateCartPrices()
-
-                            // Validate and proceed with order creation
-                            if (cartItems.isEmpty()) {
-                                DialogHandler.showDialog(
-                                    message = "Cart is empty. Please add items to cart before creating an order.",
-                                    buttonText = "OK",
-                                    iconRes = R.drawable.info_icon
-                                )
-                            } else {
-                                // Validate payment amount
-                                val currentPayment =
-                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
-                                        ?: 0.0
-
-                                // Use small epsilon for floating point comparison
-                                val epsilon = 0.01
-
-                                if (cardTotal > 0 && currentPayment < 0.01) {
-                                    // Show error message only, don't auto-fill
+                            // Handle split payment or regular payment
+                            if (isSplitPaymentEnabled) {
+                                // Split payment mode: Add card payment
+                                if (cartItems.isEmpty()) {
                                     DialogHandler.showDialog(
-                                        message = "Payment amount cannot be zero. Please enter the payment amount.",
-                                        buttonText = "OK",
-                                        iconRes = R.drawable.info_icon
-                                    )
-                                } else if (cardTotal > 0 && currentPayment < cardTotal - epsilon) {
-                                    // Show error if payment is less than total
-                                    DialogHandler.showDialog(
-                                        message = "Payment amount ($${
-                                            viewModel.formatAmount(
-                                                currentPayment
-                                            )
-                                        }) is less than total amount ($${
-                                            viewModel.formatAmount(
-                                                cardTotal
-                                            )
-                                        }). Please enter the full amount.",
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
                                         buttonText = "OK",
                                         iconRes = R.drawable.info_icon
                                     )
                                 } else {
-                                    // Payment equals or exceeds total amount - proceed with card payment
-                                    viewModel.initCardPayment()
+                                    val tenderAmount = splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
+
+                                    if (tenderAmount <= 0) {
+                                        DialogHandler.showDialog(
+                                            message = "Tender amount cannot be zero. Please enter the tender amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else {
+                                        // For card payments in split mode, check if this is the final payment
+                                        // Card payment can only be used as the final payment (when remaining equals tender)
+                                        // ViewModel will automatically cap tender amount at remaining amount if it exceeds
+                                        if ((remainingAmount - tenderAmount) <= 0.01 || tenderAmount >= remainingAmount) {
+                                            // This is the final payment - process card payment through terminal
+                                            // The order will be created after card payment succeeds (in handleTransactionSuccess)
+                                            // All split transactions will be included in a single order
+                                            viewModel.initCardPayment()
+                                        } else {
+                                            DialogHandler.showDialog(
+                                                message = "Card payment can only be used as the final payment in split mode. Please use cash for partial payments.",
+                                                buttonText = "OK",
+                                                iconRes = R.drawable.info_icon
+                                            )
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Regular payment mode
+                                // Set card as selected payment method
+                                viewModel.isCashSelected = false
+                                viewModel.updateCartPrices()
+
+                                // Validate and proceed with order creation
+                                if (cartItems.isEmpty()) {
+                                    DialogHandler.showDialog(
+                                        message = "Cart is empty. Please add items to cart before creating an order.",
+                                        buttonText = "OK",
+                                        iconRes = R.drawable.info_icon
+                                    )
+                                } else {
+                                    // Validate payment amount
+                                    val currentPayment =
+                                        paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                            ?: 0.0
+
+                                    // Use small epsilon for floating point comparison
+                                    val epsilon = 0.01
+
+                                    if (cardTotal > 0 && currentPayment < 0.01) {
+                                        // Show error message only, don't auto-fill
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount cannot be zero. Please enter the payment amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else if (cardTotal > 0 && currentPayment < cardTotal - epsilon) {
+                                        // Show error if payment is less than total
+                                        DialogHandler.showDialog(
+                                            message = "Payment amount ($${
+                                                viewModel.formatAmount(
+                                                    currentPayment
+                                                )
+                                            }) is less than total amount ($${
+                                                viewModel.formatAmount(
+                                                    cardTotal
+                                                )
+                                            }). Please enter the full amount.",
+                                            buttonText = "OK",
+                                            iconRes = R.drawable.info_icon
+                                        )
+                                    } else {
+                                        // Payment equals or exceeds total amount - proceed with card payment
+                                        viewModel.initCardPayment()
+                                    }
                                 }
                             }
                         }, onClear = {
-                            paymentAmount = "0.00"
+                            if (isSplitPaymentEnabled) {
+                                splitTenderAmount = "0.00"
+                                viewModel.updateSplitPaymentTenderAmount(0.0)
+                            } else {
+                                paymentAmount = "0.00"
+                            }
                         }, onNext = {
                             // Round off payment amount to nearest integer
-                            val currentPayment =
-                                paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
-                                    ?: 0.0
-                            val roundedAmount = kotlin.math.round(currentPayment).toDouble()
-                            paymentAmount = viewModel.formatAmount(roundedAmount)
+                            if (isSplitPaymentEnabled) {
+                                val currentPayment =
+                                    splitTenderAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val roundedAmount = kotlin.math.round(currentPayment).toDouble()
+                                splitTenderAmount = viewModel.formatAmount(roundedAmount)
+                                viewModel.updateSplitPaymentTenderAmount(roundedAmount)
+                            } else {
+                                val currentPayment =
+                                    paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                                        ?: 0.0
+                                val roundedAmount = kotlin.math.round(currentPayment).toDouble()
+                                paymentAmount = viewModel.formatAmount(roundedAmount)
+                            }
                         })
                     }
                 }
@@ -761,6 +1055,33 @@ fun HomeScreen(
             }
         }
 
+        // Split Payment Success Dialog
+        if (showSplitPaymentSuccessDialog) {
+            Dialog(onDismissRequest = { }) {
+                SplitPaymentSuccessDialog(
+                    amountTendered = viewModel.formatAmount(splitPaymentSuccessData.first),
+                    amountDue = viewModel.formatAmount(splitPaymentSuccessData.second),
+                    onDone = {
+                        // Get remaining amount before dismissing (for setting tender and checking if order should be created)
+                        val remainingBeforeDismiss = remainingAmount
+
+                        // Dismiss dialog and update tender/remaining amounts
+                        viewModel.dismissSplitPaymentSuccessDialog()
+
+                        // Update UI tender amount to the remaining amount (which is now 0, but we use the value before dismiss)
+                        splitTenderAmount = viewModel.formatAmount(remainingBeforeDismiss)
+
+                        // If remaining amount was 0 (meaning all payments are complete), create order now
+                        // This happens when the final payment dialog is dismissed
+                        if (remainingBeforeDismiss <= 0.01) {
+                            // Create order with all split transactions
+                            viewModel.createOrder("cash") // Payment method doesn't matter for split, transactions array will be used
+                        }
+                    }
+                )
+            }
+        }
+
         // Price Check Dialog
         if (showPriceCheckDialog) {
             PriceCheckDialog(
@@ -773,6 +1094,31 @@ fun HomeScreen(
                     viewModel.searchProductForPriceCheck(query)
                 },
                 viewModel = viewModel
+            )
+        }
+
+        // Closing Amount Dialog
+        if (showClosingAmountDialog) {
+            ClosingAmountDialog(
+                onDismiss = { viewModel.hideClosingAmountDialog() },
+                onConfirm = { closingAmount ->
+                    coroutineScope.launch {
+                        viewModel.closeBatch(closingAmount).onSuccess {
+                            viewModel.hideClosingAmountDialog()
+                            // Navigate to select register screen
+                            navController.navigate("selectRegister") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }.onFailure { exception ->
+                            DialogHandler.showDialog(
+                                message = "Failed to close batch: ${exception.message}",
+                                buttonText = "OK"
+                            ) {
+                                viewModel.hideClosingAmountDialog()
+                            }
+                        }
+                    }
+                }
             )
         }
     }
@@ -1427,20 +1773,26 @@ fun CartItemRow(
 
 @Composable
 fun PaymentInput(
-    paymentAmount: String, onPaymentAmountChange: (String) -> Unit, onRemoveDigit: () -> Unit
+    paymentAmount: String,
+    onPaymentAmountChange: (String) -> Unit,
+    onRemoveDigit: () -> Unit,
+    enabled: Boolean = true,
+    showLabel: Boolean = true
 ) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        BaseText(
-            text = stringResource(id = R.string.payment_amount),
-            color = Color.Black,
-            fontSize = 12f,
-            fontFamily = GeneralSans,
-            fontWeight = FontWeight.Medium
-        )
+        if (showLabel) {
+            BaseText(
+                text = stringResource(id = R.string.payment_amount),
+                color = Color.Black,
+                fontSize = 12f,
+                fontFamily = GeneralSans,
+                fontWeight = FontWeight.Medium
+            )
 
-        Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+        }
 
         Row(
             modifier = Modifier
@@ -1459,6 +1811,9 @@ fun PaymentInput(
         ) {
             BasicTextField(
                 value = paymentAmount, onValueChange = { newValue ->
+                    // Only allow changes if enabled
+                    if (!enabled) return@BasicTextField
+
                     // Prevent deletion below 0.00
                     val currentAmount =
                         paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
@@ -1479,16 +1834,19 @@ fun PaymentInput(
                             }
                         }
                     }, textStyle = TextStyle(
-                    fontFamily = GeneralSans, fontSize = 14.sp, color = Color.Black
+                    fontFamily = GeneralSans,
+                    fontSize = 14.sp,
+                    color = if (enabled) Color.Black else Color.Gray
                 ), cursorBrush = SolidColor(Color.Transparent), // Hide cursor
-                readOnly = true, // Prevent keyboard from opening
+                readOnly = !enabled, // Read-only when disabled
                 decorationBox = { innerTextField ->
                     innerTextField()
                 })
 
             IconButton(
                 onClick = {
-                    // Only allow removal if current amount is greater than 0.00
+                    // Only allow removal if enabled and current amount is greater than 0.00
+                    if (!enabled) return@IconButton
                     val currentAmount =
                         paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull() ?: 0.0
                     if (currentAmount > 0.0) {
@@ -1496,7 +1854,7 @@ fun PaymentInput(
                     }
                 },
                 modifier = Modifier.size(24.dp),
-                enabled = (paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
+                enabled = enabled && (paymentAmount.replace("$", "").replace(",", "").toDoubleOrNull()
                     ?: 0.0) > 0.0
             ) {
                 Icon(
@@ -2091,17 +2449,26 @@ fun ActionButtonsPanel(
     viewModel: HomeViewModel
 ) {
     val isTaxExempt by viewModel.isTaxExempt.collectAsStateWithLifecycle()
+    val isSplitPaymentEnabled by viewModel.isSplitPaymentEnabled.collectAsStateWithLifecycle()
+    // Collect required values from ViewModel for split payment calculation
+    val subtotal by viewModel.subtotal.collectAsStateWithLifecycle()
+    val cashDiscountTotal by viewModel.cashDiscountTotal.collectAsStateWithLifecycle()
+    val orderDiscountTotal by viewModel.orderDiscountTotal.collectAsStateWithLifecycle()
+
     Column(
         modifier = modifier
     ) {
         // Row 1
         ActionButtonRow(
-            rowIndex = 0, buttons = listOf(
+            rowIndex = 0,
+            buttons = listOf(
                 ActionButton("EBT"),
                 ActionButton("Split"),
                 ActionButton("Customer"),
                 ActionButton("Discount"),
-            ), onActionClick = { action ->
+            ),
+            isSplitPaymentEnabled = isSplitPaymentEnabled,
+            onActionClick = { action ->
                 when (action) {
                     "Discount" -> {
                         onShowOrderDiscountDialog()
@@ -2109,6 +2476,18 @@ fun ActionButtonsPanel(
 
                     "Customer" -> {
                         onShowAddCustomerDialog()
+                    }
+
+                    "Split" -> {
+                        // Get current card total for split payment initialization
+                        val summaryResult = viewModel.pricingSummaryUseCase.calculatePricingSummary(
+                            cartItems = cartItems,
+                            subtotal = subtotal,
+                            cashDiscountTotal = cashDiscountTotal,
+                            orderDiscountTotal = orderDiscountTotal,
+                            isCashSelected = false // Use card total for split payment
+                        )
+                        viewModel.toggleSplitPayment(summaryResult.cardTotal)
                     }
 
                     else -> {
@@ -2121,12 +2500,15 @@ fun ActionButtonsPanel(
 
         // Row 2
         ActionButtonRow(
-            rowIndex = 1, buttons = listOf(
+            rowIndex = 1,
+            buttons = listOf(
                 ActionButton("Custom Sales"),
                 ActionButton("PLU Search"),
                 ActionButton("Pay In/Out"),
                 ActionButton("Refund"),
-            ), onActionClick = { action ->
+            ),
+            isSplitPaymentEnabled = isSplitPaymentEnabled,
+            onActionClick = { action ->
                 when (action) {
                     "PLU Search" -> {
                         onShowPLUSearchDialog()
@@ -2142,12 +2524,15 @@ fun ActionButtonsPanel(
 
         // Row 3
         ActionButtonRow(
-            rowIndex = 2, buttons = listOf(
+            rowIndex = 2,
+            buttons = listOf(
                 ActionButton("Weight Scale"), ActionButton("Rewards"), ActionButton(
                     if (isTaxExempt) "Apply Tax" else "Tax-Exempt"
                 ), ActionButton("Void")
 
-            ), onActionClick = { action ->
+            ),
+            isSplitPaymentEnabled = isSplitPaymentEnabled,
+            onActionClick = { action ->
                 when (action) {
                     "Tax-Exempt", "Apply Tax" -> {
                         viewModel.toggleTaxExempt()
@@ -2170,6 +2555,7 @@ fun ActionButtonRow(
     rowIndex: Int = 0,
     modifier: Modifier = Modifier,
     buttons: List<ActionButton>,
+    isSplitPaymentEnabled: Boolean = false,
     onActionClick: (String) -> Unit
 ) {
     Row(
@@ -2180,13 +2566,19 @@ fun ActionButtonRow(
         horizontalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         buttons.forEachIndexed { buttonIndex, button ->
-            // Use custom red color background for Discount, Refund, Void, and Tax-Exempt buttons, default blue for others
-            val backgroundColor =
-                if (button.label == "Discount" || button.label == "Refund" || button.label == "Void" || button.label == "Tax-Exempt" || button.label == "Apply Tax") {
+            // Use custom red color background for Discount, Refund, Void, and Tax-Exempt buttons
+            // Green for Split button when enabled, default blue for others
+            val backgroundColor = when {
+                button.label == "Discount" || button.label == "Refund" || button.label == "Void" || button.label == "Tax-Exempt" || button.label == "Apply Tax" -> {
                     Color(0xFFDC3E42)
-                } else {
+                }
+                button.label == "Split" && isSplitPaymentEnabled -> {
+                    Color(0xFF4CAF50) // Green when split payment is enabled
+                }
+                else -> {
                     Color(0xFF043E7F)
                 }
+            }
 
             // Text color - white for all buttons
             val textColor = Color.White
@@ -3860,6 +4252,97 @@ fun PaymentSuccessUI(
     }
 }
 
+/**
+ * Split Payment Success Dialog
+ * Shows payment success message with Amount Tendered and Amount Due
+ */
+@Composable
+fun SplitPaymentSuccessDialog(
+    amountTendered: String,
+    amountDue: String,
+    onDone: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(5.dp),
+        elevation = CardDefaults.cardElevation(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        modifier = Modifier
+            .width(500.dp)
+            .height(350.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            // Green Checkmark Icon
+            Icon(
+                painter = painterResource(id = R.drawable.success_circle_icon),
+                contentDescription = "Success",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(80.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Payment Successful Text
+            BaseText(
+                text = "Payment Successful",
+                fontSize = 20f,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4CAF50),
+                fontFamily = GeneralSans
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Amount Tendered
+            BaseText(
+                text = "Amount Tendered: $amountTendered",
+                fontSize = 16f,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                fontFamily = GeneralSans
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Amount Due
+            BaseText(
+                text = "Amount Due: $amountDue",
+                fontSize = 16f,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                fontFamily = GeneralSans
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // Done Button
+            Button(
+                onClick = onDone,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF4CAF50)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                BaseText(
+                    text = "DONE",
+                    fontSize = 16f,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White,
+                    fontFamily = GeneralSans
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun PLUSearchDialog(
     onDismiss: () -> Unit,
@@ -4563,6 +5046,108 @@ fun PriceCheckDialog(
     // Auto-focus search input when dialog opens
     LaunchedEffect(Unit) {
         searchFocusRequester.requestFocus()
+    }
+}
+
+@Composable
+fun ClosingAmountDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (Double?) -> Unit
+) {
+    var closingAmount by remember { mutableStateOf("0.00") }
+
+    // Non-cancelable dialog - can only be dismissed via Cancel button
+    Dialog(onDismissRequest = {}) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Title
+                BaseText(
+                    text = "Close Batch",
+                    fontSize = 18F,
+                    color = colorResource(id = R.color.colorHint),
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Message
+                BaseText(
+                    text = "Enter closing cash amount",
+                    color = colorResource(id = R.color.cart_screen_btn_clr),
+                    fontSize = 14F,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Closing Amount Input
+                OutlinedTextField(
+                    value = closingAmount,
+                    onValueChange = { newValue ->
+                        // Allow only numbers and one decimal point
+                        val filtered = newValue.filter { it.isDigit() || it == '.' }
+                        if (filtered.count { it == '.' } <= 1) {
+                            closingAmount = filtered
+                        }
+                    },
+                    label = {
+                        BaseText(
+                            text = "Closing Amount",
+                            fontSize = 14f,
+                            fontFamily = GeneralSans,
+                            color = colorResource(id = R.color.primary),
+                        )
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colorResource(id = R.color.primary),
+                        unfocusedBorderColor = colorResource(id = R.color.borderOutline)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    textStyle = TextStyle(
+                        fontFamily = GeneralSans,
+                        fontSize = 16.sp
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Close Batch Button (non-cancelable dialog - only this button can close it)
+                Button(
+                    onClick = {
+                        val amount = closingAmount.toDoubleOrNull()
+                        onConfirm(amount)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.primary)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                ) {
+                    BaseText(
+                        text = "Close Batch",
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16F
+                    )
+                }
+            }
+        }
     }
 }
 

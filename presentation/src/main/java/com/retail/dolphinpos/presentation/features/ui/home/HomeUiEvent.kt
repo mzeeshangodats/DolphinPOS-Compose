@@ -13,4 +13,8 @@ sealed class HomeUiEvent {
     data class OrderCreatedSuccessfully(val message: String) : HomeUiEvent()
     data class PopulateCategoryList(val categoryList: List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData>) : HomeUiEvent()
     object NavigateToPinCode : HomeUiEvent()
+    object ShowClosingAmountDialog : HomeUiEvent()
+    object NavigateToSelectRegister : HomeUiEvent()
+    object ShowBatchClosedDialog : HomeUiEvent()
+    object NavigateToCashDenomination : HomeUiEvent()
 }
