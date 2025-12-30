@@ -28,7 +28,7 @@ import com.retail.dolphinpos.presentation.features.ui.setup.business_info.Busine
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
-import com.retail.dolphinpos.presentation.features.ui.setup.printer.LabelPrinterScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.label_printer.LabelPrinterScreen
 
 @Composable
 fun HardwareSetupScreen(

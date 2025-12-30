@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.printer
+package com.retail.dolphinpos.presentation.features.ui.setup.label_printer
 
 data class LabelPrintingVariantModel(
     val productId: Int,

@@ -1,12 +1,10 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.printer
+package com.retail.dolphinpos.presentation.features.ui.setup.label_printer
 
 import android.content.Context
-import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
-import com.retail.dolphinpos.domain.model.home.catrgories_products.Variant
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -29,7 +27,7 @@ sealed class LabelPrintingViewEffect {
 }
 
 data class LabelPrintingViewState(
-    val products: List<Products> = emptyList(),
+    val products: List<com.retail.dolphinpos.domain.model.home.catrgories_products.Products> = emptyList(),
     val selectedVariants: List<LabelPrintingVariantModel> = emptyList(),
     val isPrintButtonEnabled: Boolean = false
 )
@@ -60,7 +58,7 @@ class LabelPrintingViewModel @Inject constructor(
         }
     }
 
-    fun mapToLabelPrintingVariants(product: Products): List<LabelPrintingVariantModel> {
+    fun mapToLabelPrintingVariants(product: com.retail.dolphinpos.domain.model.home.catrgories_products.Products): List<LabelPrintingVariantModel> {
         val variants = product.variants ?: emptyList()
         return if (variants.isEmpty()) {
             // If no variants, create a single variant from the product itself

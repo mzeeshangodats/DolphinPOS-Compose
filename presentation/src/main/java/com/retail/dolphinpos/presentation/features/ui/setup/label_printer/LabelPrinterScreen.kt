@@ -1,4 +1,4 @@
-package com.retail.dolphinpos.presentation.features.ui.setup.printer
+package com.retail.dolphinpos.presentation.features.ui.setup.label_printer
 
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -35,7 +35,6 @@ import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseButton
 import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
-import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
 import com.retail.dolphinpos.presentation.R
@@ -53,7 +52,7 @@ fun LabelPrinterScreen(
     
     var searchQuery by remember { mutableStateOf("") }
     var showVariantDialog by remember { mutableStateOf(false) }
-    var selectedProductForVariants by remember { mutableStateOf<Products?>(null) }
+    var selectedProductForVariants by remember { mutableStateOf<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>(null) }
     var showPrintDialog by remember { mutableStateOf(false) }
     var discoveredPrinters by remember { mutableStateOf<List<DiscoveredPrinterInfo>>(emptyList()) }
     var selectedVariants by remember { mutableStateOf<List<LabelPrintingVariantModel>>(emptyList()) }
@@ -333,8 +332,8 @@ fun LabelPrinterScreen(
 fun ProductAutocomplete(
     searchQuery: String,
     onQueryChange: (String) -> Unit,
-    products: List<Products>,
-    onProductSelected: (Products) -> Unit
+    products: List<com.retail.dolphinpos.domain.model.home.catrgories_products.Products>,
+    onProductSelected: (com.retail.dolphinpos.domain.model.home.catrgories_products.Products) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     var showDropdown by remember { mutableStateOf(false) }
@@ -475,7 +474,7 @@ fun BarcodeLabelItem(
 
 @Composable
 fun VariantSelectionDialog(
-    product: Products,
+    product: com.retail.dolphinpos.domain.model.home.catrgories_products.Products,
     variants: List<LabelPrintingVariantModel>,
     onDismiss: () -> Unit,
     onVariantsSelected: (List<LabelPrintingVariantModel>) -> Unit
