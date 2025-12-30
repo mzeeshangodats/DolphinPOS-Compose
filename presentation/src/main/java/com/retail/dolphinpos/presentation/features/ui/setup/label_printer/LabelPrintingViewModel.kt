@@ -1,12 +1,17 @@
 package com.retail.dolphinpos.presentation.features.ui.setup.label_printer
 
 import android.content.Context
-import android.hardware.usb.UsbManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo
 import com.retail.dolphinpos.domain.repositories.home.HomeRepository
+import com.retail.dolphinpos.domain.usecases.label.CancelPrintJobUseCase
+import com.retail.dolphinpos.domain.usecases.label.GetAvailableLabelPrintersUseCase
+import com.retail.dolphinpos.domain.usecases.label.GetDualPricePercentageUseCase
+import com.retail.dolphinpos.domain.usecases.label.PrintLabelUseCase
+import com.retail.dolphinpos.presentation.features.ui.setup.label_printer.toLabels
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -34,7 +39,11 @@ data class LabelPrintingViewState(
 
 @HiltViewModel
 class LabelPrintingViewModel @Inject constructor(
-    private val homeRepository: HomeRepository
+    private val homeRepository: HomeRepository,
+    private val getAvailableLabelPrintersUseCase: GetAvailableLabelPrintersUseCase,
+    private val printLabelUseCase: PrintLabelUseCase,
+    private val getDualPricePercentageUseCase: GetDualPricePercentageUseCase,
+    private val cancelPrintJobUseCase: CancelPrintJobUseCase
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(LabelPrintingViewState())
@@ -49,41 +58,96 @@ class LabelPrintingViewModel @Inject constructor(
 
     private fun loadProducts() {
         viewModelScope.launch {
+            delay(50)
             try {
+                emitViewEffect(LabelPrintingViewEffect.Loading(true))
                 val products = homeRepository.getAllProducts()
                 _viewState.value = _viewState.value.copy(products = products)
+                emitViewEffect(LabelPrintingViewEffect.Loading(false))
             } catch (e: Exception) {
+                emitViewEffect(LabelPrintingViewEffect.Loading(false))
                 emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("Failed to load products: ${e.message}"))
             }
         }
     }
 
+    fun startSearchUSBPrinter(context: Context?) {
+        viewModelScope.launch {
+            if (context == null) return@launch
+            emitViewEffect(LabelPrintingViewEffect.Loading(true))
+            try {
+                val printers = getAvailableLabelPrintersUseCase()
+                emitViewEffect(LabelPrintingViewEffect.Loading(false))
+                
+                if (printers.isEmpty()) {
+                    emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("No Printers Discovered"))
+                } else {
+                    emitViewEffect(LabelPrintingViewEffect.ShowPrintDialog(printers))
+                }
+            } catch (e: Exception) {
+                emitViewEffect(LabelPrintingViewEffect.Loading(false))
+                val errorMessage = when {
+                    e.message?.contains("permission", ignoreCase = true) == true -> {
+                        "USB permission not granted. Please grant USB permission for the printer."
+                    }
+                    else -> {
+                        "Failed to search printers: ${e.message ?: "Unknown error"}"
+                    }
+                }
+                emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar(errorMessage))
+            }
+        }
+    }
+
     fun mapToLabelPrintingVariants(product: com.retail.dolphinpos.domain.model.home.catrgories_products.Products): List<LabelPrintingVariantModel> {
-        val variants = product.variants ?: emptyList()
-        return if (variants.isEmpty()) {
-            // If no variants, create a single variant from the product itself
-            listOf(
+        val labelVariants = mutableListOf<LabelPrintingVariantModel>()
+        val dualPricePercentage = getDualPricePercentageUseCase()
+
+        val price = product.price?.toDoubleOrNull() ?: 0.0
+        val discountedPrice = 0.0 // TODO: Get from product if discount field exists
+
+        if (product.variants?.isEmpty() == true) {
+            labelVariants.add(
                 LabelPrintingVariantModel(
                     productId = product.id,
                     productName = product.name ?: "",
                     variantId = null,
                     variantName = null,
+                    quantity = 1,
                     barcode = product.barCode ?: "",
-                    quantity = 1
+                    cashPrice = price,
+                    cardPrice = (price + (price * dualPricePercentage)).formatToTwoDecimals(),
+                    cardDiscountedPrice = (discountedPrice + (discountedPrice * dualPricePercentage)).formatToTwoDecimals(),
+                    isDiscounted = false, // TODO: Get from product if available
+                    //discountedPrice = discountedPrice,
+                    applyDualPrice = true
                 )
             )
-        } else {
-            variants.map { variant ->
+        }
+
+        product.variants?.map { variant ->
+            val variantPrice = variant.price?.toDoubleOrNull() ?: 0.0
+            val variantDiscountedPrice = 0.0 // TODO: Get from variant if discount field exists
+
+            labelVariants.add(
                 LabelPrintingVariantModel(
                     productId = product.id,
                     productName = product.name ?: "",
                     variantId = variant.id,
                     variantName = variant.title,
+                    quantity = 1,
                     barcode = variant.barCode ?: product.barCode ?: "",
-                    quantity = 1
+                    cashPrice = variantPrice,
+                    cardPrice = (variantPrice + (variantPrice * dualPricePercentage)).formatToTwoDecimals(),
+                    isDiscounted = false, // TODO: Get from variant if available
+                    //discountedPrice = variantDiscountedPrice,
+                    cardDiscountedPrice = (variantDiscountedPrice + (variantDiscountedPrice * dualPricePercentage)).formatToTwoDecimals(),
+                    applyDualPrice = true
                 )
-            }
+            )
         }
+
+        return labelVariants
     }
 
     fun onUpdateVariants(variants: List<LabelPrintingVariantModel>) {
@@ -98,51 +162,35 @@ class LabelPrintingViewModel @Inject constructor(
     }
 
     fun onPrintClicked() {
-        if (_viewState.value.selectedVariants.isEmpty()) {
-            emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("Please add variants to print"))
-            return
-        }
-        // Check for USB printers
-        emitViewEffect(LabelPrintingViewEffect.CheckAndSearchPrinters)
-    }
-
-    fun startSearchUSBPrinter(context: Context?) {
         viewModelScope.launch {
-            if (context == null) return@launch
-            emitViewEffect(LabelPrintingViewEffect.Loading(true))
-            try {
-                val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-                val brotherDevices = usbManager.deviceList.values.filter { it.vendorId == 0x04F9 }
-                
-                val printers = brotherDevices.map { device ->
-                    DiscoveredPrinterInfo(
-                        modelName = "${device.manufacturerName ?: "Brother"} ${device.productName ?: "Printer"}",
-                        address = device.deviceName ?: "",
-                        connectionType = "USB"
-                    )
-                }
-                
-                emitViewEffect(LabelPrintingViewEffect.Loading(false))
-                emitViewEffect(LabelPrintingViewEffect.ShowPrintDialog(printers))
-            } catch (e: Exception) {
-                emitViewEffect(LabelPrintingViewEffect.Loading(false))
-                emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("Failed to search printers: ${e.message}"))
+            if (_viewState.value.selectedVariants.isEmpty()) {
+                emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("Please add variants to print"))
+                return@launch
             }
+
+            // First check and request USB permission if needed
+            emitViewEffect(LabelPrintingViewEffect.CheckAndSearchPrinters)
         }
     }
 
     fun onStartPrintingClicked(printer: DiscoveredPrinterInfo) {
         viewModelScope.launch {
-            emitViewEffect(LabelPrintingViewEffect.Loading(true))
             try {
-                // TODO: Implement actual printing logic
-                // For now, just show success
-                emitViewEffect(LabelPrintingViewEffect.Loading(false))
-                emitViewEffect(LabelPrintingViewEffect.ShowSuccessSnackBar("Printing started successfully"))
+                val result = printLabelUseCase(printer, _viewState.value.selectedVariants.toLabels())
+                if (result.isSuccess) {
+                    emitViewEffect(LabelPrintingViewEffect.ShowSuccessSnackBar("Printed Successfully"))
+                } else {
+                    emitViewEffect(LabelPrintingViewEffect.ShowDialog("${result.exceptionOrNull()?.message}"))
+                }
             } catch (e: Exception) {
-                emitViewEffect(LabelPrintingViewEffect.Loading(false))
-                emitViewEffect(LabelPrintingViewEffect.ShowErrorSnackBar("Failed to print: ${e.message}"))
+                emitViewEffect(LabelPrintingViewEffect.ShowDialog("Error: ${e.message}"))
             }
+        }
+    }
+
+    fun onCancelPrintClicked() {
+        viewModelScope.launch {
+            cancelPrintJobUseCase()
         }
     }
 
@@ -151,5 +199,9 @@ class LabelPrintingViewModel @Inject constructor(
             _viewEffect.emit(effect)
         }
     }
+}
+
+private fun Double.formatToTwoDecimals(): Double {
+    return String.format("%.2f", this).toDoubleOrNull() ?: this
 }
 

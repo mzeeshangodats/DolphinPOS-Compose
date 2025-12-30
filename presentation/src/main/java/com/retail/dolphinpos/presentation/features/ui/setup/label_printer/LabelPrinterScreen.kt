@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -37,6 +38,7 @@ import com.retail.dolphinpos.common.components.BaseOutlinedEditTextSmallHeight
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.domain.model.home.catrgories_products.Products
+import com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
@@ -54,7 +56,7 @@ fun LabelPrinterScreen(
     var showVariantDialog by remember { mutableStateOf(false) }
     var selectedProductForVariants by remember { mutableStateOf<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>(null) }
     var showPrintDialog by remember { mutableStateOf(false) }
-    var discoveredPrinters by remember { mutableStateOf<List<DiscoveredPrinterInfo>>(emptyList()) }
+    var discoveredPrinters by remember { mutableStateOf<List<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo>>(emptyList()) }
     var selectedVariants by remember { mutableStateOf<List<LabelPrintingVariantModel>>(emptyList()) }
     
     // USB Permission handling
@@ -109,8 +111,16 @@ fun LabelPrinterScreen(
                     }
                 }
                 is LabelPrintingViewEffect.ShowPrintDialog -> {
-                    discoveredPrinters = effect.printers
-                    showPrintDialog = true
+                    if (effect.printers.isNotEmpty()) {
+                        discoveredPrinters = effect.printers
+                        showPrintDialog = true
+                    } else {
+                        DialogHandler.showDialog(
+                            message = "No printers found. Please connect a Brother printer via USB.",
+                            buttonText = "OK",
+                            iconRes = R.drawable.cross_red
+                        ) {}
+                    }
                 }
                 is LabelPrintingViewEffect.CheckAndSearchPrinters -> {
                     checkUsbPermission(context, viewModel, usbPermissionAction) { receiver ->
@@ -605,11 +615,11 @@ fun VariantSelectionDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrintDialog(
-    printers: List<DiscoveredPrinterInfo>,
+    printers: List<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo>,
     onDismiss: () -> Unit,
-    onPrinterSelected: (DiscoveredPrinterInfo) -> Unit
+    onPrinterSelected: (com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo) -> Unit
 ) {
-    var selectedPrinter by remember { mutableStateOf<DiscoveredPrinterInfo?>(null) }
+    var selectedPrinter by remember { mutableStateOf<com.retail.dolphinpos.domain.model.label.DiscoveredPrinterInfo?>(null) }
     
     Dialog(
         onDismissRequest = onDismiss,
@@ -718,38 +728,46 @@ fun checkUsbPermission(
     onReceiverCreated: (BroadcastReceiver) -> Unit
 ) {
     val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    val brotherDevice = usbManager.deviceList.values.firstOrNull { it.vendorId == 0x04F9 }
+    val brotherDevices = usbManager.deviceList.values.filter { it.vendorId == 0x04F9 }
     
-    if (brotherDevice == null) {
+    if (brotherDevices.isEmpty()) {
         DialogHandler.showDialog(
-            message = "No Brother printer found",
+            message = "No Brother printer found. Please connect a Brother printer via USB.",
             buttonText = "OK",
             iconRes = R.drawable.cross_red
         ) {}
         return
     }
     
+    // Check if any device needs permission
+    val devicesNeedingPermission = brotherDevices.filter { !usbManager.hasPermission(it) }
+    
+    if (devicesNeedingPermission.isEmpty()) {
+        // All devices have permission, proceed with search
+        viewModel.startSearchUSBPrinter(context)
+        return
+    }
+    
+    // Request permission for the first device that needs it
+    val deviceToRequest = devicesNeedingPermission.first()
+    
     val filter = IntentFilter(permissionAction)
     val usbPermissionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == permissionAction) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-                if (granted) {
+                val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                
+                if (granted && device != null) {
+                    // Permission granted, now search for printers
                     viewModel.startSearchUSBPrinter(context)
                 } else {
-                    try {
-                        if (usbManager.hasPermission(brotherDevice)) {
-                            viewModel.startSearchUSBPrinter(context)
-                        } else {
-                            DialogHandler.showDialog(
-                                message = "USB permission not granted",
-                                buttonText = "OK",
-                                iconRes = R.drawable.cross_red
-                            ) {}
-                        }
-                    } catch (e: Exception) {
-                        // ignore
-                    }
+                    // Permission denied
+                    DialogHandler.showDialog(
+                        message = "USB permission denied. Please grant USB permission to access the printer.",
+                        buttonText = "OK",
+                        iconRes = R.drawable.cross_red
+                    ) {}
                 }
                 
                 try {
@@ -770,15 +788,14 @@ fun checkUsbPermission(
     
     onReceiverCreated(usbPermissionReceiver)
     
-    if (!usbManager.hasPermission(brotherDevice)) {
-        val permissionIntent = PendingIntent.getBroadcast(
-            context,
-            0,
-            Intent(permissionAction),
-            PendingIntent.FLAG_IMMUTABLE
-        )
-        usbManager.requestPermission(brotherDevice, permissionIntent)
-    } else {
-        viewModel.startSearchUSBPrinter(context)
-    }
+    // Request permission
+    val permissionIntent = PendingIntent.getBroadcast(
+        context,
+        0,
+        Intent(permissionAction).apply {
+            putExtra(UsbManager.EXTRA_DEVICE, deviceToRequest)
+        },
+        PendingIntent.FLAG_IMMUTABLE
+    )
+    usbManager.requestPermission(deviceToRequest, permissionIntent)
 }
