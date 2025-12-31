@@ -41,6 +41,7 @@ fun BaseButton(
     cornerRadius: Dp = 5.dp, // 👈 Corner radius parameter
     contentPadding: PaddingValues? = null, // 👈 Content padding parameter
     debounceTimeMs: Long = 500L,
+    textMaxLines: Int = 1,
     onClick: () -> Unit
 ) {
     var lastClickTime by remember { mutableLongStateOf(0L) }
@@ -78,7 +79,7 @@ fun BaseButton(
                 color = finalTextColor,
                 textAlign = TextAlign.Center
             ),
-            maxLines = 1,
+            maxLines = textMaxLines,
             overflow = TextOverflow.Ellipsis
         )
     }
