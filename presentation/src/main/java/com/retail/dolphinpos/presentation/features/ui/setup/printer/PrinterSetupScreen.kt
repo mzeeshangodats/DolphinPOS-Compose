@@ -5,10 +5,21 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -16,15 +27,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -38,13 +60,13 @@ import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.DropdownSelector
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
-import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType as DomainPrinterConnectionType
 import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterDetails
 import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterViewEffect
 import com.retail.dolphinpos.presentation.R
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
 import kotlinx.coroutines.flow.collectLatest
+import com.retail.dolphinpos.domain.model.setup.hardware.printer.PrinterConnectionType as DomainPrinterConnectionType
 
 @Composable
 fun PrinterSetupScreen(
@@ -327,21 +349,11 @@ fun PrinterSetupScreen(
                                 colors = CardDefaults.cardColors(
                                     containerColor = Color(0xFFF5F5F5)
                                 ),
-                                border = BorderStroke(1.dp, colorResource(R.color.color_grey))
+//                                border = BorderStroke(1.dp, colorResource(R.color.color_grey))
                             ) {
                                 Box(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    // Text on the left
-                                    BaseText(
-                                        text = selectedPrinter?.name ?: "No Printer Selected",
-                                        color = if (selectedPrinter != null) Color.Black else Color.Gray,
-                                        fontSize = 11f,
-                                        fontFamily = GeneralSans,
-                                        modifier = Modifier
-                                            .align(Alignment.CenterStart)
-                                            .padding(start = 12.dp, end = 80.dp)
-                                    )
                                     // Discover button inside on the right
                                     BaseButton(
                                         text = "Discover",
@@ -354,48 +366,137 @@ fun PrinterSetupScreen(
                                         contentPadding = PaddingValues(horizontal = 12.dp),
                                         fontSize = 12,
                                         onClick = { 
+                                            // Always discover all connection types (LAN, Bluetooth, USB) to find all available printers
                                             // Check Bluetooth permission before starting discovery
-                                            if (connectionType == PrinterConnectionType.BLUETOOTH || connectionType == PrinterConnectionType.LAN) {
-                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                                    val hasBluetoothConnect = ContextCompat.checkSelfPermission(
-                                                        context,
-                                                        Manifest.permission.BLUETOOTH_CONNECT
-                                                    ) == PackageManager.PERMISSION_GRANTED
-                                                    val hasBluetoothScan = ContextCompat.checkSelfPermission(
-                                                        context,
-                                                        Manifest.permission.BLUETOOTH_SCAN
-                                                    ) == PackageManager.PERMISSION_GRANTED
-                                                    
-                                                    if (hasBluetoothConnect && hasBluetoothScan) {
-                                                        viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
-                                                        selectedPrinter = null
-                                                        printerAddress = ""
-                                                    } else {
-                                                        // Request permissions
-                                                        pendingDiscovery = true
-                                                        val permissions = mutableListOf<String>()
-                                                        if (!hasBluetoothConnect) {
-                                                            permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-                                                        }
-                                                        if (!hasBluetoothScan) {
-                                                            permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-                                                        }
-                                                        if (permissions.isNotEmpty()) {
-                                                            bluetoothPermissionLauncher.launch(permissions.toTypedArray())
-                                                        }
-                                                    }
-                                                } else {
-                                                    viewModel.startDiscovery(context, excludeBluetooth = connectionType != PrinterConnectionType.BLUETOOTH)
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                                val hasBluetoothConnect = ContextCompat.checkSelfPermission(
+                                                    context,
+                                                    Manifest.permission.BLUETOOTH_CONNECT
+                                                ) == PackageManager.PERMISSION_GRANTED
+                                                val hasBluetoothScan = ContextCompat.checkSelfPermission(
+                                                    context,
+                                                    Manifest.permission.BLUETOOTH_SCAN
+                                                ) == PackageManager.PERMISSION_GRANTED
+                                                
+                                                if (hasBluetoothConnect && hasBluetoothScan) {
+                                                    // Discover all connection types (LAN, Bluetooth, USB)
+                                                    viewModel.startDiscovery(context, excludeBluetooth = false)
                                                     selectedPrinter = null
                                                     printerAddress = ""
+                                                } else {
+                                                    // Request permissions
+                                                    pendingDiscovery = true
+                                                    val permissions = mutableListOf<String>()
+                                                    if (!hasBluetoothConnect) {
+                                                        permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+                                                    }
+                                                    if (!hasBluetoothScan) {
+                                                        permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+                                                    }
+                                                    if (permissions.isNotEmpty()) {
+                                                        bluetoothPermissionLauncher.launch(permissions.toTypedArray())
+                                                    }
                                                 }
                                             } else {
-                                                viewModel.startDiscovery(context, excludeBluetooth = true)
+                                                // Android < 12: Discover all connection types
+                                                viewModel.startDiscovery(context, excludeBluetooth = false)
                                                 selectedPrinter = null
                                                 printerAddress = ""
                                             }
                                         }
                                     )
+                                }
+                            }
+                        }
+                    }
+
+                    // LazyColumn for discovered printers
+                    if (filteredPrinters.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp) // Set a fixed height for the list
+                                .background(
+                                    color = Color.White,
+                                    shape = RoundedCornerShape(8.dp)
+                                ),
+                            contentPadding = PaddingValues(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(filteredPrinters) { printer ->
+                                val isSelected = selectedPrinter?.address == printer.address
+                                val isConnected = viewState.savedPrinterDetails?.address == printer.address
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedPrinter = printer
+                                            printerAddress = printer.address
+                                        },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected || isConnected) {
+                                            colorResource(id = R.color.primary).copy(alpha = 0.1f)
+                                        } else {
+                                            Color.White
+                                        }
+                                    ),
+                                    border = BorderStroke(
+                                        width = if (isSelected || isConnected) 2.dp else 1.dp,
+                                        color = if (isSelected || isConnected) {
+                                            colorResource(id = R.color.primary)
+                                        } else {
+                                            colorResource(id = R.color.color_grey)
+                                        }
+                                    )
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            BaseText(
+                                                text = printer.name,
+                                                color = Color.Black,
+                                                fontSize = 12f,
+                                                fontFamily = GeneralSans,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            BaseText(
+                                                text = printer.address,
+                                                color = Color.Gray,
+                                                fontSize = 10f,
+                                                fontFamily = GeneralSans
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        // Connect button
+                                        BaseButton(
+                                            text = if (isConnected) "Connected" else "Connect",
+                                            modifier = Modifier
+                                                .height(36.dp),
+                                            backgroundColor = if (isConnected) {
+                                                colorResource(id = R.color.gray_neutral)
+                                            } else {
+                                                colorResource(id = R.color.primary)
+                                            },
+                                            textColor = Color.White,
+                                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                            fontSize = 11,
+                                            onClick = {
+                                                selectedPrinter = printer
+                                                printerAddress = printer.address
+                                                viewModel.onDeviceClicked(printer)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
