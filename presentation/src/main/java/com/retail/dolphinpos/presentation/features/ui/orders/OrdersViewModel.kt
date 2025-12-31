@@ -67,6 +67,9 @@ class OrdersViewModel @Inject constructor(
     private val _endDate = MutableStateFlow<String?>(null)
     val endDate: StateFlow<String?> = _endDate.asStateFlow()
 
+    private val _orderDetail = MutableStateFlow<OrderDetailList?>(null)
+    val orderDetail: StateFlow<OrderDetailList?> = _orderDetail.asStateFlow()
+
     fun setStartDate(date: String) {
         _startDate.value = date
     }
@@ -379,6 +382,22 @@ class OrdersViewModel @Inject constructor(
         calendar.add(Calendar.DAY_OF_YEAR, -1)
         val startDateStr = dateFormat.format(calendar.time)
         _startDate.value = startDateStr
+    }
+
+    fun loadOrderByOrderNumber(orderNumber: String) {
+        viewModelScope.launch {
+            try {
+                val orderEntity = orderRepository.getOrderByOrderNumber(orderNumber)
+                if (orderEntity != null) {
+                    _orderDetail.value = convertOrderEntityToOrderDetailList(orderEntity)
+                } else {
+                    _orderDetail.value = null
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersViewModel", "Error loading order: ${e.message}", e)
+                _orderDetail.value = null
+            }
+        }
     }
 
     fun printOrder(order: OrderDetailList) {

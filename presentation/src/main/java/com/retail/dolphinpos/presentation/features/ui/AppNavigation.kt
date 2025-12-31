@@ -13,6 +13,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.login.LoginScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
+import com.retail.dolphinpos.presentation.features.ui.orders.OrderDetailScreen
 import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
 import com.retail.dolphinpos.presentation.features.ui.products.CreateProductScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryScreen
@@ -202,6 +203,20 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Transaction Activity Screen
         composable("transaction_activity") {
             TransactionActivityScreen(navController = navController, preferenceManager = preferenceManager)
+        }
+
+        // Order Detail Screen
+        composable(
+            route = "order_detail/{orderNumber}",
+            arguments = listOf(
+                navArgument("orderNumber") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
+            OrderDetailScreen(
+                navController = navController,
+                orderNumber = orderNumber
+            )
         }
     }
 }

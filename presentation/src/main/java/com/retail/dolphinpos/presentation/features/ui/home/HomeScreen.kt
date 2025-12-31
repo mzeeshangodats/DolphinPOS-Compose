@@ -1051,6 +1051,14 @@ fun HomeScreen(
                     viewModel.clearCart()
                     paymentAmount = "0.00"
                     showPaymentSuccessDialog = false
+                    
+                    // Get latest order number and navigate to order detail screen
+                    coroutineScope.launch {
+                        val orderNumber = viewModel.getLatestOrderNumber()
+                        orderNumber?.let {
+                            navController.navigate("order_detail/$it")
+                        }
+                    }
                 })
             }
         }

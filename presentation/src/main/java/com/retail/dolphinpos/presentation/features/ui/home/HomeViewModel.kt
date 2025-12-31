@@ -712,6 +712,16 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    suspend fun getLatestOrderNumber(): String? {
+        return try {
+            val latestOrder = getLatestOnlineOrderUseCase()
+            latestOrder?.orderNumber
+        } catch (e: Exception) {
+            Log.e("HomeViewModel", "Error getting latest order number: ${e.message}")
+            null
+        }
+    }
+
     fun printLatestOrder() {
         viewModelScope.launch {
             _homeUiEvent.emit(HomeUiEvent.ShowLoading)
