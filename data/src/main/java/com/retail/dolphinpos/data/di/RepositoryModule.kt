@@ -30,6 +30,11 @@ import com.retail.dolphinpos.domain.repositories.product.ProductRepository
 import com.retail.dolphinpos.domain.repositories.report.BatchReportRepository
 import com.retail.dolphinpos.domain.repositories.setup.HardwareSetupRepository
 import com.retail.dolphinpos.data.repositories.product.ProductRepositoryImpl
+import com.retail.dolphinpos.domain.repositories.label.LabelPrinterRepository
+import com.retail.dolphinpos.data.repositories.label.LabelPrinterRepositoryImpl
+import com.retail.dolphinpos.data.repositories.label.LogRepository
+import com.retail.dolphinpos.data.setup.hardware.printer.PrinterManager
+import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.GetPrinterDetailsUseCase
 import com.retail.dolphinpos.domain.usecases.sync.ScheduleSyncUseCase
 import com.retail.dolphinpos.data.usecases.sync.ScheduleSyncUseCaseImpl
 import dagger.Module
@@ -143,6 +148,19 @@ object RepositoryModule {
         preferenceManager: PreferenceManager
     ): CustomerDisplayManager {
         return CustomerDisplayManager(context, gson, preferenceManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLabelPrinterRepository(
+        @ApplicationContext context: Context,
+        printerManager: PrinterManager,
+        getPrinterDetailsUseCase: GetPrinterDetailsUseCase,
+        labelBitmapGenerator: com.retail.dolphinpos.data.util.LabelBitmapGenerator,
+        logRepository: com.retail.dolphinpos.data.repositories.label.LogRepository,
+
+    ): LabelPrinterRepository {
+        return com.retail.dolphinpos.data.repositories.label.LabelPrinterRepositoryImpl(context, printerManager, getPrinterDetailsUseCase, labelBitmapGenerator,logRepository)
     }
 
     @Provides

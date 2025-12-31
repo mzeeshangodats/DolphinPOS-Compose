@@ -12,6 +12,7 @@ data class ProductsEntity(
     val categoryId: Int, // Keep existing column name
     val storeId: Int, // Keep existing column name
     val name: String?,
+    val sku: String?,
     val description: String?,
     val quantity: Int,
     val status: String?,

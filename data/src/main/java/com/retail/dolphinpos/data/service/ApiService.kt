@@ -39,6 +39,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -85,6 +86,15 @@ interface ApiService {
 
     @POST("product")
     suspend fun createProduct(@Body createProductRequest: CreateProductRequest): CreateProductResponse
+
+    @GET("product/{productId}")
+    suspend fun getProductById(@Path("productId") productId: Int): ProductsResponse
+
+    @PUT("product/{productId}")
+    suspend fun updateProduct(
+        @Path("productId") productId: Int,
+        @Body createProductRequest: CreateProductRequest
+    ): CreateProductResponse
 
     @Multipart
     @POST("files")

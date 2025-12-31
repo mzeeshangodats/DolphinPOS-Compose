@@ -167,6 +167,121 @@ class ProductRepositoryImpl(
         return ProductMapper.toCategory(categoryEntities)
     }
 
+    override suspend fun getProductById(productId: Int): Result<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?> {
+        return try {
+            // Try to get product by server_id first (since productId from Products domain model is server ID)
+            var productEntity = productsDao.getProductByServerId(productId)
+            
+            // If not found by server_id, try by id (in case server ID was stored in id field)
+            if (productEntity == null) {
+                productEntity = productsDao.getProductById(productId)
+            }
+            
+            if (productEntity == null) {
+                return Result.success(null)
+            }
+            
+            // Get related data
+            val productImages = productsDao.getProductImagesByProductId(productEntity.id)
+            val variants = productsDao.getVariantsByProductId(productEntity.id)
+            
+            // Get variant images for all variants
+            val variantImagesMap = variants.associate { variant ->
+                val images = productsDao.getVariantImagesByVariantId(variant.id)
+                variant.id to images
+            }
+            
+            // Map to domain model
+            val product = ProductMapper.toProduct(productEntity, productImages, variants, variantImagesMap, gson)
+            Result.success(product)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun updateProduct(productId: Int, request: CreateProductRequest): Result<Int> {
+        return try {
+            // Get existing product by server_id first, then by id
+            var existingProduct = productsDao.getProductByServerId(productId)
+            if (existingProduct == null) {
+                existingProduct = productsDao.getProductById(productId)
+            }
+            
+            if (existingProduct == null) {
+                return Result.failure(Exception("Product not found"))
+            }
+            
+            // Convert CreateProductRequest to ProductsEntity, preserving the existing local ID and server ID
+            val productEntity = ProductMapper.toProductEntityFromRequest(request).copy(
+                id = existingProduct.id,
+                serverId = productId,
+                isSynced = false, // Mark as unsynced until API call succeeds
+                updatedAt = System.currentTimeMillis()
+            )
+            
+            // Update product
+            productsDao.updateProduct(productEntity)
+            
+            // Delete existing product images and variants
+            productsDao.deleteProductImagesByProductId(existingProduct.id)
+            productsDao.deleteVariantsByProductId(existingProduct.id)
+            
+            // Insert new product images
+            val productImages = request.images.map { image ->
+                ProductImagesEntity(
+                    productId = existingProduct.id,
+                    fileURL = image.fileURL,
+                    originalName = image.originalName
+                )
+            }
+            if (productImages.isNotEmpty()) {
+                productsDao.insertProductImages(productImages)
+            }
+            
+            // Insert new variants and their images
+            val variantEntities = request.variants.map { variant ->
+                ProductMapper.toVariantEntityFromRequest(variant, existingProduct.id, gson)
+            }
+            if (variantEntities.isNotEmpty()) {
+                variantEntities.forEachIndexed { index, variantEntity ->
+                    val variantId = productsDao.insertVariant(variantEntity)
+                    
+                    // Insert variant images if available
+                    val variant = request.variants[index]
+                    if (variant.images != null && (variant.images as Collection<Any?>).isNotEmpty()) {
+                        val variantImages = (variant.images as Iterable<ProductImageRequest?>).map { image ->
+                            VariantImagesEntity(
+                                variantId = variantId.toInt(),
+                                fileURL = image?.fileURL,
+                                originalName = image?.originalName
+                            )
+                        }
+                        productsDao.insertVariantImages(variantImages)
+                    }
+                }
+            }
+            
+            // Call API to update on server
+            val result = safeApiCallResult(
+                apiCall = { apiService.updateProduct(productId, request) },
+                defaultMessage = "Product update failed"
+            )
+            
+            // Mark as synced on success
+            result.onSuccess { response ->
+                val updatedProduct = productEntity.copy(
+                    isSynced = true,
+                    updatedAt = System.currentTimeMillis()
+                )
+                productsDao.updateProduct(updatedProduct)
+            }
+            
+            result.map { productId } // Return product ID
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun getMimeType(file: File): String {
         val extension = file.extension.lowercase()
         return when (extension) {

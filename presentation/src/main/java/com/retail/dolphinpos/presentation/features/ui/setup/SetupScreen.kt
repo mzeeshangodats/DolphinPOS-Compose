@@ -28,6 +28,7 @@ import com.retail.dolphinpos.presentation.features.ui.setup.business_info.Busine
 import com.retail.dolphinpos.presentation.features.ui.setup.cc_processing.CreditCardProcessingScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.cfd.CustomerDisplaySetupScreen
 import com.retail.dolphinpos.presentation.features.ui.setup.printer.PrinterSetupScreen
+import com.retail.dolphinpos.presentation.features.ui.setup.label_printer.LabelPrinterScreen
 
 @Composable
 fun HardwareSetupScreen(
@@ -60,6 +61,7 @@ fun HardwareSetupScreen(
                     CustomerDisplaySetupScreen(navController = navController)
                 }
                 4 -> PrinterSetupScreen(navController = navController)
+                5 -> LabelPrinterScreen(navController = navController)
                 else -> {
                     Box(
                         modifier = Modifier

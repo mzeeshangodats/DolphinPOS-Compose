@@ -7,6 +7,7 @@ data class Variant(
     val barCode: String? = "",
     val cardPrice: String? = "",
     val cashPrice: String? = "",
+    val costPrice: String? = null,
     val id: Int,
     val images: List<VariantImage>,
     val price: String?,

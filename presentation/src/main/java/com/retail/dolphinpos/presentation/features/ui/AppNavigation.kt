@@ -99,10 +99,30 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
             MainLayout(navController = navController, preferenceManager = preferenceManager)
         }
 
+        // Create product route (without productId)
         composable("create_product") {
             CreateProductScreen(
                 navController = navController,
                 preferenceManager = preferenceManager,
+                productId = null,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Update product route (with productId)
+        composable(
+            route = "create_product/{productId}",
+            arguments = listOf(
+                navArgument("productId") {
+                    type = NavType.IntType
+                }
+            )
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getInt("productId")
+            CreateProductScreen(
+                navController = navController,
+                preferenceManager = preferenceManager,
+                productId = productId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
