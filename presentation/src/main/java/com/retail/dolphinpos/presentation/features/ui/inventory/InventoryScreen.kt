@@ -22,6 +22,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -338,6 +341,20 @@ fun InventoryScreen(
                                     fontSize = 12f,
                                     color = Color.Black,
                                     fontFamily = GeneralSans
+                                )
+                            }
+                            // Edit icon button
+                            IconButton(
+                                onClick = {
+                                    navController.navigate("create_product/${product.id}")
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Edit,
+                                    contentDescription = "Edit Product",
+                                    tint = colorResource(id = R.color.primary),
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
                         }

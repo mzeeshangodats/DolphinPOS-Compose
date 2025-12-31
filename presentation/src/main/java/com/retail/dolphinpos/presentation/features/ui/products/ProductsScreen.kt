@@ -317,7 +317,7 @@ fun ProductsScreen(
                                 )
                                 .padding(16.dp)
                                 .clickable { 
-                                    navController.navigate("create_product/${product.id}")
+                                    selectedProduct = product
                                 },
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically

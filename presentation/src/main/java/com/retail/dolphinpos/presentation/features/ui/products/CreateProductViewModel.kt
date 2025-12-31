@@ -16,6 +16,7 @@ import com.retail.dolphinpos.domain.usecases.product.GetVendorsUseCase
 import com.retail.dolphinpos.domain.usecases.product.SyncProductUseCase
 import com.retail.dolphinpos.domain.usecases.product.UpdateProductUseCase
 import com.retail.dolphinpos.domain.usecases.product.UploadFileUseCase
+import com.retail.dolphinpos.presentation.features.ui.home.HomeUiEvent
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -188,10 +189,14 @@ class CreateProductViewModel @Inject constructor(
     
     fun loadVendors() {
         viewModelScope.launch {
-            getVendorsUseCase().onSuccess { response ->
-                _uiState.value = _uiState.value.copy(vendors = response.data.list)
-            }.onFailure { error ->
-                _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${error.message}"))
+            try {
+                getVendorsUseCase().onSuccess { response ->
+                    _uiState.value = _uiState.value.copy(vendors = response.data.list)
+                }.onFailure { error ->
+                    _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${error.message}"))
+                }
+            } catch (e: Exception) {
+                _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${e.message}"))
             }
         }
     }

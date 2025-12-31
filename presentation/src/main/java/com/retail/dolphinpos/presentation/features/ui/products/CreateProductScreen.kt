@@ -778,7 +778,7 @@ fun ProductDetailsSection(
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
-            placeholder = { Text("Enter description") },
+            placeholder = { Text("Enter description", fontSize = 12.sp) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(100.dp).padding(bottom = 15.dp),
