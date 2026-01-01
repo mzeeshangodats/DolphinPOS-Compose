@@ -35,6 +35,7 @@ interface StoreRegistersRepository {
     
     // Cleanup methods before sync
     suspend fun deleteAllProductsData()
+    suspend fun deleteSyncedProductsData() // Delete only products synced from API (with server_id), preserve local products
     
     // Image downloading methods
     suspend fun downloadAndCacheImages(imageUrls: List<String>)

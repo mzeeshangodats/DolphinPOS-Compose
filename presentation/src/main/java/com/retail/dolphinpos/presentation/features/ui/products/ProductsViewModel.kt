@@ -67,8 +67,8 @@ class ProductsViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Delete all existing products data before syncing new data
-                storeRegistersRepository.deleteAllProductsData()
+                // Delete only synced products (with server_id) to preserve local products
+                storeRegistersRepository.deleteSyncedProductsData()
                 
                 // Collect all image URLs for downloading
                 val allImageUrls = mutableListOf<String>()

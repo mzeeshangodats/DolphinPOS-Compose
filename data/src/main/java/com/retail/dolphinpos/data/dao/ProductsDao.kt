@@ -136,6 +136,19 @@ interface ProductsDao {
     @Query("DELETE FROM vendor")
     suspend fun deleteAllVendors()
 
+    // Delete only synced products (products with server_id) to preserve local products
+    @Query("DELETE FROM variant_images WHERE variantId IN (SELECT id FROM variants WHERE productId IN (SELECT id FROM products WHERE server_id IS NOT NULL))")
+    suspend fun deleteSyncedVariantImages()
+
+    @Query("DELETE FROM product_images WHERE productId IN (SELECT id FROM products WHERE server_id IS NOT NULL)")
+    suspend fun deleteSyncedProductImages()
+
+    @Query("DELETE FROM vendor WHERE productId IN (SELECT id FROM products WHERE server_id IS NOT NULL)")
+    suspend fun deleteSyncedVendors()
+
+    @Query("DELETE FROM products WHERE server_id IS NOT NULL")
+    suspend fun deleteSyncedProducts()
+
     // Update quantity methods
     @Query("UPDATE products SET quantity = quantity - :quantityToDeduct WHERE id = :productId")
     suspend fun deductProductQuantity(productId: Int, quantityToDeduct: Int)

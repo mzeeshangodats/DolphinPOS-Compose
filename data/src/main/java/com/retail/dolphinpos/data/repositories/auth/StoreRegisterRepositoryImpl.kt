@@ -319,6 +319,20 @@ class StoreRegisterRepositoryImpl(
         }
     }
 
+    override suspend fun deleteSyncedProductsData() {
+        try {
+            // Delete variant images for variants of synced products
+            productsDao.deleteSyncedVariantImages()
+            // Delete product images for synced products
+            productsDao.deleteSyncedProductImages()
+            // Delete synced products (variants will be deleted via CASCADE foreign key)
+            productsDao.deleteSyncedProducts()
+            // Note: Categories are not deleted as they may be shared with local products
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
     override suspend fun downloadAndCacheImages(imageUrls: List<String>) {
         try {
             coroutineScope {
