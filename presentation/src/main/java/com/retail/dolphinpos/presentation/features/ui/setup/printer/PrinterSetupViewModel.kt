@@ -332,11 +332,12 @@ class PrinterSetupViewModel @Inject constructor(
                 
                 if (success) {
                     Log.d(TAG, "printReceiptClicked: Receipt printed successfully")
-                    emitViewEffect(
-                        PrinterViewEffect.ShowSuccessSnackBar(
-                            "Receipt printed successfully for order: ${lastPendingOrder.orderNumber}"
-                        )
-                    )
+                    // Success popup removed - no need to show "Print command sent successfully" message
+                    // emitViewEffect(
+                    //     PrinterViewEffect.ShowSuccessSnackBar(
+                    //         "Receipt printed successfully for order: ${lastPendingOrder.orderNumber}"
+                    //     )
+                    // )
                 } else {
                     Log.w(TAG, "printReceiptClicked: Printer reported failure")
                 }

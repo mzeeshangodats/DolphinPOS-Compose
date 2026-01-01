@@ -410,20 +410,19 @@ fun PrinterSetupScreen(
                         }
                     }
 
-                    // LazyColumn for discovered printers
+                    // Column for discovered printers (dynamic height based on items)
                     if (filteredPrinters.isNotEmpty()) {
-                        LazyColumn(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp) // Set a fixed height for the list
                                 .background(
                                     color = Color.White,
                                     shape = RoundedCornerShape(8.dp)
-                                ),
-                            contentPadding = PaddingValues(8.dp),
+                                )
+                                .padding(8.dp),
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            items(filteredPrinters) { printer ->
+                            filteredPrinters.forEach { printer ->
                                 val isSelected = selectedPrinter?.address == printer.address
                                 val isConnected = viewState.savedPrinterDetails?.address == printer.address
 
@@ -502,8 +501,8 @@ fun PrinterSetupScreen(
                         }
                     }
 
-                    // 2. Connection Type Section
-                    Row(
+                    // 2. Connection Type Section - HIDDEN
+                    /*Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
@@ -566,7 +565,7 @@ fun PrinterSetupScreen(
                                 }
                             }
                         }
-                    }
+                    }*/
 
                     // 3. Auto Print Receipt Section
                     Row(

@@ -740,10 +740,8 @@ class HomeViewModel @Inject constructor(
                     val statusMessages = mutableListOf<String>()
                     val result = printOrderReceiptUseCase(latestOrder) { statusMessages.add(it) }
                     if (result.isSuccess) {
-                        val successMessage =
-                            statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
-                                ?: "Print command sent successfully."
-                        _homeUiEvent.emit(HomeUiEvent.ShowSuccess(successMessage))
+                        // Success popup removed - no need to show "Print command sent successfully" message
+                        // _homeUiEvent.emit(HomeUiEvent.ShowSuccess(successMessage))
                     } else {
                         val errorMessage = result.exceptionOrNull()?.message
                             ?: statusMessages.lastOrNull { message ->

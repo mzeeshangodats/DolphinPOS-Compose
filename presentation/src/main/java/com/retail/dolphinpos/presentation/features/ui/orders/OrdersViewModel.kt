@@ -430,10 +430,8 @@ class OrdersViewModel @Inject constructor(
                 val statusMessages = mutableListOf<String>()
                 val result = printOrderReceiptUseCase(pendingOrder) { statusMessages.add(it) }
                 if (result.isSuccess) {
-                    val successMessage =
-                        statusMessages.lastOrNull { it.contains("success", ignoreCase = true) }
-                            ?: "Print command sent successfully."
-                    _uiEvent.emit(OrdersUiEvent.ShowSuccess(successMessage))
+                    // Success popup removed - no need to show "Print command sent successfully" message
+                    // _uiEvent.emit(OrdersUiEvent.ShowSuccess(successMessage))
                 } else {
                     val errorMessage = result.exceptionOrNull()?.message
                         ?: statusMessages.lastOrNull { message ->
