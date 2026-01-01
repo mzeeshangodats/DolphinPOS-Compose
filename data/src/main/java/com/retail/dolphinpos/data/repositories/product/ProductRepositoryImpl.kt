@@ -7,12 +7,14 @@ import com.retail.dolphinpos.data.entities.products.ProductImagesEntity
 import com.retail.dolphinpos.data.entities.products.ProductsEntity
 import com.retail.dolphinpos.data.entities.products.VariantImagesEntity
 import com.retail.dolphinpos.data.entities.products.VariantsEntity
+import com.retail.dolphinpos.data.entities.products.VendorEntity
 import com.retail.dolphinpos.data.mapper.ProductMapper
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.product.CreateProductRequest
 import com.retail.dolphinpos.domain.model.product.FileUploadResponse
 import com.retail.dolphinpos.domain.model.product.ProductImageRequest
+import com.retail.dolphinpos.domain.model.product.VendorItem
 import com.retail.dolphinpos.domain.model.product.VendorListResponse
 import com.retail.dolphinpos.domain.repositories.product.ProductRepository
 import okhttp3.MediaType.Companion.toMediaType
@@ -151,15 +153,50 @@ class ProductRepositoryImpl(
     override suspend fun getVendors(): Result<VendorListResponse> {
         return safeApiCallResult(
             apiCall = { 
-                apiService.getVendors(
+                val response = apiService.getVendors(
                     paginate = false,
                     page = 1,
                     orderBy = "createdAt",
                     order = "DESC"
                 )
+                // Save vendors to database for offline access
+                try {
+                    val vendorEntities = response.data.list.map { vendorItem ->
+                        VendorEntity(
+                            id = vendorItem.id,
+                            productId = 0, // Use 0 as placeholder for vendor list entries
+                            title = vendorItem.title
+                        )
+                    }
+                    productsDao.insertVendors(vendorEntities)
+                } catch (e: Exception) {
+                    // Log error but don't fail the request
+                    android.util.Log.e("ProductRepositoryImpl", "Failed to save vendors to DB: ${e.message}")
+                }
+                response
             },
             defaultMessage = "Failed to fetch vendors"
         )
+    }
+
+    override suspend fun getVendorsFromDB(): List<VendorItem> {
+        return try {
+            val vendorEntities = productsDao.getVendorsList()
+            vendorEntities.map { entity ->
+                VendorItem(
+                    id = entity.id,
+                    title = entity.title,
+                    address = null,
+                    wpId = null,
+                    storeId = null,
+                    locationId = null,
+                    createdAt = null,
+                    updatedAt = null
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
 
     override suspend fun getCategories(): List<com.retail.dolphinpos.domain.model.home.catrgories_products.CategoryData> {

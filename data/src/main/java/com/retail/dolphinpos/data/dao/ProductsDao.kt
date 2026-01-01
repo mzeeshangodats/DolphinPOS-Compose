@@ -40,6 +40,12 @@ interface ProductsDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertVendor(vendorEntity: VendorEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertVendors(vendorList: List<VendorEntity>)
+
+    @Query("SELECT * FROM vendor WHERE productId = 0 ORDER BY title ASC")
+    suspend fun getVendorsList(): List<VendorEntity>
+
     @Query("SELECT * FROM category")
     suspend fun getCategories(): List<CategoryEntity>
 

@@ -2,6 +2,7 @@ package com.retail.dolphinpos.presentation.features.ui.products
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.data.dao.UserDao
 import com.retail.dolphinpos.domain.model.product.CreateProductRequest
@@ -37,7 +38,9 @@ class CreateProductViewModel @Inject constructor(
     private val getProductUseCase: GetProductUseCase,
     private val updateProductUseCase: UpdateProductUseCase,
     private val preferenceManager: PreferenceManager,
-    private val userDao: UserDao
+    private val userDao: UserDao,
+    private val networkMonitor: NetworkMonitor,
+    private val productRepository: com.retail.dolphinpos.domain.repositories.product.ProductRepository
 ) : ViewModel() {
 
     private var dualPricePercentage: Double = 2.0 // Default to 2% if not found
@@ -190,13 +193,32 @@ class CreateProductViewModel @Inject constructor(
     fun loadVendors() {
         viewModelScope.launch {
             try {
-                getVendorsUseCase().onSuccess { response ->
-                    _uiState.value = _uiState.value.copy(vendors = response.data.list)
-                }.onFailure { error ->
-                    _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${error.message}"))
+                if (networkMonitor.isNetworkAvailable()) {
+                    // Load from API if internet is available
+                    getVendorsUseCase().onSuccess { response ->
+                        _uiState.value = _uiState.value.copy(vendors = response.data.list)
+                    }.onFailure { error ->
+                        // If API fails, try to load from DB
+                        val dbVendors = productRepository.getVendorsFromDB()
+                        if (dbVendors.isNotEmpty()) {
+                            _uiState.value = _uiState.value.copy(vendors = dbVendors)
+                        } else {
+                            _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${error.message}"))
+                        }
+                    }
+                } else {
+                    // Load from database if no internet
+                    val dbVendors = productRepository.getVendorsFromDB()
+                    _uiState.value = _uiState.value.copy(vendors = dbVendors)
                 }
             } catch (e: Exception) {
-                _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${e.message}"))
+                // Try to load from DB on exception
+                try {
+                    val dbVendors = productRepository.getVendorsFromDB()
+                    _uiState.value = _uiState.value.copy(vendors = dbVendors)
+                } catch (dbException: Exception) {
+                    _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to load vendors: ${e.message}"))
+                }
             }
         }
     }
