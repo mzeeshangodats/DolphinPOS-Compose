@@ -537,7 +537,7 @@ class OrdersViewModel @Inject constructor(
                     }
                     
                     RefundItem(
-                        id = itemIndexInOrder + 1, // Using 1-based index - may need actual item ID from API
+                        //id = itemIndexInOrder + 1, // Using 1-based index - may need actual item ID from API
                         productId = item.product.id,
                         quantity = item.quantity,
                         price = itemTotalPrice
