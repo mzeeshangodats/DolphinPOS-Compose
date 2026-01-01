@@ -3,6 +3,8 @@ package com.retail.dolphinpos.data.repositories.orders_details
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
+import com.retail.dolphinpos.domain.model.home.refund.RefundRequest
+import com.retail.dolphinpos.domain.model.home.refund.RefundResponse
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 
 class OrdersRepositoryImpl(
@@ -35,6 +37,15 @@ class OrdersRepositoryImpl(
                 )
             },
             defaultMessage = "Failed to load orders"
+        )
+    }
+
+    override suspend fun refundOrder(refundRequest: RefundRequest): Result<RefundResponse> {
+        return safeApiCallResult(
+            apiCall = {
+                api.refundOrder(refundRequest)
+            },
+            defaultMessage = "Failed to process refund"
         )
     }
 }

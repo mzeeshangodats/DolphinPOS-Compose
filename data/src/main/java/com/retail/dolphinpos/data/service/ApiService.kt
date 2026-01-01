@@ -163,6 +163,9 @@ interface ApiService {
         @Query("keyword") keyword: String? = null
     ): OrderDetailsResponse
 
+    @PUT("order/refund")
+    suspend fun refundOrder(@Body refundRequest: com.retail.dolphinpos.domain.model.home.refund.RefundRequest): com.retail.dolphinpos.domain.model.home.refund.RefundResponse
+
     @GET("vendor")
     suspend fun getVendors(
         @Query("paginate") paginate: Boolean = false,

@@ -19,7 +19,12 @@ import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
 import com.retail.dolphinpos.domain.model.home.order_details.Product
 import com.retail.dolphinpos.domain.repositories.home.OrdersRepository
 import com.retail.dolphinpos.domain.usecases.order.GetPrintableOrderFromOrderDetailUseCase
+import com.retail.dolphinpos.domain.usecases.order.RefundOrderUseCase
 import com.retail.dolphinpos.domain.usecases.setup.hardware.printer.PrintOrderReceiptUseCase
+import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
+import com.retail.dolphinpos.domain.model.home.refund.RefundRequest
+import com.retail.dolphinpos.domain.model.home.refund.RefundTransaction
+import com.retail.dolphinpos.domain.model.home.refund.RefundItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,7 +48,9 @@ class OrdersViewModel @Inject constructor(
     private val getPrintableOrderFromOrderDetailUseCase: GetPrintableOrderFromOrderDetailUseCase,
     private val printOrderReceiptUseCase: PrintOrderReceiptUseCase,
     private val networkMonitor: NetworkMonitor,
-    private val gson: Gson
+    private val gson: Gson,
+    private val refundOrderUseCase: RefundOrderUseCase,
+    private val posSyncRepository: PosSyncRepository
 ) : ViewModel() {
 
     private val _orders = MutableStateFlow<List<OrderDetailList>>(emptyList())
@@ -69,6 +76,9 @@ class OrdersViewModel @Inject constructor(
 
     private val _orderDetail = MutableStateFlow<OrderDetailList?>(null)
     val orderDetail: StateFlow<OrderDetailList?> = _orderDetail.asStateFlow()
+
+    private val _refundData = MutableStateFlow<RefundData?>(null)
+    val refundData: StateFlow<RefundData?> = _refundData.asStateFlow()
 
     fun setStartDate(date: String) {
         _startDate.value = date
@@ -438,6 +448,157 @@ class OrdersViewModel @Inject constructor(
                 _uiEvent.emit(OrdersUiEvent.ShowError(e.message ?: "Failed to print receipt."))
             } finally {
                 _uiEvent.emit(OrdersUiEvent.HideLoading)
+            }
+        }
+    }
+
+    fun generateInvoiceNo(): String {
+        val storeId = preferenceManager.getStoreID()
+        val locationId = preferenceManager.getOccupiedLocationID()
+        val registerId = preferenceManager.getOccupiedRegisterID()
+        val userId = preferenceManager.getUserID()
+        val epochMillis = System.currentTimeMillis()
+
+        return "INV_S${storeId}L${locationId}R${registerId}U${userId}-$epochMillis"
+    }
+
+    fun processRefund(
+        order: OrderDetailList,
+        selectedItemIndices: Set<Int>
+    ) {
+        viewModelScope.launch {
+            _uiEvent.emit(OrdersUiEvent.ShowLoading)
+            try {
+                val storeId = preferenceManager.getStoreID()
+                val userId = preferenceManager.getUserID()
+
+                // Get active batch
+                val batch = posSyncRepository.getActiveBatch()
+                    ?: throw IllegalStateException("No active batch found. Please open a batch before processing refunds.")
+
+                val batchNo = batch.batchNo
+
+                // Generate invoice number
+                val invoiceNo = generateInvoiceNo()
+
+                // Determine if full refund (no items selected)
+                val fullRefund = selectedItemIndices.isEmpty()
+
+                // Get items to refund
+                val itemsToRefund = if (fullRefund) {
+                    order.orderItems
+                } else {
+                    selectedItemIndices.map { order.orderItems[it] }
+                }
+
+                // Calculate totals
+                val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
+                val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
+                
+                // Calculate subtotal for selected items (before discount)
+                var subtotalBeforeDiscount = 0.0
+                itemsToRefund.forEach { item ->
+                    val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                    subtotalBeforeDiscount += itemPrice * item.quantity
+                }
+
+                // Calculate discount: divide order discount by number of selected items
+                val discountPerItem = if (orderDiscountAmount > 0 && itemsToRefund.isNotEmpty()) {
+                    orderDiscountAmount / itemsToRefund.size
+                } else {
+                    0.0
+                }
+                val totalDiscount = discountPerItem * itemsToRefund.size
+
+                // Calculate tax (proportional to selected items)
+                val orderTax = order.taxValue
+                val tax = if (orderSubtotal > 0) {
+                    (orderTax / orderSubtotal) * subtotalBeforeDiscount
+                } else {
+                    0.0
+                }
+
+                // Calculate subtotal after discount
+                val subtotal = subtotalBeforeDiscount - totalDiscount
+
+                // Calculate total (subtotal + tax)
+                val total = subtotal + tax
+
+                // Build refund items with discount applied per item
+                val refundItems = itemsToRefund.mapIndexed { index, item ->
+                    val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                    // Apply discount per item (discount divided by number of items)
+                    val itemPriceAfterDiscount = itemPrice - discountPerItem
+                    val itemTotalPrice = itemPriceAfterDiscount * item.quantity
+                    
+                    // Get item index in original order for ID
+                    val itemIndexInOrder = if (fullRefund) {
+                        index
+                    } else {
+                        selectedItemIndices.elementAt(index)
+                    }
+                    
+                    RefundItem(
+                        id = itemIndexInOrder + 1, // Using 1-based index - may need actual item ID from API
+                        productId = item.product.id,
+                        quantity = item.quantity,
+                        price = itemTotalPrice
+                    )
+                }
+
+                // Build transaction
+                val transaction = RefundTransaction(
+                    invoiceNo = invoiceNo,
+                    amount = total,
+                    tax = tax
+                )
+
+                // Build refund request
+                val refundRequest = RefundRequest(
+                    storeId = storeId,
+                    batchNo = batchNo,
+                    userId = userId,
+                    transactions = listOf(transaction),
+                    items = refundItems,
+                    restoreInventory = false,
+                    fullRefund = fullRefund
+                )
+
+                // Process refund
+                if (networkMonitor.isNetworkAvailable()) {
+                    // Online: Call API
+                    val result = refundOrderUseCase(refundRequest)
+                    result.onSuccess { response ->
+                        _uiEvent.emit(OrdersUiEvent.HideLoading)
+                        
+                        // Build refund data for navigation
+                        val refundData = RefundData(
+                            order = order,
+                            selectedItems = itemsToRefund,
+                            invoiceNo = invoiceNo,
+                            subtotal = subtotal,
+                            tax = tax,
+                            discount = orderDiscountAmount,
+                            total = total
+                        )
+                        // Store refund data in ViewModel state
+                        _refundData.value = refundData
+                        _uiEvent.emit(OrdersUiEvent.NavigateToRefundInvoice(refundData))
+                    }.onFailure { error ->
+                        _uiEvent.emit(OrdersUiEvent.HideLoading)
+                        _uiEvent.emit(OrdersUiEvent.ShowError(error.message ?: "Failed to process refund"))
+                    }
+                } else {
+                    // Offline: Save refund locally (to be implemented)
+                    // For now, save to local database similar to orders
+                    // TODO: Implement offline refund saving
+                    _uiEvent.emit(OrdersUiEvent.HideLoading)
+                    _uiEvent.emit(OrdersUiEvent.ShowError("Offline refund saving not yet implemented"))
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("OrdersViewModel", "Error processing refund: ${e.message}", e)
+                _uiEvent.emit(OrdersUiEvent.HideLoading)
+                _uiEvent.emit(OrdersUiEvent.ShowError(e.message ?: "Failed to process refund"))
             }
         }
     }

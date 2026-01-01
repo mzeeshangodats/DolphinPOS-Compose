@@ -306,6 +306,13 @@ fun OrdersScreen(
                                 iconRes = R.drawable.success_circle_icon,
                             ) {}
                         }
+
+                        is OrdersUiEvent.NavigateToRefundInvoice -> {
+                            // Navigate to RefundInvoiceScreen with invoice number
+                            // Note: We'll need to pass refund data via ViewModel state or navigation argument
+                            // For now, using invoice number as identifier
+                            navController.navigate("refund_invoice/${event.refundData.invoiceNo}")
+                        }
                     }
                 }
             }
@@ -578,9 +585,9 @@ fun OrdersScreen(
                                         if (isSelected) {
                                             Color(0xFFB3E5FC) // Light blue for selected row
                                         } else {
-                                            if (filteredOrders.indexOf(order) % 2 == 0) Color.White else Color(
+                                        if (filteredOrders.indexOf(order) % 2 == 0) Color.White else Color(
                                                 0xFFE3F2FD
-                                            )
+                                        )
                                         }
                                     )
                                     .padding(16.dp)
@@ -644,6 +651,7 @@ fun OrdersScreen(
                     order = order,
                     onDismiss = { selectedOrder = null },
                     onPrintReceipt = { viewModel.printOrder(order) },
+                    viewModel = viewModel,
                     modifier = Modifier
                         .weight(0.6f)
                         .fillMaxHeight()
@@ -672,6 +680,7 @@ fun OrderDetailsPanel(
     order: OrderDetailList,
     onDismiss: () -> Unit,
     onPrintReceipt: () -> Unit,
+    viewModel: OrdersViewModel,
     modifier: Modifier = Modifier
 ) {
     // Refund mode state - reset when order changes (using orderNumber as key)
@@ -711,15 +720,85 @@ fun OrderDetailsPanel(
         selectedItemIndices = emptySet()
     }
     
+    // Calculate totals for selected items (or all items if full refund)
+    val calculatedTotals = remember(selectedItemIndices, isRefundMode, order) {
+        if (!isRefundMode) {
+            // Normal mode: show full order totals
+            Triple(
+                order.subTotal.toDoubleOrNull() ?: 0.0,
+                order.taxValue,
+                order.total.toDoubleOrNull() ?: 0.0
+            )
+        } else {
+            val itemsToCalculate = if (selectedItemIndices.isEmpty()) {
+                // Full refund: use all items
+                order.orderItems
+            } else {
+                // Partial refund: use selected items
+                selectedItemIndices.map { order.orderItems[it] }
+            }
+            
+            // Calculate subtotal
+            var subtotal = 0.0
+            itemsToCalculate.forEach { item ->
+                val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                subtotal += itemPrice * item.quantity
+            }
+            
+            // Calculate discount proportion
+            val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
+            val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
+            val discount = if (orderDiscountAmount > 0 && orderSubtotal > 0) {
+                (orderDiscountAmount / orderSubtotal) * subtotal
+            } else {
+                0.0
+            }
+            
+            // Calculate tax proportion
+            val orderTax = order.taxValue
+            val tax = if (orderSubtotal > 0) {
+                (orderTax / orderSubtotal) * subtotal
+            } else {
+                0.0
+            }
+            
+            // Calculate total
+            val total = subtotal - discount + tax
+            
+            Triple(subtotal, tax, total)
+        }
+    }
+    
+    val (displaySubtotal, displayTax, displayTotal) = calculatedTotals
+    
+    // Calculate discount for display
+    val displayDiscount = remember(selectedItemIndices, isRefundMode, order) {
+        if (!isRefundMode) {
+            order.discountAmount.toDoubleOrNull() ?: 0.0
+        } else {
+            val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
+            val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
+            val itemsToCalculate = if (selectedItemIndices.isEmpty()) {
+                order.orderItems
+            } else {
+                selectedItemIndices.map { order.orderItems[it] }
+            }
+            var subtotal = 0.0
+            itemsToCalculate.forEach { item ->
+                val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                subtotal += itemPrice * item.quantity
+            }
+            if (orderDiscountAmount > 0 && orderSubtotal > 0) {
+                (orderDiscountAmount / orderSubtotal) * subtotal
+            } else {
+                0.0
+            }
+        }
+    }
+
     // Function to confirm refund
     val confirmRefund = {
-        // Handle refund with selected items
-        DialogHandler.showDialog(
-            message = "Refund will be processed for selected items",
-            buttonText = "OK"
-        ) {
-            cancelRefundMode()
-        }
+        viewModel.processRefund(order, selectedItemIndices)
     }
 
     Column(
@@ -827,10 +906,6 @@ fun OrderDetailsPanel(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val subTotal = order.subTotal.toDoubleOrNull() ?: 0.0
-            val tax = order.taxValue
-            val total = order.total.toDoubleOrNull() ?: 0.0
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -842,11 +917,32 @@ fun OrderDetailsPanel(
                     fontFamily = GeneralSans
                 )
                 BaseText(
-                    text = "$${String.format("%.2f", subTotal)}",
+                    text = "$${String.format("%.2f", displaySubtotal)}",
                     fontSize = 14f,
                     color = colorResource(R.color.grey_text_colour),
                     fontFamily = GeneralSans
                 )
+            }
+
+            // Show discount if it exists
+            if (displayDiscount > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    BaseText(
+                        text = "Discount:",
+                        fontSize = 14f,
+                        color = colorResource(R.color.grey_text_colour),
+                        fontFamily = GeneralSans
+                    )
+                    BaseText(
+                        text = "-$${String.format("%.2f", displayDiscount)}",
+                        fontSize = 14f,
+                        color = colorResource(R.color.grey_text_colour),
+                        fontFamily = GeneralSans
+                    )
+                }
             }
 
             Row(
@@ -860,7 +956,7 @@ fun OrderDetailsPanel(
                     fontFamily = GeneralSans
                 )
                 BaseText(
-                    text = "$${String.format("%.2f", tax)}",
+                    text = "$${String.format("%.2f", displayTax)}",
                     fontSize = 14f,
                     color = colorResource(R.color.grey_text_colour),
                     fontFamily = GeneralSans
@@ -886,7 +982,7 @@ fun OrderDetailsPanel(
                     fontFamily = GeneralSans
                 )
                 BaseText(
-                    text = "$${String.format("%.2f", total)}",
+                    text = "$${String.format("%.2f", displayTotal)}",
                     fontSize = 14f,
                     color = Color.Black,
                     fontFamily = GeneralSans
@@ -930,68 +1026,68 @@ fun OrderDetailsPanel(
             }
         } else {
             // Normal mode buttons
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                BaseButton(
-                    contentPadding = PaddingValues(0.dp),
-                    text = "Print\nReceipt",
-                    modifier = Modifier.weight(1f),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            BaseButton(
+                contentPadding = PaddingValues(0.dp),
+                text = "Print\nReceipt",
+                modifier = Modifier.weight(1f),
+                backgroundColor = colorResource(id = R.color.color_dark_blue),
+                textColor = Color.White,
+                fontSize = 12,
+                fontWeight = FontWeight.SemiBold,
+                height = 60.dp,
+                onClick = onPrintReceipt,
+                textMaxLines = 2
+            )
+            BaseButton(
+                contentPadding = PaddingValues(0.dp),
+                text = "Email\nReceipt",
+                modifier = Modifier.weight(1f),
+                backgroundColor = colorResource(id = R.color.color_dark_blue),
+                textColor = Color.White,
+                fontSize = 12,
+                fontWeight = FontWeight.SemiBold,
+                height = 60.dp,
+                textMaxLines = 2,
+                onClick = {
+                    DialogHandler.showDialog(
+                        message = "Email receipt feature will be implemented soon",
+                        buttonText = "OK"
+                    ) {}
+                }
+            )
+            BaseButton(
+                contentPadding = PaddingValues(0.dp),
+                text = "Text\nReceipt",
+                modifier = Modifier.weight(1f),
+                backgroundColor = colorResource(id = R.color.color_dark_blue),
+                textColor = Color.White,
+                fontSize = 12,
+                fontWeight = FontWeight.SemiBold,
+                height = 60.dp,
+                textMaxLines = 2,
+                onClick = {
+                    DialogHandler.showDialog(
+                        message = "Text receipt feature will be implemented soon",
+                        buttonText = "OK"
+                    ) {}
+                }
+            )
+            BaseButton(
+                contentPadding = PaddingValues(0.dp),
+                text = "Refund",
+                modifier = Modifier.weight(1f),
                     backgroundColor = colorResource(id = R.color.color_dark_blue),
-                    textColor = Color.White,
-                    fontSize = 12,
-                    fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
-                    onClick = onPrintReceipt,
-                    textMaxLines = 2
-                )
-                BaseButton(
-                    contentPadding = PaddingValues(0.dp),
-                    text = "Email\nReceipt",
-                    modifier = Modifier.weight(1f),
-                    backgroundColor = colorResource(id = R.color.color_dark_blue),
-                    textColor = Color.White,
-                    fontSize = 12,
-                    fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
-                    textMaxLines = 2,
-                    onClick = {
-                        DialogHandler.showDialog(
-                            message = "Email receipt feature will be implemented soon",
-                            buttonText = "OK"
-                        ) {}
-                    }
-                )
-                BaseButton(
-                    contentPadding = PaddingValues(0.dp),
-                    text = "Text\nReceipt",
-                    modifier = Modifier.weight(1f),
-                    backgroundColor = colorResource(id = R.color.color_dark_blue),
-                    textColor = Color.White,
-                    fontSize = 12,
-                    fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
-                    textMaxLines = 2,
-                    onClick = {
-                        DialogHandler.showDialog(
-                            message = "Text receipt feature will be implemented soon",
-                            buttonText = "OK"
-                        ) {}
-                    }
-                )
-                BaseButton(
-                    contentPadding = PaddingValues(0.dp),
-                    text = "Refund",
-                    modifier = Modifier.weight(1f),
-                    backgroundColor = colorResource(id = R.color.color_dark_blue),
-                    textColor = Color.White,
-                    fontSize = 12,
-                    fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
-                    textMaxLines = 2,
+                textColor = Color.White,
+                fontSize = 12,
+                fontWeight = FontWeight.SemiBold,
+                height = 60.dp,
+                textMaxLines = 2,
                     onClick = enterRefundMode
                 )
             }
@@ -1012,7 +1108,7 @@ fun OrderDetailItemRow(
         is Map<*, *> -> variant["title"]?.toString() ?: ""
         else -> ""
     }
-    
+
     // Text colors based on selection state
     val textColor = if (isSelected) Color.White else Color.Black
     val qtyTextColor = if (isSelected) Color.White.copy(alpha = 0.9f) else colorResource(R.color.grey_text_colour)
@@ -1042,14 +1138,14 @@ fun OrderDetailItemRow(
                 tint = Color.White
             )
         } else {
-            BaseText(
-                text = "$itemNumber-",
-                fontSize = 14f,
-                fontWeight = FontWeight.Medium,
+        BaseText(
+            text = "$itemNumber-",
+            fontSize = 14f,
+            fontWeight = FontWeight.Medium,
                 color = textColor,
-                fontFamily = GeneralSans,
-                //modifier = Modifier.width(32.dp)
-            )
+            fontFamily = GeneralSans,
+            //modifier = Modifier.width(32.dp)
+        )
         }
 
         // Product Image (fixed size)

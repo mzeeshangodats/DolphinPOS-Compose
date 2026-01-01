@@ -14,6 +14,7 @@ import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScree
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
 import com.retail.dolphinpos.presentation.features.ui.orders.OrderDetailScreen
+import com.retail.dolphinpos.presentation.features.ui.orders.RefundInvoiceScreen
 import com.retail.dolphinpos.presentation.features.ui.products.CreateProductScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportScreen
@@ -208,6 +209,20 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
             OrderDetailScreen(
                 navController = navController,
                 orderNumber = orderNumber
+            )
+        }
+
+        // Refund Invoice Screen
+        composable(
+            route = "refund_invoice/{invoiceNo}",
+            arguments = listOf(
+                navArgument("invoiceNo") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val invoiceNo = backStackEntry.arguments?.getString("invoiceNo") ?: ""
+            RefundInvoiceScreen(
+                navController = navController,
+                invoiceNo = invoiceNo
             )
         }
     }
