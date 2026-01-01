@@ -1886,21 +1886,44 @@ class HomeViewModel @Inject constructor(
                 val orderId = orderRepository.saveOrderToLocal(orderRequest)
                 Log.d("Order", "Order saved locally with ID: $orderId")
 
-                // Enqueue order sync command to sync_command table (for offline-first sync)
-                try {
-                    posSyncRepository.enqueueOrderSyncCommand(
-                        orderId = orderNumber,
-                        batchId = batch.batchNo
-                    )
-                    Log.d("Order", "Order sync command enqueued successfully for order: $orderNumber")
-                    
-                    // Schedule sync worker to process the command
-                    scheduleSyncUseCase.scheduleSync(context)
-                    Log.d("Order", "Sync worker scheduled")
-                } catch (e: Exception) {
-                    Log.e("Order", "Failed to enqueue order sync command: ${e.message}", e)
-                    // Continue with order processing even if sync command enqueue fails
-                    // The order is still saved locally and can be synced later
+                // Try immediate sync first if network is available
+                var immediateSyncSucceeded = false
+                if (networkMonitor.isNetworkAvailable()) {
+                    try {
+                        val savedOrder = orderRepository.getOrderById(orderId)
+                        if (savedOrder != null) {
+                            orderRepository.syncOrderToServer(savedOrder).onSuccess {
+                                immediateSyncSucceeded = true
+                                Log.d("Order", "Order synced immediately. Response: ${it.message}")
+                            }.onFailure { e ->
+                                Log.e("Order", "Immediate sync failed: ${e.message}. Will enqueue for retry.")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("Order", "Immediate sync error: ${e.message}. Will enqueue for retry.")
+                    }
+                }
+
+                // Only enqueue sync command if immediate sync failed or network unavailable
+                // This prevents duplicate API calls
+                if (!immediateSyncSucceeded) {
+                    try {
+                        posSyncRepository.enqueueOrderSyncCommand(
+                            orderId = orderNumber,
+                            batchId = batch.batchNo
+                        )
+                        Log.d("Order", "Order sync command enqueued for retry. Order: $orderNumber")
+                        
+                        // Schedule sync worker to process the command
+                        scheduleSyncUseCase.scheduleSync(context)
+                        Log.d("Order", "Sync worker scheduled")
+                    } catch (e: Exception) {
+                        Log.e("Order", "Failed to enqueue order sync command: ${e.message}", e)
+                        // Continue with order processing even if sync command enqueue fails
+                        // The order is still saved locally and can be synced later
+                    }
+                } else {
+                    Log.d("Order", "Immediate sync succeeded, skipping sync command enqueue")
                 }
 
                 // Deduct product quantities from local database
@@ -1959,38 +1982,16 @@ class HomeViewModel @Inject constructor(
                     Log.e("Transaction", "Failed to save transaction: ${e.message}")
                 }
 
-                // Try to sync with server if internet is available
-                if (networkMonitor.isNetworkAvailable()) {
-                    try {
-                        // Get the order we just saved
-                        val savedOrder = orderRepository.getOrderById(orderId)
-                        if (savedOrder != null) {
-                            // Sync order to server
-                            orderRepository.syncOrderToServer(savedOrder).onSuccess { response ->
-                                Log.d(
-                                    "Order",
-                                    "Order synced to server successfully. Response: ${response.message}"
-                                )
-                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
-                            }.onFailure { e ->
-                                _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                                Log.e(
-                                    "Order",
-                                    "Failed to sync order: ${e.message}\n Your order has been saved locally and will sync when internet is available"
-                                )
-                                _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
-                            }
-                        } else {
-                            _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                            _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved but could not be retrieved for syncing"))
-                        }
-                    } catch (e: Exception) {
-                        Log.e("Order", "Failed to sync order: ${e.message}")
-                        _homeUiEvent.emit(HomeUiEvent.HideLoading)
-                        _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Failed to sync order: ${e.message}\nYour order has been saved locally and will sync when internet is available"))
-                    }
+                // Emit success event based on sync status
+                if (immediateSyncSucceeded) {
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order created successfully!"))
+                } else if (networkMonitor.isNetworkAvailable()) {
+                    // Immediate sync failed, but command is enqueued for retry
+                    _homeUiEvent.emit(HomeUiEvent.HideLoading)
+                    _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved. Syncing in background..."))
                 } else {
+                    // No network, command is enqueued for later sync
                     _homeUiEvent.emit(HomeUiEvent.HideLoading)
                     _homeUiEvent.emit(HomeUiEvent.OrderCreatedSuccessfully("Order saved offline and will sync when internet is available"))
                 }

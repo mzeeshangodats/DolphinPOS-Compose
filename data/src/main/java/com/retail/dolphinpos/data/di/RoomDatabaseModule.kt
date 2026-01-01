@@ -89,9 +89,10 @@ object RoomDatabaseModule {
     fun providePendingOrderRepository(
         pendingOrderDao: PendingOrderDao,
         apiService: com.retail.dolphinpos.data.service.ApiService,
+        productsDao: ProductsDao,
         gson: Gson
     ): PendingOrderRepositoryImpl {
-        return PendingOrderRepositoryImpl(pendingOrderDao, apiService, gson)
+        return PendingOrderRepositoryImpl(pendingOrderDao, apiService, productsDao, gson)
     }
 
     @Provides
@@ -143,9 +144,10 @@ object RoomDatabaseModule {
     fun provideOrderRepository(
         orderDao: OrderDao,
         apiService: ApiService,
+        productsDao: ProductsDao,
         gson: Gson
     ): OrderRepositoryImpl {
-        return OrderRepositoryImpl(orderDao, apiService, gson)
+        return OrderRepositoryImpl(orderDao, apiService, productsDao, gson)
     }
 
     @Provides

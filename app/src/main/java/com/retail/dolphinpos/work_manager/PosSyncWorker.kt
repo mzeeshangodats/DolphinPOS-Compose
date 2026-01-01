@@ -171,6 +171,12 @@ class PosSyncWorker @AssistedInject constructor(
         val order = orderDao.getOrderByOrderNumber(orderId)
             ?: throw IllegalStateException("Order not found: $orderId")
 
+        // Check if order is already synced (to prevent duplicate API calls)
+        if (order.isSynced || order.syncStatus == OrderSyncStatus.SYNCED) {
+            Log.d(TAG, "Order $orderId is already synced, skipping sync")
+            return // Order already synced, no need to call API again
+        }
+
         // Sync order to server using existing repository method
         val result = orderRepository.syncOrderToServer(order)
         result.getOrThrow() // Throw exception if failed

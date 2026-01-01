@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.dao.OrderDao
+import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.entities.order.OrderEntity
 import com.retail.dolphinpos.data.entities.order.OrderSyncStatus
 import com.retail.dolphinpos.data.service.ApiService
@@ -21,6 +22,7 @@ import java.lang.reflect.Type
 class OrderRepositoryImpl(
     private val orderDao: OrderDao,
     private val apiService: ApiService,
+    private val productsDao: ProductsDao,
     private val gson: Gson
 ) {
 
@@ -331,7 +333,7 @@ class OrderRepositoryImpl(
     /**
      * Convert OrderEntity to CreateOrderRequest
      */
-    private fun convertToCreateOrderRequest(entity: OrderEntity): CreateOrderRequest {
+    private suspend fun convertToCreateOrderRequest(entity: OrderEntity): CreateOrderRequest {
         val itemsType = object : TypeToken<List<CheckOutOrderItem>>() {}.type
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<CheckoutSplitPaymentTransactions>>() {}.type
@@ -339,6 +341,26 @@ class OrderRepositoryImpl(
         val taxDetailsType = object : TypeToken<List<TaxDetail>>() {}.type
 
         val items: List<CheckOutOrderItem> = decodeJson(entity.items, itemsType) ?: emptyList()
+        
+        // Map local product IDs to server IDs before sending to API
+        val mappedItems = items.map { item ->
+            val serverProductId = item.productId?.let { productId ->
+                // Try to get product by server ID first (in case productId is already a server ID)
+                val productByServerId = productsDao.getProductByServerId(productId)
+                if (productByServerId != null) {
+                    // productId is already a server ID
+                    productId
+                } else {
+                    // Try to get product by local ID and get its server ID
+                    val productByLocalId = productsDao.getProductById(productId)
+                    // Return serverId if available, otherwise keep the original ID
+                    productByLocalId?.serverId ?: productId
+                }
+            }
+            
+            item.copy(productId = serverProductId)
+        }
+        
         val discountIds: List<Int>? = entity.discountIds?.let { decodeJson(it, discountIdsType) }
         val transactions: List<CheckoutSplitPaymentTransactions>? = entity.transactions?.let { decodeJson(it, transactionsType) }
         val cardDetails: CardDetails? = entity.cardDetails?.let { decodeJson(it, cardDetailsType) }
@@ -356,7 +378,7 @@ class OrderRepositoryImpl(
             isRedeemed = entity.isRedeemed,
             source = entity.source,
             redeemPoints = entity.redeemPoints,
-            items = items,
+            items = mappedItems,
             subTotal = entity.subTotal,
             total = entity.total,
             applyTax = entity.applyTax,

@@ -3,6 +3,7 @@ package com.retail.dolphinpos.data.repositories.pending_order
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.retail.dolphinpos.data.dao.PendingOrderDao
+import com.retail.dolphinpos.data.dao.ProductsDao
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.data.util.safeApiCallResult
 import com.retail.dolphinpos.data.entities.order.PendingOrderEntity
@@ -14,6 +15,7 @@ import com.retail.dolphinpos.domain.model.order.PendingOrder
 class PendingOrderRepositoryImpl(
     private val pendingOrderDao: PendingOrderDao,
     private val apiService: ApiService,
+    private val productsDao: ProductsDao,
     private val gson: Gson
 ) {
 
@@ -94,12 +96,34 @@ class PendingOrderRepositoryImpl(
         order?.let { pendingOrderDao.deletePendingOrder(it) }
     }
 
-    private fun convertToCreateOrderRequest(entity: PendingOrderEntity): CreateOrderRequest {
+    private suspend fun convertToCreateOrderRequest(entity: PendingOrderEntity): CreateOrderRequest {
         val itemsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem>>() {}.type
         val discountIdsType = object : TypeToken<List<Int>>() {}.type
         val transactionsType = object : TypeToken<List<com.retail.dolphinpos.domain.model.home.create_order.CheckoutSplitPaymentTransactions>>() {}.type
         val cardDetailsType = object : TypeToken<com.retail.dolphinpos.domain.model.home.create_order.CardDetails>() {}.type
         val taxDetailsType = object : TypeToken<List<TaxDetail>>() {}.type
+
+        val items: List<com.retail.dolphinpos.domain.model.home.create_order.CheckOutOrderItem> = 
+            gson.fromJson(entity.items, itemsType) ?: emptyList()
+        
+        // Map local product IDs to server IDs before sending to API
+        val mappedItems = items.map { item ->
+            val serverProductId = item.productId?.let { productId ->
+                // Try to get product by server ID first (in case productId is already a server ID)
+                val productByServerId = productsDao.getProductByServerId(productId)
+                if (productByServerId != null) {
+                    // productId is already a server ID
+                    productId
+                } else {
+                    // Try to get product by local ID and get its server ID
+                    val productByLocalId = productsDao.getProductById(productId)
+                    // Return serverId if available, otherwise keep the original ID
+                    productByLocalId?.serverId ?: productId
+                }
+            }
+            
+            item.copy(productId = serverProductId)
+        }
 
         return CreateOrderRequest(
             orderNumber = entity.orderNumber,
@@ -113,7 +137,7 @@ class PendingOrderRepositoryImpl(
             isRedeemed = entity.isRedeemed,
             source = entity.source,
             redeemPoints = entity.redeemPoints,
-            items = gson.fromJson(entity.items, itemsType),
+            items = mappedItems,
             subTotal = entity.subTotal,
             total = entity.total,
             applyTax = entity.applyTax,

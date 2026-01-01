@@ -14,7 +14,6 @@ import com.retail.dolphinpos.presentation.features.ui.auth.pin_code.PinCodeScree
 import com.retail.dolphinpos.presentation.features.ui.auth.select_register.SelectRegisterScreen
 import com.retail.dolphinpos.presentation.features.ui.auth.splash.SplashScreen
 import com.retail.dolphinpos.presentation.features.ui.orders.OrderDetailScreen
-import com.retail.dolphinpos.presentation.features.ui.pending_orders.PendingOrdersScreen
 import com.retail.dolphinpos.presentation.features.ui.products.CreateProductScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_history.BatchHistoryScreen
 import com.retail.dolphinpos.presentation.features.ui.reports.batch_report.BatchReportScreen
@@ -151,13 +150,6 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
         // Cash Drawer Screen (accessed through MainLayout)
         composable("cash_drawer") {
             MainLayout(navController = navController, preferenceManager = preferenceManager)
-        }
-
-        // Pending Orders Screen
-        composable("pending_orders") {
-            PendingOrdersScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
         }
 
         // Credit Card Processing Screen

@@ -25,6 +25,12 @@ class OrderSyncWorker @AssistedInject constructor(
             
             for (order in unsyncedOrders) {
                 try {
+                    // Double-check order is not already synced (to prevent duplicate API calls)
+                    if (order.isSynced || order.syncStatus == com.retail.dolphinpos.data.entities.order.OrderSyncStatus.SYNCED) {
+                        Log.d("OrderSyncWorker", "Order ${order.orderNumber} is already synced, skipping")
+                        continue
+                    }
+                    
                     // Sync order to server
                     // On success, OrderRepository automatically updates isSynced = true and status = "completed"
                     orderRepository.syncOrderToServer(order).onSuccess { response ->
