@@ -559,23 +559,39 @@ class CreateProductViewModel @Inject constructor(
 
     fun uploadVariantImage(variant: ProductVariantData, file: java.io.File, originalName: String) {
         viewModelScope.launch {
-            val uploadResult = uploadFileUseCase(listOf(file), "product")
-            uploadResult.onSuccess { response ->
-                val uploadedImageList = response.data.images.images
-                if (uploadedImageList.isNotEmpty()) {
-                    val uploadedImage = uploadedImageList[0]
-                    val currentImages = variant.images?.toMutableList() ?: mutableListOf()
-                    currentImages.add(
-                        ProductImageRequest(
-                            fileURL = uploadedImage.url,
-                            originalName = uploadedImage.originalname ?: originalName
+            val isOnline = networkMonitor.isNetworkAvailable()
+            
+            if (isOnline) {
+                // Upload image if internet is available
+                val uploadResult = uploadFileUseCase(listOf(file), "product")
+                uploadResult.onSuccess { response ->
+                    val uploadedImageList = response.data.images.images
+                    if (uploadedImageList.isNotEmpty()) {
+                        val uploadedImage = uploadedImageList[0]
+                        val currentImages = variant.images?.toMutableList() ?: mutableListOf()
+                        currentImages.add(
+                            ProductImageRequest(
+                                fileURL = uploadedImage.url,
+                                originalName = uploadedImage.originalname ?: originalName
+                            )
                         )
-                    )
-                    val updatedVariant = variant.copy(images = currentImages)
-                    updateVariant(updatedVariant)
+                        val updatedVariant = variant.copy(images = currentImages)
+                        updateVariant(updatedVariant)
+                    }
+                }.onFailure { error ->
+                    _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to upload variant image: ${error.message}"))
                 }
-            }.onFailure { error ->
-                _uiEvent.emit(CreateProductUiEvent.ShowError("Failed to upload variant image: ${error.message}"))
+            } else {
+                // Offline: Use local file path directly
+                val currentImages = variant.images?.toMutableList() ?: mutableListOf()
+                currentImages.add(
+                    ProductImageRequest(
+                        fileURL = file.absolutePath,
+                        originalName = originalName
+                    )
+                )
+                val updatedVariant = variant.copy(images = currentImages)
+                updateVariant(updatedVariant)
             }
         }
     }
@@ -644,7 +660,9 @@ class CreateProductViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true)
             
             try {
-                // Step 1: Upload images first (if any are local files)
+                val isOnline = networkMonitor.isNetworkAvailable()
+                
+                // Step 1: Upload images first (if any are local files and internet is available)
                 val uploadedImages = mutableListOf<ProductImageData>()
                 val localFiles = mutableListOf<Pair<java.io.File, String>>() // File and originalName
                 
@@ -658,7 +676,9 @@ class CreateProductViewModel @Inject constructor(
                         if (file.exists()) {
                             localFiles.add(Pair(file, imageData.originalName))
                         } else {
+                            _uiState.value = _uiState.value.copy(isLoading = false)
                             _uiEvent.emit(CreateProductUiEvent.ShowError("Image file not found: ${imageData.originalName}"))
+                            return@launch
                         }
                     } else {
                         // Already a remote URL, use as-is
@@ -666,8 +686,8 @@ class CreateProductViewModel @Inject constructor(
                     }
                 }
                 
-                // Upload all local files in a single request
-                if (localFiles.isNotEmpty()) {
+                // Upload all local files in a single request (only if internet is available)
+                if (localFiles.isNotEmpty() && isOnline) {
                     val filesToUpload = localFiles.map { it.first }
                     val uploadResult = uploadFileUseCase(filesToUpload, "product")
                     
@@ -693,6 +713,16 @@ class CreateProductViewModel @Inject constructor(
                         uploadedImages.add(
                             ProductImageData(
                                 url = uploadedImage.url,
+                                originalName = originalName
+                            )
+                        )
+                    }
+                } else if (localFiles.isNotEmpty() && !isOnline) {
+                    // No internet: keep local file paths for offline saving
+                    localFiles.forEach { (file, originalName) ->
+                        uploadedImages.add(
+                            ProductImageData(
+                                url = file.absolutePath,
                                 originalName = originalName
                             )
                         )
@@ -746,8 +776,12 @@ class CreateProductViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(isLoading = false)
                         _uiEvent.emit(CreateProductUiEvent.ProductCreated(productId))
                         
-                        // Try to sync immediately
-                        syncProduct(productId)
+                        // Try to sync immediately only if internet is available
+                        if (isOnline) {
+                            syncProduct(productId)
+                        }
+                        // If offline, product is saved locally and sync will happen later
+                        // Don't show error, success dialog is already shown
                     }.onFailure { error ->
                         _uiState.value = _uiState.value.copy(isLoading = false)
                         _uiEvent.emit(CreateProductUiEvent.ShowError(error.message ?: "Failed to create product"))

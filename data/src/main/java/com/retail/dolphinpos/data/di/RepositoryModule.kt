@@ -107,9 +107,10 @@ object RepositoryModule {
     fun provideProductRepository(
         productsDao: ProductsDao,
         apiService: ApiService,
-        gson: Gson
+        gson: Gson,
+        networkMonitor: NetworkMonitor
     ): ProductRepository {
-        return ProductRepositoryImpl(productsDao, apiService, gson)
+        return ProductRepositoryImpl(productsDao, apiService, gson, networkMonitor)
     }
 
     @Provides

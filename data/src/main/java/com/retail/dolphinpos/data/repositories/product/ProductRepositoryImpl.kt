@@ -27,7 +27,8 @@ import java.io.File
 class ProductRepositoryImpl(
     private val productsDao: ProductsDao,
     private val apiService: ApiService,
-    private val gson: Gson
+    private val gson: Gson,
+    private val networkMonitor: com.retail.dolphinpos.common.network.NetworkMonitor
 ) : ProductRepository {
 
     override suspend fun createProduct(request: CreateProductRequest): Result<Long> {
@@ -298,22 +299,27 @@ class ProductRepositoryImpl(
                 }
             }
             
-            // Call API to update on server
-            val result = safeApiCallResult(
-                apiCall = { apiService.updateProduct(productId, request) },
-                defaultMessage = "Product update failed"
-            )
-            
-            // Mark as synced on success
-            result.onSuccess { response ->
-                val updatedProduct = productEntity.copy(
-                    isSynced = true,
-                    updatedAt = System.currentTimeMillis()
+            // Call API to update on server (only if internet is available)
+            if (networkMonitor.isNetworkAvailable()) {
+                val result = safeApiCallResult(
+                    apiCall = { apiService.updateProduct(productId, request) },
+                    defaultMessage = "Product update failed"
                 )
-                productsDao.updateProduct(updatedProduct)
+                
+                // Mark as synced on success
+                result.onSuccess { response ->
+                    val updatedProduct = productEntity.copy(
+                        isSynced = true,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    productsDao.updateProduct(updatedProduct)
+                }
+                
+                result.map { productId } // Return product ID
+            } else {
+                // Offline: Product is already saved locally, return success
+                Result.success(productId)
             }
-            
-            result.map { productId } // Return product ID
         } catch (e: Exception) {
             Result.failure(e)
         }

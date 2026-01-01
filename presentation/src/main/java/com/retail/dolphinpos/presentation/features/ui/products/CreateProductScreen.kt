@@ -143,10 +143,8 @@ fun CreateProductScreen(
                     // Product synced successfully
                 }
                 is CreateProductUiEvent.SyncFailed -> {
-                    DialogHandler.showDialog(
-                        message = "Product saved locally. ${event.message}",
-                        buttonText = "OK"
-                    ) {}
+                    // Sync failed but product is saved locally - don't show error
+                    // Success dialog is already shown via ProductCreated event
                 }
                 is CreateProductUiEvent.ShowError -> {
                     DialogHandler.showDialog(
