@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.retail.dolphinpos.common.components.BaseButton
@@ -273,20 +275,29 @@ fun InventoryScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontFamily = GeneralSans,
-                        modifier = Modifier.width(100.dp)
+                        modifier = Modifier.width(100.dp),
+                        textAlign = TextAlign.End
                     )
-                    Box(
-                        modifier = Modifier.width(80.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        BaseText(
-                            text = "Quantity",
-                            fontSize = 12f,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            fontFamily = GeneralSans
-                        )
-                    }
+
+                    BaseText(
+                        text = "Quantity",
+                        fontSize = 12f,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.width(100.dp),
+                        textAlign = TextAlign.End
+                    )
+
+                    BaseText(
+                        text = "Action",
+                        fontSize = 12f,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = GeneralSans,
+                        modifier = Modifier.width(100.dp),
+                        textAlign = TextAlign.End
+                    )
                 }
 
                 // Products List
@@ -333,8 +344,8 @@ fun InventoryScreen(
                                 modifier = Modifier.width(100.dp)
                             )
                             Box(
-                                modifier = Modifier.width(80.dp),
-                                contentAlignment = Alignment.Center
+                                modifier = Modifier.width(90.dp),
+                                contentAlignment = Alignment.CenterStart
                             ) {
                                 BaseText(
                                     text = "${product.quantity}",
@@ -343,20 +354,19 @@ fun InventoryScreen(
                                     fontFamily = GeneralSans
                                 )
                             }
-                            // Edit icon button
-                            IconButton(
+
+                            BaseButton(
+                                text = "Edit",
                                 onClick = {
                                     navController.navigate("create_product/${product.id}")
                                 },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Edit,
-                                    contentDescription = "Edit Product",
-                                    tint = colorResource(id = R.color.primary),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                                backgroundColor = colorResource(id = R.color.primary),
+                                fontSize = 12,
+                                height = 38.dp,
+                                cornerRadius = 8.dp,
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(40.dp).width(50.dp)
+                            )
                         }
                     }
                 }
