@@ -335,8 +335,8 @@ class ProductRepositoryImpl(
         }
     }
 
-//    override suspend fun getUnsyncedProducts(): List<Long> {
-//        return productsDao.getUnsyncedProducts().map { it.id.toLong() }
-//    }
+    override suspend fun getUnsyncedProducts(): List<Long> {
+        return productsDao.getUnsyncedProducts().map { it.id.toLong() }
+    }
 }
 

@@ -147,8 +147,8 @@ interface ProductsDao {
     @Update
     suspend fun updateProduct(product: ProductsEntity)
 
-//    @Query("SELECT * FROM products WHERE is_synced = 0 ORDER BY createdAt ASC")
-//    suspend fun getUnsyncedProducts(): List<ProductsEntity>
+    @Query("SELECT * FROM products WHERE is_synced = 0 ORDER BY created_at ASC")
+    suspend fun getUnsyncedProducts(): List<ProductsEntity>
 
     @Query("SELECT * FROM products WHERE id = :productId LIMIT 1")
     suspend fun getProductByLocalId(productId: Int): ProductsEntity?

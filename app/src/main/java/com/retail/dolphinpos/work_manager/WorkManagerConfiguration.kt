@@ -32,6 +32,7 @@ object WorkManagerConfiguration {
         // Enqueue periodic sync work when internet is available
         enqueueOrderSyncWork(context)
         enqueueCustomerSyncWork(context)
+        enqueueProductSyncWork(context)
         enqueueTimeSlotSyncWork(context)
         // Note: PosSyncWorker is scheduled via SyncScheduler when needed (not periodic)
         // It uses OneTimeWorkRequest with NetworkType.CONNECTED constraint
@@ -48,6 +49,13 @@ object WorkManagerConfiguration {
         enqueuePeriodicSyncWork<CustomerSyncWorker>(
             context = context,
             tag = "CUSTOMER_SYNC"
+        )
+    }
+
+    private fun enqueueProductSyncWork(context: Context) {
+        enqueuePeriodicSyncWork<ProductSyncWorker>(
+            context = context,
+            tag = "PRODUCT_SYNC"
         )
     }
 

@@ -15,6 +15,6 @@ interface ProductRepository {
     suspend fun getCategories(): List<CategoryData>
     suspend fun getProductById(productId: Int): Result<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>
     suspend fun updateProduct(productId: Int, request: CreateProductRequest): Result<Int>
-//    suspend fun getUnsyncedProducts(): List<Long>
+    suspend fun getUnsyncedProducts(): List<Long>
 }
 
