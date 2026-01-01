@@ -18,7 +18,7 @@ data class RefundTransaction(
 )
 
 data class RefundItem(
-    val id: Int,
+   // val id: Int,
     val productId: Int,
     val quantity: Int,
     val price: Double
