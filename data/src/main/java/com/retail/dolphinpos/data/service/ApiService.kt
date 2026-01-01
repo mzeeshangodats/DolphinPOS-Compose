@@ -29,6 +29,7 @@ import retrofit2.http.Part
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerRequest
 import com.retail.dolphinpos.domain.model.home.customer.AddCustomerResponse
 import com.retail.dolphinpos.domain.model.home.order_details.OrderDetailsResponse
+import com.retail.dolphinpos.domain.model.home.refund.RefundRequest
 import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryData
 import com.retail.dolphinpos.domain.model.report.batch_history.BatchReportHistoryResponse
 import com.retail.dolphinpos.domain.model.report.batch_report.BatchReport
@@ -164,7 +165,7 @@ interface ApiService {
     ): OrderDetailsResponse
 
     @PUT("order/refund")
-    suspend fun refundOrder(@Body refundRequest: com.retail.dolphinpos.domain.model.home.refund.RefundRequest): com.retail.dolphinpos.domain.model.home.refund.RefundResponse
+    suspend fun refundOrder(@Body refundRequest: RefundRequest): com.retail.dolphinpos.domain.model.home.refund.RefundResponse
 
     @GET("vendor")
     suspend fun getVendors(

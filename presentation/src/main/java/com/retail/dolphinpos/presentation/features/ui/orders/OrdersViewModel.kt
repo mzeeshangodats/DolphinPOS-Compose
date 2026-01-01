@@ -555,6 +555,7 @@ class OrdersViewModel @Inject constructor(
 
                 // Build refund request
                 val refundRequest = RefundRequest(
+                    orderNumber = order.orderNumber,
                     storeId = storeId,
                     batchNo = batchNo,
                     userId = userId,

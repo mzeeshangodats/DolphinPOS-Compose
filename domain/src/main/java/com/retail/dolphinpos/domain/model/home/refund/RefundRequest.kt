@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.domain.model.home.refund
 
 data class RefundRequest(
+    val orderNumber: String,
     val storeId: Int,
     val batchNo: String,
     val userId: Int,
