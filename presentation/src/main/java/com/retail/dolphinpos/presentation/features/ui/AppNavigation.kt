@@ -214,15 +214,20 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
 
         // Refund Invoice Screen
         composable(
-            route = "refund_invoice/{invoiceNo}",
+            route = "refund_invoice/{refundDataJson}",
             arguments = listOf(
-                navArgument("invoiceNo") { type = NavType.StringType }
+                navArgument("refundDataJson") { type = NavType.StringType }
             )
         ) { backStackEntry ->
-            val invoiceNo = backStackEntry.arguments?.getString("invoiceNo") ?: ""
+            val refundDataJson = backStackEntry.arguments?.getString("refundDataJson") ?: ""
+            val decodedJson = try {
+                java.net.URLDecoder.decode(refundDataJson, "UTF-8")
+            } catch (e: Exception) {
+                refundDataJson
+            }
             RefundInvoiceScreen(
                 navController = navController,
-                invoiceNo = invoiceNo
+                refundDataJson = decodedJson
             )
         }
     }

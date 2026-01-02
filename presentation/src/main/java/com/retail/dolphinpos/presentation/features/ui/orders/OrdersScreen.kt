@@ -308,10 +308,21 @@ fun OrdersScreen(
                         }
 
                         is OrdersUiEvent.NavigateToRefundInvoice -> {
-                            // Navigate to RefundInvoiceScreen with invoice number
-                            // Note: We'll need to pass refund data via ViewModel state or navigation argument
-                            // For now, using invoice number as identifier
-                            navController.navigate("refund_invoice/${event.refundData.invoiceNo}")
+                            // Navigate to RefundInvoiceScreen with refund data as JSON
+                            try {
+                                val gson = com.google.gson.Gson()
+                                val refundDataJson = java.net.URLEncoder.encode(
+                                    gson.toJson(event.refundData),
+                                    "UTF-8"
+                                )
+                                navController.navigate("refund_invoice/$refundDataJson")
+                            } catch (e: Exception) {
+                                android.util.Log.e("OrdersScreen", "Error encoding refund data: ${e.message}", e)
+                                DialogHandler.showDialog(
+                                    message = "Error navigating to refund invoice",
+                                    buttonText = "OK"
+                                ) {}
+                            }
                         }
                     }
                 }
