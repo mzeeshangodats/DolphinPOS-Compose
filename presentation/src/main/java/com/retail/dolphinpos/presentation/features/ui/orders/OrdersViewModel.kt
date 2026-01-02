@@ -77,8 +77,14 @@ class OrdersViewModel @Inject constructor(
     private val _orderDetail = MutableStateFlow<OrderDetailList?>(null)
     val orderDetail: StateFlow<OrderDetailList?> = _orderDetail.asStateFlow()
 
-    private val _refundData = MutableStateFlow<RefundData?>(null)
-    val refundData: StateFlow<RefundData?> = _refundData.asStateFlow()
+    // Store refund data by invoice number to persist across navigation
+    private val _refundDataMap = MutableStateFlow<Map<String, RefundData>>(emptyMap())
+    
+    fun getRefundData(invoiceNo: String): RefundData? {
+        val data = _refundDataMap.value[invoiceNo]
+        android.util.Log.d("OrdersViewModel", "Getting refund data for invoice: $invoiceNo, found: ${data != null}, map size: ${_refundDataMap.value.size}")
+        return data
+    }
 
     fun setStartDate(date: String) {
         _startDate.value = date
@@ -582,8 +588,8 @@ class OrdersViewModel @Inject constructor(
                             discount = orderDiscountAmount,
                             total = total
                         )
-                        // Store refund data in ViewModel state
-                        _refundData.value = refundData
+                        // Store refund data in ViewModel state map by invoice number
+                        _refundDataMap.value = _refundDataMap.value + (invoiceNo to refundData)
                         _uiEvent.emit(OrdersUiEvent.NavigateToRefundInvoice(refundData))
                     }.onFailure { error ->
                         _uiEvent.emit(OrdersUiEvent.HideLoading)
