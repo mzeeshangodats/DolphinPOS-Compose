@@ -12,6 +12,26 @@ class GetAppLogoUseCase (
 
     operator fun invoke(): Bitmap {
         return try {
+            // Try to load dolphin_logo first (from presentation module)
+            val dolphinLogoResId = context.resources.getIdentifier(
+                "dolphin_logo",
+                "drawable",
+                context.packageName
+            )
+            
+            if (dolphinLogoResId != 0) {
+                BitmapFactory.decodeResource(context.resources, dolphinLogoResId)
+                    ?: loadFallbackLogo()
+            } else {
+                loadFallbackLogo()
+            }
+        } catch (e: Exception) {
+            loadFallbackLogo()
+        }
+    }
+
+    private fun loadFallbackLogo(): Bitmap {
+        return try {
             BitmapFactory.decodeResource(context.resources, R.drawable.logo_with_bg)
                 ?: createDefaultLogo()
         } catch (e: Exception) {
