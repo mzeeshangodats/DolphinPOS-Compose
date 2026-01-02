@@ -4,6 +4,7 @@ import androidx.annotation.ColorRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,10 +46,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.viewpager2.widget.ViewPager2
 import com.google.gson.Gson
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HeaderAppBarWithBack
 import com.retail.dolphinpos.common.utils.GeneralSans
+import com.retail.dolphinpos.domain.model.home.order_details.OrderItem
 import com.retail.dolphinpos.presentation.R
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -164,7 +167,6 @@ fun ReceiptCardSection(data: RefundData) {
         Column(
             modifier = Modifier
                 .fillMaxWidth(1f)
-                .verticalScroll(scrollState)
                 .padding(50.dp)
         ) {
             // Center content horizontally
@@ -178,7 +180,7 @@ fun ReceiptCardSection(data: RefundData) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Product Details Section
-                ProductDetailsSection(items = data.selectedItems)
+                ProductDetailsSection(items = data.selectedItems, scrollState)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -245,14 +247,16 @@ fun RefundCardHeader(total: Double) {
 }
 
 @Composable
-fun ProductDetailsSection(items: List<com.retail.dolphinpos.domain.model.home.order_details.OrderItem>) {
-    Column {
+fun ProductDetailsSection(items: List<OrderItem>, scrollState: ScrollState) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
         // Dashed divider above
         DashedDivider()
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Title: "Product Details"
+        // Title: "Product Details" - Fixed (not scrollable)
         BaseText(
             text = "Product Details",
             fontSize = 14f,
@@ -263,7 +267,7 @@ fun ProductDetailsSection(items: List<com.retail.dolphinpos.domain.model.home.or
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Table Header
+        // Table Header - Fixed (not scrollable)
         Row(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -297,39 +301,46 @@ fun ProductDetailsSection(items: List<com.retail.dolphinpos.domain.model.home.or
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Items List
-        items.forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            ) {
-                BaseText(
-                    text = item.product.name,
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    color = Color(0xFF6B7280),
-                    modifier = Modifier.weight(0.6f),
-                    maxLines = 2
-                )
-                BaseText(
-                    text = String.format("%02d", item.quantity),
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    color = Color(0xFF6B7280),
-                    modifier = Modifier.weight(0.2f),
-                    textAlign = TextAlign.Center
-                )
-                BaseText(
-                    text = formatCurrencyRefund(
-                        (item.price.toDoubleOrNull() ?: 0.0) * item.quantity
-                    ),
-                    fontSize = 12f,
-                    fontFamily = GeneralSans,
-                    color = Color(0xFF6B7280),
-                    modifier = Modifier.weight(0.2f),
-                    textAlign = TextAlign.End
-                )
+        // Items List - Scrollable with fixed height
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp) // Fixed height for scrollable area
+                .verticalScroll(scrollState)
+        ) {
+            items.forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    BaseText(
+                        text = item.product.name,
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        color = Color(0xFF6B7280),
+                        modifier = Modifier.weight(0.6f),
+                        maxLines = 2
+                    )
+                    BaseText(
+                        text = String.format("%02d", item.quantity),
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        color = Color(0xFF6B7280),
+                        modifier = Modifier.weight(0.2f),
+                        textAlign = TextAlign.Center
+                    )
+                    BaseText(
+                        text = formatCurrencyRefund(
+                            (item.price.toDoubleOrNull() ?: 0.0) * item.quantity
+                        ),
+                        fontSize = 12f,
+                        fontFamily = GeneralSans,
+                        color = Color(0xFF6B7280),
+                        modifier = Modifier.weight(0.2f),
+                        textAlign = TextAlign.End
+                    )
+                }
             }
         }
 
