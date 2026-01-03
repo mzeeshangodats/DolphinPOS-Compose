@@ -106,6 +106,26 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
                 navController = navController,
                 preferenceManager = preferenceManager,
                 productId = null,
+                initialBarcode = null,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Create product route with barcode
+        composable(
+            route = "create_product/barcode/{barcode}",
+            arguments = listOf(
+                navArgument("barcode") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val barcode = backStackEntry.arguments?.getString("barcode")
+            CreateProductScreen(
+                navController = navController,
+                preferenceManager = preferenceManager,
+                productId = null,
+                initialBarcode = barcode,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -124,6 +144,7 @@ fun AppNavigation(preferenceManager: PreferenceManager) {
                 navController = navController,
                 preferenceManager = preferenceManager,
                 productId = productId,
+                initialBarcode = null,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

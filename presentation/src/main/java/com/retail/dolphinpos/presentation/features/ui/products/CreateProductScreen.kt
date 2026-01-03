@@ -105,6 +105,7 @@ fun CreateProductScreen(
     navController: NavController,
     preferenceManager: PreferenceManager,
     productId: Int? = null,
+    initialBarcode: String? = null,
     onNavigateBack: () -> Unit,
     viewModel: CreateProductViewModel = hiltViewModel()
 ) {
@@ -116,6 +117,15 @@ fun CreateProductScreen(
     LaunchedEffect(productId) {
         productId?.let { id ->
             viewModel.loadProduct(id)
+        }
+    }
+
+    // Set initial barcode if provided
+    LaunchedEffect(initialBarcode) {
+        initialBarcode?.let { barcode ->
+            if (uiState.barcode.isEmpty()) {
+                viewModel.updateBarcode(barcode)
+            }
         }
     }
 

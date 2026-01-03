@@ -174,6 +174,7 @@ fun HomeScreen(
     val pluSearchResult by viewModel.pluSearchResult.collectAsStateWithLifecycle()
     val isSearchingPLU by viewModel.isSearchingPLU.collectAsStateWithLifecycle()
     val priceCheckProduct by viewModel.priceCheckProduct.collectAsStateWithLifecycle()
+    val priceCheckBarcodeNotFound by viewModel.priceCheckBarcodeNotFound.collectAsStateWithLifecycle()
 
     // Split Payment state
     val isSplitPaymentEnabled by viewModel.isSplitPaymentEnabled.collectAsStateWithLifecycle()
@@ -1093,11 +1094,13 @@ fun HomeScreen(
         // Price Check Dialog
         if (showPriceCheckDialog) {
             PriceCheckDialog(
+                navController = navController,
                 onDismiss = {
                     showPriceCheckDialog = false
                     viewModel.clearPriceCheckProduct()
                 },
                 priceCheckProduct = priceCheckProduct,
+                priceCheckBarcodeNotFound = priceCheckBarcodeNotFound,
                 onSearchQuery = { query ->
                     viewModel.searchProductForPriceCheck(query)
                 },
@@ -4621,8 +4624,10 @@ fun PLUSearchDialog(
 
 @Composable
 fun PriceCheckDialog(
+    navController: NavController,
     onDismiss: () -> Unit,
     priceCheckProduct: Products?,
+    priceCheckBarcodeNotFound: String?,
     onSearchQuery: (String) -> Unit,
     viewModel: HomeViewModel
 ) {
@@ -4633,529 +4638,618 @@ fun PriceCheckDialog(
     val coroutineScope = rememberCoroutineScope()
     var barcodeScanJob by remember { mutableStateOf<Job?>(null) }
 
-    // Handle barcode scanning - auto-search on barcode scan
+    // Update searchInput when barcode is scanned and not found
+    LaunchedEffect(priceCheckBarcodeNotFound) {
+        priceCheckBarcodeNotFound?.let { barcode ->
+            searchInput = barcode
+        }
+    }
+
+    // Handle barcode scanning - auto-search on barcode scan with debounce
     LaunchedEffect(barcodeInput) {
         barcodeScanJob?.cancel()
         if (barcodeInput.isNotEmpty() && barcodeInput.length >= 3) {
             barcodeScanJob = coroutineScope.launch {
-                delay(300)
+                delay(200) // Wait for scanner to finish (reduced from 300ms for faster response)
                 if (barcodeInput.isNotEmpty() && barcodeInput.length >= 3) {
-                    onSearchQuery(barcodeInput.trim())
+                    val scannedBarcode = barcodeInput.trim()
+                    searchInput = scannedBarcode
+                    // Automatically search when barcode is scanned - this is the key auto-search
+                    viewModel.searchProductForPriceCheck(scannedBarcode, isBarcodeSearch = true)
                     barcodeInput = ""
                 }
             }
         }
     }
+    
+    // Also auto-search when searchInput changes and looks like a barcode (for manual typing or when barcode fills the field)
+    var searchJob by remember { mutableStateOf<Job?>(null) }
+    LaunchedEffect(searchInput) {
+        searchJob?.cancel()
+        if (searchInput.isNotEmpty() && searchInput.length >= 8) {
+            // Looks like a barcode - auto-search after user stops typing/scanning
+            searchJob = coroutineScope.launch {
+                delay(300) // Wait for user to finish typing/scanning (reduced from 500ms)
+                if (searchInput.isNotEmpty() && searchInput.length >= 8) {
+                    // Only search if it still looks like a barcode (not a product name)
+                    viewModel.searchProductForPriceCheck(searchInput.trim(), isBarcodeSearch = true)
+                }
+            }
+        }
+    }
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    Box {
+        // Hidden barcode input field (for keyboard-based barcode scanners)
+        BasicTextField(
+            value = barcodeInput,
+            onValueChange = { newValue ->
+                barcodeInput = newValue
+            },
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
-        ) {
-            Column(
+                .size(1.dp) // Hidden field (1x1 dp, invisible)
+                .offset(x = (-1000).dp, y = (-1000).dp) // Move off-screen
+                .focusRequester(barcodeFocusRequester)
+                .focusable(),
+            textStyle = TextStyle(color = Color.Transparent, fontSize = 1.sp),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Text, imeAction = ImeAction.None
+            )
+        )
+
+        Dialog(onDismissRequest = onDismiss) {
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                // Title
-                BaseText(
-                    text = "Price Check",
-                    fontSize = 20f,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = GeneralSans,
-                    color = Color.Black,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
-
-                // Search by Name Field
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Title
                     BaseText(
-                        text = "Search by Product Name",
-                        fontSize = 14f,
-                        fontWeight = FontWeight.SemiBold,
+                        text = "Price Check",
+                        fontSize = 20f,
+                        fontWeight = FontWeight.Bold,
                         fontFamily = GeneralSans,
-                        color = Color.Black
-                    )
-                    Row(
+                        color = Color.Black,
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .border(
-                                    width = 0.5.dp,
-                                    color = Color.Gray,
-                                    shape = RoundedCornerShape(8.dp)
-                                )
-                                .background(Color.White)
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
+                        textAlign = TextAlign.Center
+                    )
 
-                            if (searchInput.isEmpty()) {
-                                Text(
-                                    text = "Enter product name",
-                                    color = Color.Gray
+                    // Search by Name Field
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BaseText(
+                            text = "Search by Product Name or Barcode",
+                            fontSize = 14f,
+                            fontWeight = FontWeight.SemiBold,
+                            fontFamily = GeneralSans,
+                            color = Color.Black
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .border(
+                                        width = 0.5.dp,
+                                        color = Color.Gray,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .background(Color.White)
+                                    .padding(horizontal = 12.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+
+                                if (searchInput.isEmpty()) {
+                                    Text(
+                                        text = "Enter product name or scan barcode",
+                                        color = Color.Gray
+                                    )
+                                }
+
+                                BasicTextField(
+                                    value = searchInput,
+                                    onValueChange = { searchInput = it },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                             }
 
-                            BasicTextField(
-                                value = searchInput,
-                                onValueChange = { searchInput = it },
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                if (searchInput.isNotBlank()) {
-                                    onSearchQuery(searchInput.trim())
-                                }
-                            },
-                            enabled = searchInput.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorResource(id = R.color.primary)
-                            ),
-                            shape = RoundedCornerShape(8.dp),
-                            modifier = Modifier.height(40.dp)
-                        ) {
-                            BaseText(
-                                text = "Search",
-                                fontSize = 14f,
-                                fontFamily = GeneralSans,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
+                            Button(
+                                onClick = {
+                                    if (searchInput.isNotBlank()) {
+                                        onSearchQuery(searchInput.trim())
+                                    }
+                                },
+                                enabled = searchInput.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colorResource(id = R.color.primary)
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.height(40.dp)
+                            ) {
+                                BaseText(
+                                    text = "Search",
+                                    fontSize = 14f,
+                                    fontFamily = GeneralSans,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                            }
                         }
                     }
-                }
 
-                // Scrollable Product Details or Empty State
-                val scrollState = rememberScrollState()
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .heightIn(max = 400.dp)
-                ) {
-                    when {
-                        priceCheckProduct != null -> {
-                            // Show product details in scrollable container
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .verticalScroll(scrollState),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-
-                                // Product Name
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                    // Scrollable Product Details or Empty State
+                    val scrollState = rememberScrollState()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .heightIn(max = 400.dp)
+                    ) {
+                        when {
+                            priceCheckProduct != null -> {
+                                // Show product details in scrollable container
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .verticalScroll(scrollState),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    BaseText(
-                                        text = "Product Name:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = priceCheckProduct.name ?: "Unknown",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-
-                                // Description
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Description:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = priceCheckProduct.description ?: "-",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans,
-                                        modifier = Modifier.weight(1f),
-                                        textAlign = TextAlign.End
-                                    )
-                                }
-
-                                // Barcode
-                                if (!priceCheckProduct.barCode.isNullOrEmpty()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        BaseText(
-                                            text = "Barcode:",
-                                            fontSize = 14f,
-                                            color = Color.Gray,
-                                            fontFamily = GeneralSans
-                                        )
-                                        BaseText(
-                                            text = priceCheckProduct.barCode!!,
-                                            fontSize = 14f,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color.Black,
-                                            fontFamily = GeneralSans
-                                        )
-                                    }
-                                }
-
-                                // Quantity
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Quantity:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = "${priceCheckProduct.quantity}",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-
-                                // Cash Price
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Cash Price:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = "$${
-                                            String.format(
-                                                Locale.US,
-                                                "%.2f",
-                                                priceCheckProduct.cashPrice.toDoubleOrNull() ?: 0.0
-                                            )
-                                        }",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-
-                                // Card Price
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    BaseText(
-                                        text = "Card Price:",
-                                        fontSize = 14f,
-                                        color = Color.Gray,
-                                        fontFamily = GeneralSans
-                                    )
-                                    BaseText(
-                                        text = "$${
-                                            String.format(
-                                                Locale.US,
-                                                "%.2f",
-                                                priceCheckProduct.cardPrice.toDoubleOrNull() ?: 0.0
-                                            )
-                                        }",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                }
-
-                                // Status
-                                if (!priceCheckProduct.status.isNullOrEmpty()) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween
-                                    ) {
-                                        BaseText(
-                                            text = "Status:",
-                                            fontSize = 14f,
-                                            color = Color.Gray,
-                                            fontFamily = GeneralSans
-                                        )
-                                        BaseText(
-                                            text = priceCheckProduct.status!!,
-                                            fontSize = 14f,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = Color.Black,
-                                            fontFamily = GeneralSans
-                                        )
-                                    }
-                                }
-
-                                // Variants
-                                if (priceCheckProduct.variants != null && priceCheckProduct.variants!!.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(4.dp))
                                     HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    BaseText(
-                                        text = "Variants:",
-                                        fontSize = 14f,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color.Black,
-                                        fontFamily = GeneralSans
-                                    )
-                                    Column(
+
+                                    // Product Name
+                                    Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        priceCheckProduct.variants!!.forEach { variant ->
-                                            Column(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .background(
-                                                        color = Color(0xFFF5F5F5),
-                                                        shape = RoundedCornerShape(8.dp)
-                                                    )
-                                                    .padding(12.dp),
-                                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                                            ) {
-                                                BaseText(
-                                                    text = variant.title ?: "Unknown Variant",
-                                                    fontSize = 13f,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = Color.Black,
-                                                    fontFamily = GeneralSans
+                                        BaseText(
+                                            text = "Product Name:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = priceCheckProduct.name ?: "Unknown",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+
+                                    // Description
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Description:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = priceCheckProduct.description ?: "-",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans,
+                                            modifier = Modifier.weight(1f),
+                                            textAlign = TextAlign.End
+                                        )
+                                    }
+
+                                    // Barcode
+                                    if (!priceCheckProduct.barCode.isNullOrEmpty()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            BaseText(
+                                                text = "Barcode:",
+                                                fontSize = 14f,
+                                                color = Color.Gray,
+                                                fontFamily = GeneralSans
+                                            )
+                                            BaseText(
+                                                text = priceCheckProduct.barCode!!,
+                                                fontSize = 14f,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color.Black,
+                                                fontFamily = GeneralSans
+                                            )
+                                        }
+                                    }
+
+                                    // Quantity
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Quantity:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = "${priceCheckProduct.quantity}",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+
+                                    // Cash Price
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Cash Price:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = "$${
+                                                String.format(
+                                                    Locale.US,
+                                                    "%.2f",
+                                                    priceCheckProduct.cashPrice.toDoubleOrNull() ?: 0.0
                                                 )
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                            }",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+
+                                    // Card Price
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        BaseText(
+                                            text = "Card Price:",
+                                            fontSize = 14f,
+                                            color = Color.Gray,
+                                            fontFamily = GeneralSans
+                                        )
+                                        BaseText(
+                                            text = "$${
+                                                String.format(
+                                                    Locale.US,
+                                                    "%.2f",
+                                                    priceCheckProduct.cardPrice.toDoubleOrNull() ?: 0.0
+                                                )
+                                            }",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                    }
+
+                                    // Status
+                                    if (!priceCheckProduct.status.isNullOrEmpty()) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            BaseText(
+                                                text = "Status:",
+                                                fontSize = 14f,
+                                                color = Color.Gray,
+                                                fontFamily = GeneralSans
+                                            )
+                                            BaseText(
+                                                text = priceCheckProduct.status!!,
+                                                fontSize = 14f,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color.Black,
+                                                fontFamily = GeneralSans
+                                            )
+                                        }
+                                    }
+
+                                    // Variants
+                                    if (priceCheckProduct.variants != null && priceCheckProduct.variants!!.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        HorizontalDivider(color = Color.Gray.copy(alpha = 0.3f))
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        BaseText(
+                                            text = "Variants:",
+                                            fontSize = 14f,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.Black,
+                                            fontFamily = GeneralSans
+                                        )
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            priceCheckProduct.variants!!.forEach { variant ->
+                                                Column(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .background(
+                                                            color = Color(0xFFF5F5F5),
+                                                            shape = RoundedCornerShape(8.dp)
+                                                        )
+                                                        .padding(12.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                                 ) {
                                                     BaseText(
-                                                        text = "Cash: ${
-                                                            String.format(
-                                                                Locale.US,
-                                                                "%.2f",
-                                                                variant.cashPrice?.toDoubleOrNull() ?: 0.0
-                                                            )
-                                                        }",
-                                                        fontSize = 12f,
-                                                        color = Color.Gray,
-                                                        fontFamily = GeneralSans
-                                                    )
-                                                    BaseText(
-                                                        text = "Card: ${
-                                                            String.format(
-                                                                Locale.US,
-                                                                "%.2f",
-                                                                variant.cardPrice?.toDoubleOrNull() ?: 0.0
-                                                            )
-                                                        }",
-                                                        fontSize = 12f,
-                                                        color = Color.Gray,
-                                                        fontFamily = GeneralSans
-                                                    )
-                                                }
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    BaseText(
-                                                        text = "Quantity:",
-                                                        fontSize = 12f,
-                                                        color = Color.Gray,
-                                                        fontFamily = GeneralSans
-                                                    )
-                                                    BaseText(
-                                                        text = "${variant.quantity}",
-                                                        fontSize = 12f,
+                                                        text = variant.title ?: "Unknown Variant",
+                                                        fontSize = 13f,
                                                         fontWeight = FontWeight.SemiBold,
                                                         color = Color.Black,
                                                         fontFamily = GeneralSans
                                                     )
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        BaseText(
+                                                            text = "Cash: ${
+                                                                String.format(
+                                                                    Locale.US,
+                                                                    "%.2f",
+                                                                    variant.cashPrice?.toDoubleOrNull() ?: 0.0
+                                                                )
+                                                            }",
+                                                            fontSize = 12f,
+                                                            color = Color.Gray,
+                                                            fontFamily = GeneralSans
+                                                        )
+                                                        BaseText(
+                                                            text = "Card: ${
+                                                                String.format(
+                                                                    Locale.US,
+                                                                    "%.2f",
+                                                                    variant.cardPrice?.toDoubleOrNull() ?: 0.0
+                                                                )
+                                                            }",
+                                                            fontSize = 12f,
+                                                            color = Color.Gray,
+                                                            fontFamily = GeneralSans
+                                                        )
+                                                    }
+                                                    Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.SpaceBetween
+                                                    ) {
+                                                        BaseText(
+                                                            text = "Quantity:",
+                                                            fontSize = 12f,
+                                                            color = Color.Gray,
+                                                            fontFamily = GeneralSans
+                                                        )
+                                                        BaseText(
+                                                            text = "${variant.quantity}",
+                                                            fontSize = 12f,
+                                                            fontWeight = FontWeight.SemiBold,
+                                                            color = Color.Black,
+                                                            fontFamily = GeneralSans
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
                                     }
                                 }
                             }
-                        }
-                        searchInput.isNotEmpty() && priceCheckProduct == null -> {
-                            BaseText(
-                                text = "No product found",
-                                fontSize = 16f,
-                                fontFamily = GeneralSans,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                        else -> {
-                            BaseText(
-                                text = "Enter product name or scan barcode",
-                                fontSize = 16f,
-                                fontFamily = GeneralSans,
-                                color = Color.Gray,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+
+                            priceCheckBarcodeNotFound != null -> {
+                                // Barcode not found - show message with Add button
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    BaseText(
+                                        text = "Product not found, want to add in product?",
+                                        fontSize = 16f,
+                                        fontFamily = GeneralSans,
+                                        color = Color.Black,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+                                    Button(
+                                        onClick = {
+                                            val barcode = priceCheckBarcodeNotFound
+                                            if (barcode != null) {
+                                                navController.navigate("create_product/barcode/$barcode") {
+                                                    popUpTo("home") { saveState = true }
+                                                }
+                                                onDismiss()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = colorResource(id = R.color.primary)
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth(0.5f)
+                                    ) {
+                                        BaseText(
+                                            text = "Add",
+                                            fontSize = 16f,
+                                            fontFamily = GeneralSans,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+                            }
+
+                            searchInput.isNotEmpty() && priceCheckProduct == null -> {
+                                BaseText(
+                                    text = "No product found",
+                                    fontSize = 16f,
+                                    fontFamily = GeneralSans,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+
+                            else -> {
+                                BaseText(
+                                    text = "Enter product name or scan barcode",
+                                    fontSize = 16f,
+                                    fontFamily = GeneralSans,
+                                    color = Color.Gray,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // Close Button
-                Button(
-                    onClick = onDismiss,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(id = R.color.primary)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    BaseText(
-                        text = "Close",
-                        fontSize = 16f,
-                        fontFamily = GeneralSans,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
+                    // Close Button
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        BaseText(
+                            text = "Close",
+                            fontSize = 16f,
+                            fontFamily = GeneralSans,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
         }
-    }
 
-    // Auto-focus search input when dialog opens
-    LaunchedEffect(Unit) {
-        searchFocusRequester.requestFocus()
-    }
-}
+        // Auto-focus barcode input when dialog opens (for barcode scanners)
+        LaunchedEffect(Unit) {
+            barcodeFocusRequester.requestFocus()
+        }
+    }}
 
-@Composable
-fun ClosingAmountDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Double?) -> Unit
-) {
-    var closingAmount by remember { mutableStateOf("0.00") }
+    @Composable
+    fun ClosingAmountDialog(
+        onDismiss: () -> Unit,
+        onConfirm: (Double?) -> Unit
+    ) {
+        var closingAmount by remember { mutableStateOf("0.00") }
 
-    // Non-cancelable dialog - can only be dismissed via Cancel button
-    Dialog(onDismissRequest = {}) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-        ) {
-            Column(
+        // Non-cancelable dialog - can only be dismissed via Cancel button
+        Dialog(onDismissRequest = {}) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth(0.85f)
             ) {
-                // Title
-                BaseText(
-                    text = "Close Batch",
-                    fontSize = 18F,
-                    color = colorResource(id = R.color.colorHint),
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Message
-                BaseText(
-                    text = "Enter closing cash amount",
-                    color = colorResource(id = R.color.cart_screen_btn_clr),
-                    fontSize = 14F,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Closing Amount Input
-                OutlinedTextField(
-                    value = closingAmount,
-                    onValueChange = { newValue ->
-                        // Allow only numbers and one decimal point
-                        val filtered = newValue.filter { it.isDigit() || it == '.' }
-                        if (filtered.count { it == '.' } <= 1) {
-                            closingAmount = filtered
-                        }
-                    },
-                    label = {
-                        BaseText(
-                            text = "Closing Amount",
-                            fontSize = 14f,
-                            fontFamily = GeneralSans,
-                            color = colorResource(id = R.color.primary),
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = colorResource(id = R.color.primary),
-                        unfocusedBorderColor = colorResource(id = R.color.borderOutline)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    textStyle = TextStyle(
-                        fontFamily = GeneralSans,
-                        fontSize = 16.sp
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Close Batch Button (non-cancelable dialog - only this button can close it)
-                Button(
-                    onClick = {
-                        val amount = closingAmount.toDoubleOrNull()
-                        onConfirm(amount)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorResource(id = R.color.primary)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Title
                     BaseText(
                         text = "Close Batch",
-                        color = Color.White,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 16F
+                        fontSize = 18F,
+                        color = colorResource(id = R.color.colorHint),
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Message
+                    BaseText(
+                        text = "Enter closing cash amount",
+                        color = colorResource(id = R.color.cart_screen_btn_clr),
+                        fontSize = 14F,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Closing Amount Input
+                    OutlinedTextField(
+                        value = closingAmount,
+                        onValueChange = { newValue ->
+                            // Allow only numbers and one decimal point
+                            val filtered = newValue.filter { it.isDigit() || it == '.' }
+                            if (filtered.count { it == '.' } <= 1) {
+                                closingAmount = filtered
+                            }
+                        },
+                        label = {
+                            BaseText(
+                                text = "Closing Amount",
+                                fontSize = 14f,
+                                fontFamily = GeneralSans,
+                                color = colorResource(id = R.color.primary),
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = colorResource(id = R.color.primary),
+                            unfocusedBorderColor = colorResource(id = R.color.borderOutline)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        textStyle = TextStyle(
+                            fontFamily = GeneralSans,
+                            fontSize = 16.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Close Batch Button (non-cancelable dialog - only this button can close it)
+                    Button(
+                        onClick = {
+                            val amount = closingAmount.toDoubleOrNull()
+                            onConfirm(amount)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorResource(id = R.color.primary)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        BaseText(
+                            text = "Close Batch",
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 16F
+                        )
+                    }
                 }
             }
         }
     }
-}
 
