@@ -94,6 +94,7 @@ private fun filterNumericInput(input: String): String {
                 hasDot = true
                 true
             }
+
             else -> false // Filter out commas, minus, and other special characters
         }
     }
@@ -130,6 +131,7 @@ fun CreateProductScreen(
                         navController.popBackStack()
                     }
                 }
+
                 is CreateProductUiEvent.ProductUpdated -> {
                     DialogHandler.showDialog(
                         message = "Product updated successfully!",
@@ -139,13 +141,16 @@ fun CreateProductScreen(
                         navController.popBackStack()
                     }
                 }
+
                 is CreateProductUiEvent.ProductSynced -> {
                     // Product synced successfully
                 }
+
                 is CreateProductUiEvent.SyncFailed -> {
                     // Sync failed but product is saved locally - don't show error
                     // Success dialog is already shown via ProductCreated event
                 }
+
                 is CreateProductUiEvent.ShowError -> {
                     DialogHandler.showDialog(
                         message = event.message,
@@ -197,7 +202,7 @@ fun CreateProductScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth(0.25f)
-                            .align(Alignment.End) ,
+                            .align(Alignment.End),
                         horizontalArrangement = Arrangement.End
                     ) {
                         TabBar(
@@ -250,7 +255,11 @@ fun CreateProductScreen(
                                             onBarcodeChange = { viewModel.updateBarcode(it) },
                                             onBarcodeGenerate = { viewModel.generateProductBarcode() },
                                             onSkuChange = { viewModel.updateSku(it) },
-                                            onAlternateBarcodeChange = { viewModel.updateAlternateBarcode(it) },
+                                            onAlternateBarcodeChange = {
+                                                viewModel.updateAlternateBarcode(
+                                                    it
+                                                )
+                                            },
                                             onPluChange = { viewModel.updatePlu(it) },
                                             onDescriptionChange = { viewModel.updateDescription(it) }
                                         )
@@ -273,7 +282,10 @@ fun CreateProductScreen(
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = GeneralSans,
                                             color = Color.Black,
-                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                            modifier = Modifier.padding(
+                                                bottom = 12.dp,
+                                                start = 9.dp
+                                            )
                                         )
                                         InventorySection(
                                             quantity = uiState.quantity,
@@ -282,9 +294,21 @@ fun CreateProductScreen(
                                             hasSkuOrBarcode = uiState.hasSkuOrBarcode,
                                             isEBTEligible = uiState.isEBTEligible,
                                             onQuantityChange = { viewModel.updateQuantity(it) },
-                                            onTrackQuantityChange = { viewModel.updateTrackQuantity(it) },
-                                            onContinueSellingChange = { viewModel.updateContinueSellingWhenOutOfStock(it) },
-                                            onHasSkuOrBarcodeChange = { viewModel.updateHasSkuOrBarcode(it) },
+                                            onTrackQuantityChange = {
+                                                viewModel.updateTrackQuantity(
+                                                    it
+                                                )
+                                            },
+                                            onContinueSellingChange = {
+                                                viewModel.updateContinueSellingWhenOutOfStock(
+                                                    it
+                                                )
+                                            },
+                                            onHasSkuOrBarcodeChange = {
+                                                viewModel.updateHasSkuOrBarcode(
+                                                    it
+                                                )
+                                            },
                                             onEBTEligibleChange = { viewModel.updateIsEBTEligible(it) }
                                         )
 
@@ -317,7 +341,11 @@ fun CreateProductScreen(
                                             categoryName = uiState.categoryName,
                                             categoryId = uiState.categoryId,
                                             categories = uiState.categories,
-                                            onProductVendorChange = { viewModel.updateProductVendor(it) },
+                                            onProductVendorChange = {
+                                                viewModel.updateProductVendor(
+                                                    it
+                                                )
+                                            },
                                             onCategoryChange = { viewModel.updateCategory(it) }
                                         )
 
@@ -345,7 +373,12 @@ fun CreateProductScreen(
                                         PreviewImagesSection(
                                             images = uiState.productImages,
                                             onImageRemove = { viewModel.removeProductImage(it) },
-                                            onImageAdd = { url, name -> viewModel.addProductImage(url, name) },
+                                            onImageAdd = { url, name ->
+                                                viewModel.addProductImage(
+                                                    url,
+                                                    name
+                                                )
+                                            },
                                             context = LocalContext.current
                                         )
                                     }
@@ -367,14 +400,21 @@ fun CreateProductScreen(
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = GeneralSans,
                                             color = Color.Black,
-                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                            modifier = Modifier.padding(
+                                                bottom = 12.dp,
+                                                start = 9.dp
+                                            )
                                         )
                                         DualPricingSection(
                                             price = uiState.price,
                                             compareAtPrice = uiState.compareAtPrice,
                                             chargeTax = uiState.chargeTaxOnThisProduct,
                                             onPriceChange = { viewModel.updatePrice(it) },
-                                            onCompareAtPriceChange = { viewModel.updateCompareAtPrice(it) },
+                                            onCompareAtPriceChange = {
+                                                viewModel.updateCompareAtPrice(
+                                                    it
+                                                )
+                                            },
                                             onChargeTaxChange = { viewModel.updateChargeTax(it) }
                                         )
                                         Spacer(modifier = Modifier.height(10.dp))
@@ -397,7 +437,10 @@ fun CreateProductScreen(
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = GeneralSans,
                                             color = Color.Black,
-                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                            modifier = Modifier.padding(
+                                                bottom = 12.dp,
+                                                start = 9.dp
+                                            )
                                         )
                                         PricingDetailsSection(
                                             costPerItem = uiState.costPerItem,
@@ -428,9 +471,56 @@ fun CreateProductScreen(
                                             fontWeight = FontWeight.SemiBold,
                                             fontFamily = GeneralSans,
                                             color = Color.Black,
-                                            modifier = Modifier.padding(bottom = 12.dp, start = 9.dp)
+                                            modifier = Modifier.padding(
+                                                bottom = 12.dp,
+                                                start = 9.dp
+                                            )
                                         )
 
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceAround,
+                                            modifier = Modifier
+                                                .clickable { /* send action */ }
+                                                .padding(top = 10.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(0.5f)
+                                            ) {
+                                                // Enable Label Printing checkbox
+                                                CheckboxRow(
+                                                    text = "Enable Label Printing",
+                                                    checked = uiState.enableLabelPrinting,
+                                                    onCheckedChange = {
+                                                        viewModel.updateEnableLabelPrinting(
+                                                            it
+                                                        )
+                                                    }
+                                                )
+                                            }
+
+                                            // Warning message with icon
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(id = R.drawable.ic_caution),
+                                                    contentDescription = "Warning",
+                                                    tint = Color.Unspecified,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                BaseText(
+                                                    text = "Label Printing Will Not Work Without A Barcode.",
+                                                    fontSize = 11f,
+                                                    fontFamily = GeneralSans,
+                                                    color = Color.Black,
+                                                    fontWeight = FontWeight.Light
+                                                )
+                                            }
+
+                                        }
                                     }
                                 }
                             }
@@ -459,8 +549,18 @@ fun CreateProductScreen(
                                     onSizeValueRemoved = { viewModel.removeSizeValue(it) },
                                     onColorValueAdded = { viewModel.addColorValue(it) },
                                     onColorValueRemoved = { viewModel.removeColorValue(it) },
-                                    onCustomAttributeAdded = { name, value -> viewModel.addCustomAttribute(name, value) },
-                                    onCustomAttributeRemoved = { name, value -> viewModel.removeCustomAttribute(name, value) },
+                                    onCustomAttributeAdded = { name, value ->
+                                        viewModel.addCustomAttribute(
+                                            name,
+                                            value
+                                        )
+                                    },
+                                    onCustomAttributeRemoved = { name, value ->
+                                        viewModel.removeCustomAttribute(
+                                            name,
+                                            value
+                                        )
+                                    },
                                     onGenerateVariants = { viewModel.generateVariants() },
                                     onVariantUpdate = { viewModel.updateVariant(it) },
                                     onVariantRemove = { viewModel.removeVariant(it) },
@@ -472,7 +572,6 @@ fun CreateProductScreen(
                     }
                 }
             }
-
 
 
             // Save Button
@@ -533,7 +632,7 @@ fun ProductImageSection(
     context: android.content.Context
 ) {
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract =  ActivityResultContracts.PickVisualMedia()
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         uri?.let {
             // ✅ USE uriToFile HERE
@@ -744,7 +843,9 @@ fun ProductDetailsSection(
 
             // PLU (50% width)
             Column(
-                modifier = Modifier.weight(0.5f).padding(top = 8.dp)
+                modifier = Modifier
+                    .weight(0.5f)
+                    .padding(top = 8.dp)
             ) {
                 BaseText(
                     text = "PLU*",
@@ -772,14 +873,15 @@ fun ProductDetailsSection(
             fontFamily = GeneralSans,
             color = colorResource(id = R.color.primary)
         )
-        Spacer(modifier = Modifier.height( 5.dp))
+        Spacer(modifier = Modifier.height(5.dp))
         OutlinedTextField(
             value = description,
             onValueChange = onDescriptionChange,
             placeholder = { Text("Enter description", fontSize = 12.sp) },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp).padding(bottom = 15.dp),
+                .height(100.dp)
+                .padding(bottom = 15.dp),
             singleLine = false,
             maxLines = 4,
             colors = OutlinedTextFieldDefaults.colors(
@@ -939,7 +1041,9 @@ fun VariantsSection(
     // Variant Type Dropdown using DropdownSelector
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(start = 8.dp).fillMaxSize(0.38f)
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .fillMaxSize(0.38f)
     ) {
         DropdownSelectorSmallHeight(
             label = "Add Variant",
@@ -952,7 +1056,9 @@ fun VariantsSection(
     }
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.padding(start = 8.dp).fillMaxSize(0.5f)
+        modifier = Modifier
+            .padding(start = 8.dp)
+            .fillMaxSize(0.5f)
     ) {
 
         // Size Section - Show only if active
