@@ -897,7 +897,7 @@ fun OrderDetailsPanel(
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             items(order.orderItems.size) { index ->
                 OrderDetailItemRow(
@@ -1018,7 +1018,7 @@ fun OrderDetailsPanel(
                     textColor = Color.White,
                     fontSize = 12,
                     fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
+                    height = 50.dp,
                     onClick = confirmRefund,
                     textMaxLines = 2
                 )
@@ -1030,7 +1030,7 @@ fun OrderDetailsPanel(
                     textColor = Color.White,
                     fontSize = 12,
                     fontWeight = FontWeight.SemiBold,
-                    height = 60.dp,
+                    height = 50.dp,
                     onClick = cancelRefundMode,
                     textMaxLines = 2
                 )
@@ -1049,9 +1049,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 12,
+                fontSize = 11,
                 fontWeight = FontWeight.SemiBold,
-                height = 60.dp,
+                height = 50.dp,
                 onClick = onPrintReceipt,
                 textMaxLines = 2
             )
@@ -1061,9 +1061,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 12,
+                fontSize = 11,
                 fontWeight = FontWeight.SemiBold,
-                height = 60.dp,
+                height = 50.dp,
                 textMaxLines = 2,
                 onClick = {
                     DialogHandler.showDialog(
@@ -1078,9 +1078,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 12,
+                fontSize = 11,
                 fontWeight = FontWeight.SemiBold,
-                height = 60.dp,
+                height = 50.dp,
                 textMaxLines = 2,
                 onClick = {
                     DialogHandler.showDialog(
@@ -1095,9 +1095,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                     backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 12,
+                fontSize = 11,
                 fontWeight = FontWeight.SemiBold,
-                height = 60.dp,
+                height = 50.dp,
                 textMaxLines = 2,
                     onClick = enterRefundMode
                 )
@@ -1129,7 +1129,7 @@ fun OrderDetailItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(backgroundColor, RoundedCornerShape(8.dp))
-            .padding(12.dp)
+            .padding(10.dp)
             .then(
                 if (isSelectionMode) {
                     Modifier.clickable { onClick() }
@@ -1145,7 +1145,7 @@ fun OrderDetailItemRow(
             Icon(
                 painter = painterResource(id = R.drawable.ic_tick),
                 contentDescription = "Selected",
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(20.dp),
                 tint = Color.White
             )
         } else {
@@ -1165,14 +1165,14 @@ fun OrderDetailItemRow(
                 model = firstImageUrl,
                 contentDescription = item.product.name,
                 modifier = Modifier
-                    .size(50.dp)
+                    .size(40.dp)
                     .background(Color.LightGray, RoundedCornerShape(4.dp)),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         } else {
             Box(
                 modifier = Modifier
-                    .size(50.dp)
+                    .size(40.dp)
                     .background(Color.LightGray, RoundedCornerShape(4.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -1188,11 +1188,11 @@ fun OrderDetailItemRow(
         // Product Name and Subtext
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             BaseText(
                 text = item.product.name,
-                fontSize = 14f,
+                fontSize = 13f,
                 color = textColor,
                 fontFamily = GeneralSans,
                 maxLines = 1,
@@ -1201,7 +1201,7 @@ fun OrderDetailItemRow(
 
             BaseText(
                 text = "Qty: ${item.quantity}",
-                fontSize = 12f,
+                fontSize = 11f,
                 color = qtyTextColor,
                 fontFamily = GeneralSans,
                 maxLines = 1,
@@ -1213,7 +1213,7 @@ fun OrderDetailItemRow(
         // Price aligned to the right
         BaseText(
             text = "$${String.format("%.2f", item.price.toDoubleOrNull() ?: 0.0)}",
-            fontSize = 14f,
+            fontSize = 13f,
             color = textColor,
             fontFamily = GeneralSans,
             textAlign = TextAlign.End,
