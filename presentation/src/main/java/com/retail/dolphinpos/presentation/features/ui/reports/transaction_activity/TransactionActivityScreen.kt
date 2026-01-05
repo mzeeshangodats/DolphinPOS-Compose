@@ -533,14 +533,6 @@ fun TransactionActivityContent(
                         modifier = Modifier.weight(1f)
                     )
                     BaseText(
-                        text = "Transaction Mode",
-                        fontSize = 12f,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        fontFamily = GeneralSans,
-                        modifier = Modifier.width(120.dp)
-                    )
-                    BaseText(
                         text = "Tax",
                         fontSize = 12f,
                         fontWeight = FontWeight.Bold,
@@ -609,14 +601,6 @@ fun TransactionActivityContent(
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
                                 modifier = Modifier.weight(1f)
-                            )
-                            // Transaction Mode (Payment Method)
-                            BaseText(
-                                text = transaction.paymentMethod.value.uppercase(),
-                                fontSize = 12f,
-                                color = Color.Black,
-                                fontFamily = GeneralSans,
-                                modifier = Modifier.width(120.dp)
                             )
                             // Tax
                             BaseText(
