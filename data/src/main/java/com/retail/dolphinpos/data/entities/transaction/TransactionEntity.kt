@@ -5,11 +5,31 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.TypeConverters
 
+/**
+ * Transaction Entity for offline-first storage
+ * 
+ * PRIMARY KEY: invoice_no
+ * - invoice_no is globally unique (generated client-side with storeId, locationId, registerId, userId, timestamp)
+ * - Used as the single source of truth for duplicate prevention
+ * - All UPSERT operations use invoice_no to prevent duplicates
+ * 
+ * DUPLICATE PREVENTION:
+ * - invoice_no is the PRIMARY KEY, ensuring uniqueness at database level
+ * - All insert operations use OnConflictStrategy.REPLACE (UPSERT)
+ * - This ensures that if the same invoice_no is inserted multiple times, it updates the existing record
+ */
 @Entity(tableName = "transactions")
 @TypeConverters(PaymentMethodConverter::class)
 data class TransactionEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Long = 0,
+    /**
+     * PRIMARY KEY: invoice_no
+     * Globally unique identifier generated client-side
+     * Format: INV_S{storeId}L{locationId}R{registerId}U{userId}-{epochMillis}
+     * Used for UPSERT operations to prevent duplicates
+     */
+    @PrimaryKey
+    @ColumnInfo(name = "invoice_no")
+    val invoiceNo: String,
     
     @ColumnInfo(name = "order_no")
     val orderNo: String? = null,
@@ -29,9 +49,6 @@ data class TransactionEntity(
     val status: String = "pending", // ENUM: 'pending', 'paid', 'failed', 'void', 'refund', 'settled'
     
     val amount: Double, // DECIMAL(10, 2)
-    
-    @ColumnInfo(name = "invoice_no")
-    val invoiceNo: String? = null, // STRING(100), unique
     
     @ColumnInfo(name = "batch_id")
     val batchId: Int? = null,
@@ -54,6 +71,9 @@ data class TransactionEntity(
     
     @ColumnInfo(name = "tax_details")
     val taxDetails: String? = null, // JSON string of List<TaxDetail>
+    
+    @ColumnInfo(name = "refunded_transaction_id")
+    val refundedTransactionId: Int? = null,
     
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),

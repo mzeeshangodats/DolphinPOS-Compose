@@ -310,7 +310,7 @@ class OrdersViewModel @Inject constructor(
                 orderId = entity.serverId ?: entity.id.toInt(),
                 orderSource = entity.orderSource,
                 paymentMethod = splitTransaction.paymentMethod,
-                status = if (entity.isSynced) "completed" else "pending",
+                status = "paid",
                 storeId = entity.storeId,
                 tax = splitTransaction.taxAmount ?: 0.0, // Use taxAmount from split transaction
                 tip = Unit,

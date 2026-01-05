@@ -80,13 +80,13 @@ class OrderRepositoryImpl(
             )
 
             // Mark as synced only if successful
-            // Note: CreateOrderResponse only contains a message, not the order ID
-            // The serverId will be updated when orders are fetched from the API
+            // Update serverId if orderId is returned in the response
             result.onSuccess { response ->
+                val serverId = response.orderId ?: response.id
                 val updatedOrder = order.copy(
+                    serverId = serverId,
                     isSynced = true,  // ✅ Update isSynced = 1
                     status = "completed",  // ✅ Update status to completed
-                    // serverId remains null for now, will be updated when fetching orders from API
                     updatedAt = System.currentTimeMillis()
                 )
                 orderDao.updateOrder(updatedOrder)

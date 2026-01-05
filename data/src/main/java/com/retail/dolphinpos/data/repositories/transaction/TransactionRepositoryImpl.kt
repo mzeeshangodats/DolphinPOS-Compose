@@ -214,16 +214,18 @@ class TransactionRepositoryImpl(
             null
         }
         
+        // invoice_no is required (PRIMARY KEY) - use empty string as fallback if null (should not happen)
+        val invoiceNo = apiTransaction.invoiceNo ?: throw IllegalArgumentException("Transaction invoiceNo cannot be null")
+        
         return TransactionEntity(
-            id = 0, // Will be auto-generated
+            invoiceNo = invoiceNo, // PRIMARY KEY - must be non-null
             orderNo = orderNo,
             orderId = apiTransaction.orderId,
             storeId = apiTransaction.storeId,
-            locationId = null, // Not provided in API response
+            locationId = apiTransaction.locationId,
             paymentMethod = PaymentMethod.fromString(apiTransaction.paymentMethod),
             status = apiTransaction.status,
             amount = amount,
-            invoiceNo = apiTransaction.invoiceNo,
             batchId = apiTransaction.batchId,
             batchNo = batchNo,
             userId = apiTransaction.userId,
@@ -233,7 +235,8 @@ class TransactionRepositoryImpl(
             cardDetails = cardDetailsJson,
             createdAt = createdAt,
             updatedAt = updatedAt,
-            taxDetails = taxDetailsJson
+            taxDetails = taxDetailsJson,
+            refundedTransactionId = apiTransaction.refundedTransactionId
         )
     }
 
@@ -252,7 +255,7 @@ class TransactionRepositoryImpl(
         }
         
         return Transaction(
-            id = entity.id,
+            id = 0, // Legacy field - invoice_no is now the primary identifier
             orderNo = entity.orderNo,
             orderId = entity.orderId,
             storeId = entity.storeId,
@@ -260,7 +263,7 @@ class TransactionRepositoryImpl(
             paymentMethod = entity.paymentMethod.value,
             status = entity.status,
             amount = entity.amount,
-            invoiceNo = entity.invoiceNo,
+            invoiceNo = entity.invoiceNo, // PRIMARY KEY in entity
             batchId = entity.batchId,
             batchNo = entity.batchNo,
             userId = entity.userId,
@@ -270,7 +273,8 @@ class TransactionRepositoryImpl(
             cardDetails = entity.cardDetails,
             createdAt = entity.createdAt,
             updatedAt = entity.updatedAt,
-            taxDetails = taxDetails
+            taxDetails = taxDetails,
+            refundedTransactionId = entity.refundedTransactionId
         )
     }
 
@@ -287,8 +291,11 @@ class TransactionRepositoryImpl(
             }
         }
         
+        // invoice_no is required (PRIMARY KEY) - must be non-null
+        val invoiceNo = transaction.invoiceNo ?: throw IllegalArgumentException("Transaction invoiceNo cannot be null")
+        
         return TransactionEntity(
-            id = transaction.id,
+            invoiceNo = invoiceNo, // PRIMARY KEY - must be non-null
             orderNo = transaction.orderNo,
             orderId = transaction.orderId,
             storeId = transaction.storeId,
@@ -296,7 +303,6 @@ class TransactionRepositoryImpl(
             paymentMethod = PaymentMethod.fromString(transaction.paymentMethod),
             status = transaction.status,
             amount = transaction.amount,
-            invoiceNo = transaction.invoiceNo,
             batchId = transaction.batchId,
             batchNo = transaction.batchNo,
             userId = transaction.userId,
@@ -306,7 +312,8 @@ class TransactionRepositoryImpl(
             cardDetails = transaction.cardDetails,
             createdAt = transaction.createdAt,
             updatedAt = transaction.updatedAt,
-            taxDetails = taxDetailsJson
+            taxDetails = taxDetailsJson,
+            refundedTransactionId = transaction.refundedTransactionId
         )
     }
 }

@@ -285,8 +285,8 @@ fun InventoryScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontFamily = GeneralSans,
-                        modifier = Modifier.width(100.dp),
-                        textAlign = TextAlign.End
+                        modifier = Modifier.width(90.dp),
+                        textAlign = TextAlign.Center
                     )
 
                     BaseText(
@@ -295,8 +295,8 @@ fun InventoryScreen(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         fontFamily = GeneralSans,
-                        modifier = Modifier.width(100.dp),
-                        textAlign = TextAlign.End
+                        modifier = Modifier.width(70.dp),
+                        textAlign = TextAlign.Center
                     )
                 }
 
@@ -306,6 +306,7 @@ fun InventoryScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(56.dp)
                                 .background(
                                     if (filteredProducts.indexOf(product) % 2 == 0) Color.White else Color(
                                         0xFFF5F5F5
@@ -341,11 +342,12 @@ fun InventoryScreen(
                                 fontSize = 12f,
                                 color = Color.Black,
                                 fontFamily = GeneralSans,
-                                modifier = Modifier.width(100.dp)
+                                modifier = Modifier.width(100.dp),
+                                textAlign = TextAlign.End
                             )
                             Box(
                                 modifier = Modifier.width(90.dp),
-                                contentAlignment = Alignment.CenterStart
+                                contentAlignment = Alignment.Center
                             ) {
                                 BaseText(
                                     text = "${product.quantity}",
@@ -362,10 +364,10 @@ fun InventoryScreen(
                                 },
                                 backgroundColor = colorResource(id = R.color.primary),
                                 fontSize = 12,
-                                height = 38.dp,
+                                height = 32.dp,
                                 cornerRadius = 8.dp,
                                 contentPadding = PaddingValues(0.dp),
-                                modifier = Modifier.height(40.dp).width(50.dp)
+                                modifier = Modifier.height(32.dp).width(70.dp)
                             )
                         }
                     }

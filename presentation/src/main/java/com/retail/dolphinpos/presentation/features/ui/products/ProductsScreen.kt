@@ -310,6 +310,7 @@ fun ProductsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .height(56.dp)
                                 .background(
                                     if (filteredProducts.indexOf(product) % 2 == 0) Color.White else Color(
                                         0xFFF5F5F5

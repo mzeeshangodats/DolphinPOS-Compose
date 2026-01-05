@@ -19,6 +19,8 @@ data class TransactionItem(
     val orderId: Int?,
     @SerializedName("storeId")
     val storeId: Int?,
+    @SerializedName("locationId")
+    val locationId: Int?,
     @SerializedName("paymentMethod")
     val paymentMethod: String,
     val status: String,
@@ -35,6 +37,8 @@ data class TransactionItem(
     val tip: Double?,
     @SerializedName("cardDetails")
     val cardDetails: Any?, // Can be String, Object, or null
+    @SerializedName("refundedTransactionId")
+    val refundedTransactionId: Int? = null,
     @SerializedName("createdAt")
     val createdAt: String,
     @SerializedName("updatedAt")

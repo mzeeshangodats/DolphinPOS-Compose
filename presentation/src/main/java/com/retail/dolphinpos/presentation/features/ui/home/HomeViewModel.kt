@@ -8,8 +8,8 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.data.entities.holdcart.HoldCartEntity
 import com.google.gson.Gson
-import com.retail.dolphinpos.data.dao.CreateOrderTransactionDao
-import com.retail.dolphinpos.data.entities.transaction.CreateOrderTransactionEntity
+import com.retail.dolphinpos.data.dao.TransactionDao
+import com.retail.dolphinpos.data.entities.transaction.TransactionEntity
 import com.retail.dolphinpos.data.entities.transaction.PaymentMethod
 import com.retail.dolphinpos.data.repositories.hold_cart.HoldCartRepository
 import com.retail.dolphinpos.data.repositories.order.OrderRepositoryImpl
@@ -75,7 +75,7 @@ class HomeViewModel @Inject constructor(
     private val preferenceManager: PreferenceManager,
     private val holdCartRepository: HoldCartRepository,
     private val orderRepository: OrderRepositoryImpl,
-    private val createOrderTransactionDao: CreateOrderTransactionDao,
+    private val transactionDao: TransactionDao,
     private val gson: Gson,
     private val networkMonitor: NetworkMonitor,
     private val storeRegistersRepository: StoreRegistersRepository,
@@ -1906,9 +1906,27 @@ class HomeViewModel @Inject constructor(
                     try {
                         val savedOrder = orderRepository.getOrderById(orderId)
                         if (savedOrder != null) {
-                            orderRepository.syncOrderToServer(savedOrder).onSuccess {
+                            orderRepository.syncOrderToServer(savedOrder).onSuccess { response ->
                                 immediateSyncSucceeded = true
-                                Log.d("Order", "Order synced immediately. Response: ${it.message}")
+                                Log.d("Order", "Order synced immediately. Response: ${response.message}")
+                                
+                                // Update transaction's orderId if orderId is returned in response
+                                val returnedOrderId = response.orderId ?: response.id
+                                if (returnedOrderId != null) {
+                                    try {
+                                        val transaction = transactionDao.getTransactionByInvoiceNo(invoiceNo)
+                                        transaction?.let {
+                                            val updatedTransaction = it.copy(
+                                                orderId = returnedOrderId,
+                                                updatedAt = System.currentTimeMillis()
+                                            )
+                                            transactionDao.updateTransaction(updatedTransaction)
+                                            Log.d("Transaction", "Transaction orderId updated to: $returnedOrderId")
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("Transaction", "Failed to update transaction orderId: ${e.message}")
+                                    }
+                                }
                             }.onFailure { e ->
                                 Log.e("Order", "Immediate sync failed: ${e.message}. Will enqueue for retry.")
                             }
@@ -1973,21 +1991,50 @@ class HomeViewModel @Inject constructor(
                             "pending"
                         }
 
-                    val transactionEntity = CreateOrderTransactionEntity(
+                    // Convert taxDetails to JSON string
+                    val taxDetailsJson: String? = if (orderTaxDetails.isNotEmpty()) {
+                        try {
+                            gson.toJson(orderTaxDetails)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+
+                    // Use orderTotal for cash payments, finalTotal for card payments
+                    val transactionAmount = if (paymentMethod == "cash") {
+                        orderTotal
+                    } else {
+                        finalTotal
+                    }
+
+                    // UPSERT: Create transaction entity with invoice_no as PRIMARY KEY
+                    // If transaction with this invoice_no exists, it will be updated (not duplicated)
+                    val transactionEntity = TransactionEntity(
+                        invoiceNo = invoiceNo, // PRIMARY KEY - globally unique identifier
                         orderNo = orderNumber, // orderId will be updated when order is synced to server and we get the server order ID
+                        orderId = null, // Will be updated when order is synced to server
                         storeId = storeId,
                         locationId = locationId,
                         paymentMethod = paymentMethodEnum,
-                        status = transactionStatus, // "paid" for offline cash, "pending" for others
-                        amount = finalTotal,
-                        invoiceNo = invoiceNo,
+                        status = "paid",
+                        amount = transactionAmount,
+                        batchId = batch.batchId,
                         batchNo = batch.batchNo,
                         userId = userId,
-                        orderSource = "register", // Since source is "point-of-sale"
+                        orderSource = "point-of-sale",
                         tax = finalTax,
-                        cardDetails = cardDetails?.let { gson.toJson(it) }
+                        tip = null,
+                        cardDetails = cardDetails?.let { gson.toJson(it) },
+                        taxDetails = taxDetailsJson,
+                        refundedTransactionId = null,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
                     )
-                    createOrderTransactionDao.insertTransaction(transactionEntity)
+                    // UPSERT operation: Uses invoice_no (PRIMARY KEY) to prevent duplicates
+                    // Safe to call multiple times - will update existing record if invoice_no matches
+                    transactionDao.insertTransaction(transactionEntity)
                     Log.d(
                         "Transaction",
                         "Transaction saved successfully with invoice: $invoiceNo, status: $transactionStatus"

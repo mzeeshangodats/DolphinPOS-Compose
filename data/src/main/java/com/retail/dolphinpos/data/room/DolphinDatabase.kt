@@ -61,7 +61,7 @@ import com.retail.dolphinpos.data.entities.user.TimeSlotEntity
         CachedImageEntity::class, HoldCartEntity::class, PendingOrderEntity::class, OnlineOrderEntity::class, OrderEntity::class, 
         CreateOrderTransactionEntity::class, TransactionEntity::class, TimeSlotEntity::class, BatchReportEntity::class, TaxDetailEntity::class,
         SyncCommandEntity::class, SyncLockEntity::class, SyncSequenceEntity::class],
-    version = 14,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(
@@ -100,7 +100,7 @@ abstract class DolphinDatabase : RoomDatabase() {
                         db.execSQL("PRAGMA foreign_keys = ON;")
                     }
                 })
-                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                    .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
 //                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .build()
                 INSTANCE = instance
@@ -487,6 +487,88 @@ abstract class DolphinDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_batch_id ON sync_command(batchId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_order_id ON sync_command(orderId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_sync_command_idempotency ON sync_command(idempotencyKey)")
+            }
+        }
+
+        private val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add refunded_transaction_id column to transactions table
+                db.execSQL("ALTER TABLE transactions ADD COLUMN refunded_transaction_id INTEGER")
+            }
+        }
+
+        /**
+         * MIGRATION 15 -> 16: Change transactions table PRIMARY KEY from id to invoice_no
+         * 
+         * DUPLICATE PREVENTION MIGRATION:
+         * - Changes PRIMARY KEY from auto-generated id to invoice_no (globally unique identifier)
+         * - This enables UPSERT operations based on invoice_no to prevent duplicates
+         * - invoice_no is generated client-side and is globally unique
+         * 
+         * MIGRATION STRATEGY:
+         * 1. Create new table with invoice_no as PRIMARY KEY
+         * 2. Copy data from old table (only records with non-null invoice_no)
+         * 3. Drop old table
+         * 4. Rename new table to transactions
+         * 5. Recreate indexes
+         */
+        private val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Step 1: Create new transactions table with invoice_no as PRIMARY KEY
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS transactions_new (
+                        invoice_no TEXT PRIMARY KEY NOT NULL,
+                        order_no TEXT,
+                        order_id INTEGER,
+                        store_id INTEGER,
+                        location_id INTEGER,
+                        payment_method TEXT NOT NULL,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        amount REAL NOT NULL,
+                        batch_id INTEGER,
+                        batch_no TEXT,
+                        user_id INTEGER,
+                        order_source TEXT,
+                        tax REAL,
+                        tip REAL,
+                        card_details TEXT,
+                        tax_details TEXT,
+                        refunded_transaction_id INTEGER,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                """.trimIndent())
+                
+                // Step 2: Copy data from old table (only records with non-null invoice_no)
+                // Records with null invoice_no are skipped (should not happen in production)
+                db.execSQL("""
+                    INSERT INTO transactions_new (
+                        invoice_no, order_no, order_id, store_id, location_id,
+                        payment_method, status, amount, batch_id, batch_no,
+                        user_id, order_source, tax, tip, card_details,
+                        tax_details, refunded_transaction_id, created_at, updated_at
+                    )
+                    SELECT 
+                        invoice_no, order_no, order_id, store_id, location_id,
+                        payment_method, status, amount, batch_id, batch_no,
+                        user_id, order_source, tax, tip, card_details,
+                        tax_details, refunded_transaction_id, created_at, updated_at
+                    FROM transactions
+                    WHERE invoice_no IS NOT NULL AND invoice_no != ''
+                """.trimIndent())
+                
+                // Step 3: Drop old table
+                db.execSQL("DROP TABLE IF EXISTS transactions")
+                
+                // Step 4: Rename new table to transactions
+                db.execSQL("ALTER TABLE transactions_new RENAME TO transactions")
+                
+                // Step 5: Recreate indexes (PRIMARY KEY index is automatic, but we need other indexes)
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_store_id ON transactions(store_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_order_no ON transactions(order_no)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_status ON transactions(status)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_order_id ON transactions(order_id)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_transactions_batch_no ON transactions(batch_no)")
             }
         }
 

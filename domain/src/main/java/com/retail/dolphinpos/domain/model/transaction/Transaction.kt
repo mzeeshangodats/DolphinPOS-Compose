@@ -22,6 +22,7 @@ data class Transaction(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     // Tax-related fields
-    val taxDetails: List<TaxDetail>? = null  // Tax breakdown for this transaction
+    val taxDetails: List<TaxDetail>? = null,  // Tax breakdown for this transaction
+    val refundedTransactionId: Int? = null
 )
 
