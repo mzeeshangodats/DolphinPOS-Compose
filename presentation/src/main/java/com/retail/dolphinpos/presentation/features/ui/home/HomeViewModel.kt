@@ -312,19 +312,31 @@ class HomeViewModel @Inject constructor(
 
     private val _priceCheckProduct = MutableStateFlow<Products?>(null)
     val priceCheckProduct: StateFlow<Products?> = _priceCheckProduct.asStateFlow()
+    
+    private val _priceCheckBarcodeNotFound = MutableStateFlow<String?>(null)
+    val priceCheckBarcodeNotFound: StateFlow<String?> = _priceCheckBarcodeNotFound.asStateFlow()
 
-    fun searchProductForPriceCheck(query: String) {
+    fun searchProductForPriceCheck(query: String, isBarcodeSearch: Boolean = false) {
         viewModelScope.launch {
             if (query.isBlank()) {
                 _priceCheckProduct.value = null
+                _priceCheckBarcodeNotFound.value = null
                 return@launch
             }
 
             try {
-                // First try searching by barcode
+                // First try searching by barcode (when barcode is scanned, it will try barcode first)
                 val productByBarcode = homeRepository.searchProductByBarcode(query)
                 if (productByBarcode != null) {
                     _priceCheckProduct.value = productByBarcode
+                    _priceCheckBarcodeNotFound.value = null
+                    return@launch
+                }
+
+                // If not found by barcode and isBarcodeSearch is true, set barcode not found
+                if (isBarcodeSearch) {
+                    _priceCheckProduct.value = null
+                    _priceCheckBarcodeNotFound.value = query
                     return@launch
                 }
 
@@ -333,12 +345,15 @@ class HomeViewModel @Inject constructor(
                 if (searchResults.isNotEmpty()) {
                     // Take the first matching product
                     _priceCheckProduct.value = searchResults[0]
+                    _priceCheckBarcodeNotFound.value = null
                 } else {
                     _priceCheckProduct.value = null
+                    _priceCheckBarcodeNotFound.value = null
                     _homeUiEvent.emit(HomeUiEvent.ShowError("Product not found"))
                 }
             } catch (e: Exception) {
                 _priceCheckProduct.value = null
+                _priceCheckBarcodeNotFound.value = null
                 _homeUiEvent.emit(HomeUiEvent.ShowError("Error searching product: ${e.message}"))
             }
         }
@@ -346,6 +361,7 @@ class HomeViewModel @Inject constructor(
 
     fun clearPriceCheckProduct() {
         _priceCheckProduct.value = null
+        _priceCheckBarcodeNotFound.value = null
     }
 
     private val _pluSearchResult = MutableStateFlow<Products?>(null)

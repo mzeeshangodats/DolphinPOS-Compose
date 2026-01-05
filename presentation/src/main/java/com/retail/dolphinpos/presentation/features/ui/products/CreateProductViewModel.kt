@@ -251,6 +251,10 @@ class CreateProductViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isIDRequired = isIDRequired)
     }
 
+    fun updateEnableLabelPrinting(enableLabelPrinting: Boolean) {
+        _uiState.value = _uiState.value.copy(enableLabelPrinting = enableLabelPrinting)
+    }
+
     fun updatePrice(price: String) {
         // Filter: only allow digits and one dot
         val filtered = filterNumericInput(price)
@@ -1003,6 +1007,7 @@ data class CreateProductUiState(
     val categoryName: String = "",
     val isEBTEligible: Boolean = false,
     val isIDRequired: Boolean = false,
+    val enableLabelPrinting: Boolean = false,
     val price: String = "",
     val compareAtPrice: String = "",
     val chargeTaxOnThisProduct: Boolean = false,
