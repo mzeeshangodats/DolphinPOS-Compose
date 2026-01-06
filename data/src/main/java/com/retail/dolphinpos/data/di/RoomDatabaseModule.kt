@@ -24,6 +24,10 @@ import com.retail.dolphinpos.data.repositories.sync.PosSyncRepository
 import com.retail.dolphinpos.data.repositories.transaction.TransactionRepositoryImpl
 import com.retail.dolphinpos.data.service.ApiService
 import com.retail.dolphinpos.domain.repositories.transaction.TransactionRepository
+import com.retail.dolphinpos.data.datasource.DatabaseBackupDataSource
+import com.retail.dolphinpos.data.datasource.DatabaseBackupDataSourceImpl
+import com.retail.dolphinpos.data.repositories.backup.DatabaseBackupRepositoryImpl
+import com.retail.dolphinpos.domain.repositories.backup.DatabaseBackupRepository
 import com.retail.dolphinpos.data.room.DolphinDatabase
 import dagger.Module
 import dagger.Provides
@@ -167,5 +171,22 @@ object RoomDatabaseModule {
         database: DolphinDatabase
     ): PosSyncRepository {
         return PosSyncRepository(database)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabaseBackupDataSource(
+        @ApplicationContext context: Context,
+        database: DolphinDatabase
+    ): DatabaseBackupDataSource {
+        return DatabaseBackupDataSourceImpl(context, database)
+    }
+
+    @Provides
+    @Singleton
+    fun provideDatabaseBackupRepository(
+        backupDataSource: DatabaseBackupDataSource
+    ): DatabaseBackupRepository {
+        return DatabaseBackupRepositoryImpl(backupDataSource)
     }
 }

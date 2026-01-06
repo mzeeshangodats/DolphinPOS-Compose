@@ -104,6 +104,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import android.content.ContentResolver
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.retail.dolphinpos.common.utils.AppRestartHelper
+import com.retail.dolphinpos.presentation.features.ui.backup.BackupViewModel
+import com.retail.dolphinpos.presentation.features.ui.backup.BackupUiEvent
+import java.io.OutputStream
+import java.io.InputStream
+import java.text.SimpleDateFormat
+import java.util.Date
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import coil3.compose.AsyncImage
@@ -149,10 +160,14 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     preferenceManager: PreferenceManager
 ) {
+    val backupViewModel: BackupViewModel = hiltViewModel()
+    val context = LocalContext.current
     var showOrderDiscountDialog by remember { mutableStateOf(false) }
     var showAddCustomerDialog by remember { mutableStateOf(false) }
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showBackupDialog by remember { mutableStateOf(false) }
+    var showRestoreDialog by remember { mutableStateOf(false) }
     var showPaymentSuccessDialog by remember { mutableStateOf(false) }
     var showPLUSearchDialog by remember { mutableStateOf(false) }
     var showPriceCheckDialog by remember { mutableStateOf(false) }
@@ -199,6 +214,68 @@ fun HomeScreen(
     val userName = preferenceManager.getName()
     val isClockedIn = preferenceManager.isClockedIn()
     val clockInTime = preferenceManager.getClockInTime()
+
+    // Backup/Restore SAF launchers
+    val backupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/x-sqlite3")
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                val outputStream = context.contentResolver.openOutputStream(it)
+                if (outputStream != null) {
+                    try {
+                        backupViewModel.backupDatabase(outputStream)
+                    } finally {
+                        outputStream.close()
+                    }
+                }
+            }
+        }
+    }
+
+    val restoreLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                val inputStream = context.contentResolver.openInputStream(it)
+                if (inputStream != null) {
+                    try {
+                        backupViewModel.restoreDatabase(inputStream)
+                    } finally {
+                        inputStream.close()
+                    }
+                }
+            }
+        }
+    }
+
+    // Handle backup UI events
+    LaunchedEffect(Unit) {
+        backupViewModel.uiEvent.collect { event ->
+            when (event) {
+                is BackupUiEvent.ShowLoading -> Loader.show("Processing...")
+                is BackupUiEvent.HideLoading -> Loader.hide()
+                is BackupUiEvent.ShowError -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
+                }
+                is BackupUiEvent.ShowSuccess -> {
+                    DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
+                }
+                is BackupUiEvent.RestartApp -> {
+                    if (context is android.app.Activity) {
+                        AppRestartHelper.restartApp(context)
+                    }
+                }
+            }
+        }
+    }
 
     // Handle UI events - Use DisposableEffect to clean up loader when leaving screen
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -453,6 +530,8 @@ fun HomeScreen(
                     viewModel.searchProducts(query)
                 }, onLogout = {
                     showLogoutDialog = true
+                }, onBackup = {
+                    showBackupDialog = true
                 }, searchResults = searchResults, onProductClick = { product ->
                     val success = viewModel.addToCart(product)
                     if (success) {
@@ -1009,6 +1088,95 @@ fun HomeScreen(
                     popUpTo(0) { inclusive = true }
                 }
             })
+        }
+
+        // Backup/Restore Dialog
+        if (showBackupDialog) {
+            AlertDialog(
+                onDismissRequest = { showBackupDialog = false },
+                title = { Text("Database Backup & Restore") },
+                text = { 
+                    Column {
+                        Text("Choose an action:")
+                    }
+                },
+                confirmButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                showBackupDialog = false
+                                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                                backupLauncher.launch("dolphin_backup_$timestamp.db")
+                            }
+                        ) {
+                            Text("Backup")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(
+                            onClick = {
+                                showBackupDialog = false
+                                showRestoreDialog = true
+                            }
+                        ) {
+                            Text("Restore")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = { showBackupDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+            )
+        }
+
+        // Restore Confirmation Dialog
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false },
+                title = { Text("Restore Database") },
+                text = { Text("WARNING: This will replace your current database. The app will restart after restore. Continue?") },
+                confirmButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                showRestoreDialog = false
+                                restoreLauncher.launch(arrayOf("*/*"))
+                            }
+                        ) {
+                            Text("Restore")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = { showRestoreDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+            )
+        }
+
+        // Restore Dialog
+        if (showRestoreDialog) {
+            AlertDialog(
+                onDismissRequest = { showRestoreDialog = false },
+                title = { Text("Restore Database") },
+                text = { Text("WARNING: This will replace your current database. The app will restart after restore. Continue?") },
+                confirmButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                showRestoreDialog = false
+                                restoreLauncher.launch(arrayOf("*/*"))
+                            }
+                        ) {
+                            Text("Restore")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = { showRestoreDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+            )
         }
 
         selectedProductForVariant?.let { product ->

@@ -48,6 +48,7 @@ fun HomeAppBar(
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
     onLogout: () -> Unit = {},
+    onBackup: () -> Unit = {},
     searchResults: List<Products> = emptyList(),
     onProductClick: (Products) -> Unit = {},
     userName: String = "",
@@ -167,6 +168,29 @@ fun HomeAppBar(
                                 lineHeight = 10.sp
                             )
                         }
+                    }
+                }
+                
+                // Backup icon in circular background with padding
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .background(
+                            color = Color.White,
+                            shape = CircleShape
+                        )
+                        .clickable { onBackup() }
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.logout_icon),
+                            contentDescription = "Backup",
+                            modifier = Modifier.size(15.dp),
+                            tint = colorResource(id = R.color.primary)
+                        )
                     }
                 }
                 
