@@ -69,7 +69,7 @@ class DatabaseBackupDataSourceImpl @Inject constructor(
         try {
             // Ensure database is closed (already closed by use case, but ensure it's closed)
             try {
-                database.close()
+                //database.close()
             } catch (e: Exception) {
                 // Continue even if close fails
             }

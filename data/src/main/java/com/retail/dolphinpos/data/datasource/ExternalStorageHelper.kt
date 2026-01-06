@@ -71,7 +71,7 @@ object ExternalStorageHelper {
             val resolver = context.contentResolver
             val volumes = listOf(
                 MediaStore.VOLUME_EXTERNAL_PRIMARY,
-                MediaStore.VOLUME_EXTERNAL
+               // MediaStore.VOLUME_EXTERNAL
             )
 
             volumes.forEach { volume ->
@@ -132,7 +132,71 @@ object ExternalStorageHelper {
     /**
      * Read backup file from Downloads folder
      */
-    suspend fun readBackupFromDownloads(context: Context): Result<InputStream> = withContext(Dispatchers.IO) {
+
+    suspend fun readBackupFromDownloads(context: Context): Result<InputStream> =
+        withContext(Dispatchers.IO) {
+            try {
+                val resolver = context.contentResolver
+
+                // Android 10+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+
+                    val volumes = listOf(
+                        MediaStore.VOLUME_EXTERNAL_PRIMARY,
+                        //MediaStore.VOLUME_EXTERNAL
+                    )
+
+                    volumes.forEach { volume ->
+                        val collection =
+                            MediaStore.Downloads.getContentUri(volume)
+
+                        resolver.query(
+                            collection,
+                            arrayOf(MediaStore.Downloads._ID),
+                            "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                            arrayOf(BACKUP_FILE_NAME),
+                            null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val id = cursor.getLong(0)
+                                val uri =
+                                    ContentUris.withAppendedId(collection, id)
+
+                                return@withContext Result.success(
+                                    resolver.openInputStream(uri)
+                                        ?: throw Exception("InputStream is null")
+                                )
+                            }
+                        }
+                    }
+
+                    return@withContext Result.failure(
+                        Exception("Backup file not found in MediaStore")
+                    )
+                }
+
+                // Android 9 and below ONLY
+                val file = File(
+                    Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_DOWNLOADS
+                    ),
+                    BACKUP_FILE_NAME
+                )
+
+                if (!file.exists()) {
+                    return@withContext Result.failure(
+                        Exception("Backup file does not exist")
+                    )
+                }
+
+                Result.success(FileInputStream(file))
+
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+    suspend fun readBackupFromDownloads2(context: Context): Result<InputStream> = withContext(Dispatchers.IO) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 // Strategy 1: Query MediaStore by exact name
@@ -169,8 +233,7 @@ object ExternalStorageHelper {
     }
 
     fun findBackupFileUri(context: Context): Uri? {
-
-        // Android 10+
+        // Android 10+ - Use MediaStore API only
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             val volumes = listOf(
@@ -194,11 +257,30 @@ object ExternalStorageHelper {
                     }
                 }
             }
-
-//            return null
+            
+            // Also try without .db extension
+            volumes.forEach { volume ->
+                val collection = MediaStore.Downloads.getContentUri(volume)
+                val fileNameWithoutExt = BACKUP_FILE_NAME.removeSuffix(".db")
+                
+                resolver.query(
+                    collection,
+                    arrayOf(MediaStore.Downloads._ID),
+                    "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                    arrayOf(fileNameWithoutExt),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val id = cursor.getLong(0)
+                        return ContentUris.withAppendedId(collection, id)
+                    }
+                }
+            }
+            
+            //return null
         }
 
-        // Android 9 and below
+        // Android 9 and below - Use File API
         val file = File(
             Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
             BACKUP_FILE_NAME
@@ -323,8 +405,13 @@ object ExternalStorageHelper {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, BACKUP_FILE_NAME)
                 put(MediaStore.Downloads.MIME_TYPE, BACKUP_MIME_TYPE)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(
+                    MediaStore.Downloads.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+                put(MediaStore.Downloads.IS_PENDING, 0)
             }
+
 
             val uri = contentResolver.insert(collection, contentValues)
                 ?: return@withContext Result.failure(Exception("Failed to create backup file"))
