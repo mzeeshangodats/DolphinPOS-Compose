@@ -168,52 +168,101 @@ object ExternalStorageHelper {
         }
     }
 
+    fun findBackupFileUri(context: Context): Uri? {
+
+        // Android 10+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = context.contentResolver
+            val volumes = listOf(
+                MediaStore.VOLUME_EXTERNAL_PRIMARY,
+                MediaStore.VOLUME_EXTERNAL
+            )
+
+            volumes.forEach { volume ->
+                val collection = MediaStore.Downloads.getContentUri(volume)
+
+                resolver.query(
+                    collection,
+                    arrayOf(MediaStore.Downloads._ID),
+                    "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                    arrayOf(BACKUP_FILE_NAME),
+                    null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val id = cursor.getLong(0)
+                        return ContentUris.withAppendedId(collection, id)
+                    }
+                }
+            }
+
+//            return null
+        }
+
+        // Android 9 and below
+        val file = File(
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            BACKUP_FILE_NAME
+        )
+
+        return if (file.exists()) {
+            Uri.fromFile(file)
+        } else {
+            null
+        }
+    }
+
+
     @SuppressLint("Range")
-    private suspend fun findBackupFileUri(context: Context): android.net.Uri? = withContext(Dispatchers.IO) {
+    private suspend fun findBackupFileUri2(context: Context): android.net.Uri? = withContext(Dispatchers.IO) {
         try {
             val contentResolver = context.contentResolver
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL)
+            val volumes = listOf(MediaStore.VOLUME_EXTERNAL_PRIMARY, MediaStore.VOLUME_EXTERNAL)
             val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.RELATIVE_PATH)
             
-            // Strategy 1: Query by exact DISPLAY_NAME match
-            val searchNames = listOf(BACKUP_FILE_NAME, BACKUP_FILE_NAME.removeSuffix(".db"))
-            for (fileName in searchNames) {
-                val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
-                val selectionArgs = arrayOf(fileName)
+            // Try both volumes
+            for (volume in volumes) {
+                val collection = MediaStore.Downloads.getContentUri(volume)
                 
-                contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                        return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                // Strategy 1: Query by exact DISPLAY_NAME match
+                val searchNames = listOf(BACKUP_FILE_NAME, BACKUP_FILE_NAME.removeSuffix(".db"))
+                for (fileName in searchNames) {
+                    val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
+                    val selectionArgs = arrayOf(fileName)
+                    
+                    contentResolver.query(collection, projection, selection, selectionArgs, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                            return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                        }
                     }
                 }
-            }
 
-            // Strategy 2: Query by DISPLAY_NAME using LIKE (case-insensitive, partial match)
-            val likePattern = "%dolphin_db_backup%"
-            val selectionLike = "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
-            val selectionArgsLike = arrayOf(likePattern)
-            
-            contentResolver.query(collection, projection, selectionLike, selectionArgsLike, "${MediaStore.Downloads.DATE_MODIFIED} DESC")?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
-                    if (displayName.contains("dolphin_db_backup", ignoreCase = true)) {
-                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                        return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                // Strategy 2: Query by DISPLAY_NAME using LIKE (case-insensitive, partial match)
+                val likePattern = "%dolphin_db_backup%"
+                val selectionLike = "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
+                val selectionArgsLike = arrayOf(likePattern)
+                
+                contentResolver.query(collection, projection, selectionLike, selectionArgsLike, "${MediaStore.Downloads.DATE_MODIFIED} DESC")?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
+                        if (displayName.contains("dolphin_db_backup", ignoreCase = true)) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                            return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                        }
                     }
                 }
-            }
 
-            // Strategy 3: Query by RELATIVE_PATH and DISPLAY_NAME combination
-            val selectionPath = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
-            val selectionArgsPath = arrayOf("Download/%", "%dolphin_db_backup%")
-            
-            contentResolver.query(collection, projection, selectionPath, selectionArgsPath, "${MediaStore.Downloads.DATE_MODIFIED} DESC")?.use { cursor ->
-                while (cursor.moveToNext()) {
-                    val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
-                    if (displayName.contains("dolphin_db_backup", ignoreCase = true)) {
-                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                        return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                // Strategy 3: Query by RELATIVE_PATH and DISPLAY_NAME combination
+                val selectionPath = "${MediaStore.Downloads.RELATIVE_PATH} LIKE ? AND ${MediaStore.Downloads.DISPLAY_NAME} LIKE ?"
+                val selectionArgsPath = arrayOf("Download/%", "%dolphin_db_backup%")
+                
+                contentResolver.query(collection, projection, selectionPath, selectionArgsPath, "${MediaStore.Downloads.DATE_MODIFIED} DESC")?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
+                        if (displayName.contains("dolphin_db_backup", ignoreCase = true)) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                            return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                        }
                     }
                 }
             }
@@ -228,23 +277,28 @@ object ExternalStorageHelper {
     private suspend fun findBackupFileByScanning(context: Context): android.net.Uri? = withContext(Dispatchers.IO) {
         try {
             val contentResolver = context.contentResolver
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val volumes = listOf(MediaStore.VOLUME_EXTERNAL_PRIMARY, MediaStore.VOLUME_EXTERNAL)
             val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.RELATIVE_PATH)
             
-            // Query all downloads and find by name (broader search)
-            contentResolver.query(
-                collection,
-                projection,
-                null,
-                null,
-                "${MediaStore.Downloads.DATE_MODIFIED} DESC"
-            )?.use { cursor ->
-                val searchNames = listOf(BACKUP_FILE_NAME, BACKUP_FILE_NAME.removeSuffix(".db"), "dolphin_db_backup", "dolphin_db_backup.db")
-                while (cursor.moveToNext()) {
-                    val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
-                    if (searchNames.any { displayName.equals(it, ignoreCase = true) || displayName.contains(it, ignoreCase = true) }) {
-                        val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
-                        return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+            // Try both volumes
+            for (volume in volumes) {
+                val collection = MediaStore.Downloads.getContentUri(volume)
+                
+                // Query all downloads and find by name (broader search)
+                contentResolver.query(
+                    collection,
+                    projection,
+                    null,
+                    null,
+                    "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+                )?.use { cursor ->
+                    val searchNames = listOf(BACKUP_FILE_NAME, BACKUP_FILE_NAME.removeSuffix(".db"), "dolphin_db_backup", "dolphin_db_backup.db")
+                    while (cursor.moveToNext()) {
+                        val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
+                        if (searchNames.any { displayName.equals(it, ignoreCase = true) || displayName.contains(it, ignoreCase = true) }) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                            return@withContext android.net.Uri.withAppendedPath(collection, id.toString())
+                        }
                     }
                 }
             }
