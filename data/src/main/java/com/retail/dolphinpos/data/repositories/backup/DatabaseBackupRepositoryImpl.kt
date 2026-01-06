@@ -9,13 +9,6 @@ import javax.inject.Inject
 class DatabaseBackupRepositoryImpl @Inject constructor(
     private val backupDataSource: DatabaseBackupDataSource
 ) : DatabaseBackupRepository {
-    override suspend fun backupDatabase(outputStream: OutputStream): Result<Unit> {
-        return backupDataSource.backupDatabase(outputStream)
-    }
-
-    override suspend fun restoreDatabase(inputStream: InputStream): Result<Unit> {
-        return backupDataSource.restoreDatabase(inputStream)
-    }
 
     override fun getDatabasePath(): String {
         return backupDataSource.getDatabasePath()
