@@ -104,10 +104,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import android.content.ContentResolver
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import com.retail.dolphinpos.common.utils.AppRestartHelper
 import com.retail.dolphinpos.presentation.features.ui.backup.BackupViewModel
 import com.retail.dolphinpos.presentation.features.ui.backup.BackupUiEvent
@@ -122,6 +118,7 @@ import com.retail.dolphinpos.common.components.BaseOutlinedEditText
 import com.retail.dolphinpos.common.components.BaseText
 import com.retail.dolphinpos.common.components.HomeAppBar
 import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
+import com.retail.dolphinpos.common.components.BackupRestoreProgressDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.domain.model.home.cart.CartItem
@@ -167,7 +164,6 @@ fun HomeScreen(
     var showHoldCartDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showBackupDialog by remember { mutableStateOf(false) }
-    var showRestoreDialog by remember { mutableStateOf(false) }
     var showPaymentSuccessDialog by remember { mutableStateOf(false) }
     var showPLUSearchDialog by remember { mutableStateOf(false) }
     var showPriceCheckDialog by remember { mutableStateOf(false) }
@@ -215,54 +211,28 @@ fun HomeScreen(
     val isClockedIn = preferenceManager.isClockedIn()
     val clockInTime = preferenceManager.getClockInTime()
 
-    // Backup/Restore SAF launchers
-    val backupLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/x-sqlite3")
-    ) { uri: Uri? ->
-        uri?.let {
-            coroutineScope.launch {
-                val outputStream = context.contentResolver.openOutputStream(it)
-                if (outputStream != null) {
-                    try {
-                        backupViewModel.backupDatabase(outputStream)
-                    } finally {
-                        outputStream.close()
-                    }
-                }
-            }
-        }
-    }
-
-    val restoreLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let {
-            coroutineScope.launch {
-                val inputStream = context.contentResolver.openInputStream(it)
-                if (inputStream != null) {
-                    try {
-                        backupViewModel.restoreDatabase(inputStream)
-                    } finally {
-                        inputStream.close()
-                    }
-                }
-            }
-        }
-    }
+    var showBackupProgress by remember { mutableStateOf(false) }
+    val backupIsLoading by backupViewModel.isLoading.collectAsStateWithLifecycle()
 
     // Handle backup UI events
     LaunchedEffect(Unit) {
         backupViewModel.uiEvent.collect { event ->
             when (event) {
-                is BackupUiEvent.ShowLoading -> Loader.show("Processing...")
-                is BackupUiEvent.HideLoading -> Loader.hide()
+                is BackupUiEvent.ShowLoading -> {
+                    showBackupProgress = true
+                }
+                is BackupUiEvent.HideLoading -> {
+                    showBackupProgress = false
+                }
                 is BackupUiEvent.ShowError -> {
+                    showBackupProgress = false
                     DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK"
                     ) {}
                 }
                 is BackupUiEvent.ShowSuccess -> {
+                    showBackupProgress = false
                     DialogHandler.showDialog(
                         message = event.message,
                         buttonText = "OK"
@@ -1090,35 +1060,23 @@ fun HomeScreen(
             })
         }
 
-        // Backup/Restore Dialog
+        // Backup Dialog
         if (showBackupDialog) {
             AlertDialog(
                 onDismissRequest = { showBackupDialog = false },
-                title = { Text("Database Backup & Restore") },
-                text = { 
-                    Column {
-                        Text("Choose an action:")
-                    }
-                },
+                title = { Text("Backup Database") },
+                text = { Text("This will create a backup of your database. Continue?") },
                 confirmButton = {
                     Row {
                         TextButton(
                             onClick = {
                                 showBackupDialog = false
-                                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
-                                backupLauncher.launch("dolphin_backup_$timestamp.db")
+                                coroutineScope.launch {
+                                    backupViewModel.backupDatabaseToFile()
+                                }
                             }
                         ) {
                             Text("Backup")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(
-                            onClick = {
-                                showBackupDialog = false
-                                showRestoreDialog = true
-                            }
-                        ) {
-                            Text("Restore")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         TextButton(onClick = { showBackupDialog = false }) {
@@ -1129,54 +1087,9 @@ fun HomeScreen(
             )
         }
 
-        // Restore Confirmation Dialog
-        if (showRestoreDialog) {
-            AlertDialog(
-                onDismissRequest = { showRestoreDialog = false },
-                title = { Text("Restore Database") },
-                text = { Text("WARNING: This will replace your current database. The app will restart after restore. Continue?") },
-                confirmButton = {
-                    Row {
-                        TextButton(
-                            onClick = {
-                                showRestoreDialog = false
-                                restoreLauncher.launch(arrayOf("*/*"))
-                            }
-                        ) {
-                            Text("Restore")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(onClick = { showRestoreDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                }
-            )
-        }
-
-        // Restore Dialog
-        if (showRestoreDialog) {
-            AlertDialog(
-                onDismissRequest = { showRestoreDialog = false },
-                title = { Text("Restore Database") },
-                text = { Text("WARNING: This will replace your current database. The app will restart after restore. Continue?") },
-                confirmButton = {
-                    Row {
-                        TextButton(
-                            onClick = {
-                                showRestoreDialog = false
-                                restoreLauncher.launch(arrayOf("*/*"))
-                            }
-                        ) {
-                            Text("Restore")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextButton(onClick = { showRestoreDialog = false }) {
-                            Text("Cancel")
-                        }
-                    }
-                }
-            )
+        // Backup Progress Dialog
+        if (showBackupProgress) {
+            BackupRestoreProgressDialog(message = "Backing up database...")
         }
 
         selectedProductForVariant?.let { product ->

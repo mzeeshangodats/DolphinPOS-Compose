@@ -52,4 +52,7 @@ object Constants {
     // Splash screen preference
     const val SPLASH_SCREEN_SHOWN = "splash_screen_shown"
 
+    // Database restore preference
+    const val DATABASE_RESTORE_COMPLETED = "database_restore_completed"
+
 }

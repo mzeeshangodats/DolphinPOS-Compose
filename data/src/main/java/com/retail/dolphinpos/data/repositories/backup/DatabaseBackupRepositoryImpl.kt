@@ -28,5 +28,17 @@ class DatabaseBackupRepositoryImpl @Inject constructor(
     override suspend fun reopenDatabase() {
         backupDataSource.reopenDatabase()
     }
+
+    override suspend fun backupDatabaseToFile(): Result<Unit> {
+        return backupDataSource.backupDatabaseToFile()
+    }
+
+    override suspend fun restoreDatabaseFromFile(): Result<Unit> {
+        return backupDataSource.restoreDatabaseFromFile()
+    }
+
+    override fun getBackupFilePath(): String {
+        return backupDataSource.getBackupFilePath()
+    }
 }
 

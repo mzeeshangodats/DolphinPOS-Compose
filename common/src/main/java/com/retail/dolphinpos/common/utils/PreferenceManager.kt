@@ -259,4 +259,13 @@ class PreferenceManager @Inject constructor(
         return prefs.getBoolean(Constants.SPLASH_SCREEN_SHOWN, defaultValue)
     }
 
+    // Database restore methods
+    fun setDatabaseRestoreCompleted(value: Boolean) {
+        prefs.edit { putBoolean(Constants.DATABASE_RESTORE_COMPLETED, value) }
+    }
+
+    fun isDatabaseRestoreCompleted(defaultValue: Boolean = false): Boolean {
+        return prefs.getBoolean(Constants.DATABASE_RESTORE_COMPLETED, defaultValue)
+    }
+
 }
