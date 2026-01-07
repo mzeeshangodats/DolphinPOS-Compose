@@ -50,6 +50,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.retail.dolphinpos.common.utils.getDBFileName
+import com.retail.dolphinpos.data.datasource.ExternalStorageHelper
 import kotlinx.coroutines.delay
 
 private fun navigateFromSplash(navController: NavController, preferenceManager: PreferenceManager) {
@@ -153,7 +154,7 @@ fun SplashScreen(
             
             if (!isRestoreCompleted) {
                 // Check if backup file exists
-                val backupExists = com.retail.dolphinpos.data.datasource.ExternalStorageHelper.checkIfFileExists()
+                val backupExists = ExternalStorageHelper.checkIfFileExists()
                 if (backupExists) {
                     restoreFilePickerLauncher.launch(arrayOf("application/x-sqlite3", "application/*"))
                 } else {

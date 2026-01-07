@@ -19,23 +19,27 @@ import java.io.InputStream
 object ExternalStorageHelper {
     private const val BACKUP_FILE_NAME = "dolphin_db_backup.db"
     private const val BACKUP_MIME_TYPE = "application/x-sqlite3"
+    private const val BACKUP_FOLDER_NAME = "DolphinPOS"
 
 
 
     /**
-     * Check if backup file exists
+     * Get the DolphinPOS folder path
+     */
+    fun getDolphinPosFolderPath(): String {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val dolphinPosDir = File(downloadsDir, BACKUP_FOLDER_NAME)
+        return dolphinPosDir.absolutePath
+    }
+
+    /**
+     * Check if backup file exists in Download/DolphinPOS folder
      */
     fun checkIfFileExists(): Boolean {
-        val file = File(
-            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-            BACKUP_FILE_NAME
-        )
-
-        return if (file.exists()) {
-            true
-        } else {
-            false
-        }
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val dolphinPosDir = File(downloadsDir, BACKUP_FOLDER_NAME)
+        val file = File(dolphinPosDir, BACKUP_FILE_NAME)
+        return file.exists()
     }
 
 
@@ -66,13 +70,13 @@ object ExternalStorageHelper {
 
             deleteExistingBackup(contentResolver, collection)
 
-            // Step 2: Create new file entry with exact filename
+            // Step 2: Create new file entry with exact filename in Download/DolphinPOS folder
             val contentValues = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, BACKUP_FILE_NAME)
                 put(MediaStore.Downloads.MIME_TYPE, BACKUP_MIME_TYPE)
                 put(
                     MediaStore.Downloads.RELATIVE_PATH,
-                    Environment.DIRECTORY_DOWNLOADS
+                    "${Environment.DIRECTORY_DOWNLOADS}/${BACKUP_FOLDER_NAME}/"
                 )
                 put(MediaStore.Downloads.IS_PENDING, 0)
             }
@@ -98,8 +102,9 @@ object ExternalStorageHelper {
         resolver: ContentResolver,
         collection: Uri
     ) {
-        val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ?"
-        val args = arrayOf(BACKUP_FILE_NAME)
+        // Search for backup file in Download/DolphinPOS folder
+        val selection = "${MediaStore.Downloads.DISPLAY_NAME} = ? AND ${MediaStore.Downloads.RELATIVE_PATH} LIKE ?"
+        val args = arrayOf(BACKUP_FILE_NAME, "%${BACKUP_FOLDER_NAME}%")
 
         resolver.query(
             collection,
@@ -119,25 +124,17 @@ object ExternalStorageHelper {
     private suspend fun saveViaFile(context: Context, sourceFile: File): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadsDir.exists()) {
-                downloadsDir.mkdirs()
+            val dolphinPosDir = File(downloadsDir, BACKUP_FOLDER_NAME)
+            
+            if (!dolphinPosDir.exists()) {
+                dolphinPosDir.mkdirs()
             }
 
-            // Step 1: Delete all existing backup files (with and without extension, and numbered versions)
-            downloadsDir.listFiles()?.forEach { file ->
-                val fileName = file.name.lowercase()
-                // Delete if filename contains "dolphin_db_backup" (matches base name and numbered versions)
-                if (fileName.contains("dolphin_db_backup")) {
-                    try {
-                        file.delete()
-                    } catch (e: Exception) {
-                        // Ignore delete errors
-                    }
-                }
+            // Step 1: Delete existing backup file if it exists
+            val backupFile = File(dolphinPosDir, BACKUP_FILE_NAME)
+            if (backupFile.exists()) {
+                backupFile.delete()
             }
-
-            // Step 2: Create new backup file with exact filename
-            val backupFile = File(downloadsDir, BACKUP_FILE_NAME)
 
             // Step 3: Copy source file to Downloads
             sourceFile.inputStream().use { input ->
