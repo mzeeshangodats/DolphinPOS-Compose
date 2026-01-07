@@ -68,6 +68,13 @@ fun LoginScreen(
                 navController.navigate("selectRegister")
             }
 
+            is LoginUiEvent.NavigateToPinCode -> {
+                Loader.hide()
+                navController.navigate("pinCode") {
+                    popUpTo("login") { inclusive = true }
+                }
+            }
+
             null -> Unit
             is LoginUiEvent.ShowNoInternetDialog -> {
                 DialogHandler.showDialog(

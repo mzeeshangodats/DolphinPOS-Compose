@@ -111,12 +111,12 @@ fun SplashScreen(
                     is BackupUiEvent.ShowLoading -> showRestoreProgress = true
                     is BackupUiEvent.HideLoading -> {
                         showRestoreProgress = false
-                        preferenceManager.setDatabaseRestoreCompleted(true)
+                        //preferenceManager.setDatabaseRestoreCompleted(true)
                         navigateFromSplash(navController, preferenceManager)
                     }
                     is BackupUiEvent.ShowError -> {
                         showRestoreProgress = false
-                        preferenceManager.setDatabaseRestoreCompleted(true)
+                        //preferenceManager.setDatabaseRestoreCompleted(true)
                         DialogHandler.showDialog(
                             message = event.message,
                             buttonText = "OK"
@@ -133,7 +133,6 @@ fun SplashScreen(
                         if (context is Activity) {
                             // Mark splash as shown and clear login state so app navigates to login after restart
                             preferenceManager.setSplashScreenShown(true)
-                            preferenceManager.setDatabaseRestoreCompleted(true)
                             preferenceManager.setLogin(false)
                             delay(500)
                             AppRestartHelper.restartApp(context)
@@ -159,7 +158,7 @@ fun SplashScreen(
                     restoreFilePickerLauncher.launch(arrayOf("application/x-sqlite3", "application/*"))
                 } else {
                     // File doesn't exist - mark as completed and navigate normally
-                    preferenceManager.setDatabaseRestoreCompleted(true)
+                    //preferenceManager.setDatabaseRestoreCompleted(true)
                     navigateFromSplash(navController, preferenceManager)
                 }
             } else {

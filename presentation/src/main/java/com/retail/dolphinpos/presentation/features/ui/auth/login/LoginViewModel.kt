@@ -10,6 +10,7 @@ import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.common.network.NetworkMonitor
 import com.retail.dolphinpos.domain.model.auth.login.request.LoginRequest
 import com.retail.dolphinpos.domain.repositories.auth.LoginRepository
+import com.retail.dolphinpos.domain.repositories.auth.StoreRegistersRepository
 import com.retail.dolphinpos.presentation.R
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,6 +21,7 @@ import javax.inject.Inject
 open class LoginViewModel @Inject constructor(
     @ApplicationContext val context: Context,
     private val repository: LoginRepository,
+    private val storeRegistersRepository: StoreRegistersRepository,
     private val preferenceManager: PreferenceManager,
     private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
@@ -75,7 +77,26 @@ open class LoginViewModel @Inject constructor(
                             )
                         }
                     }
-                    loginUiEvent = LoginUiEvent.NavigateToRegister
+                    
+                    // Check if database was restored - if yes, skip register screen and go to pin code
+                    val isDatabaseRestored = preferenceManager.isDatabaseRestoreCompleted()
+                    if (isDatabaseRestored) {
+                        // Get locationID from register_status_details table and set it
+                        try {
+                            val registerStatus = storeRegistersRepository.getRegisterStatus()
+                            val locationID = registerStatus.locationId
+                            val storeRegisterId = registerStatus.storeRegisterId
+
+                            preferenceManager.setOccupiedLocationID(locationID)
+                            preferenceManager.setOccupiedRegisterID(storeRegisterId)
+                        } catch (e: Exception) {
+                            // If register status not found, continue anyway
+                            // The pin screen will handle the case if locationID is not set
+                        }
+                        loginUiEvent = LoginUiEvent.NavigateToPinCode
+                    } else {
+                        loginUiEvent = LoginUiEvent.NavigateToRegister
+                    }
 
                 } ?: run {
                     loginUiEvent =

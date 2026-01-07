@@ -8,4 +8,5 @@ sealed class LoginUiEvent {
     data class ShowError(val message: String) : LoginUiEvent()
     data class ShowNoInternetDialog(val message: String, val success: Boolean = false) : LoginUiEvent()
     object NavigateToRegister : LoginUiEvent()
+    object NavigateToPinCode : LoginUiEvent()
 }
