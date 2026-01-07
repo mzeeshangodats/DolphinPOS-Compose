@@ -1,6 +1,7 @@
 package com.retail.dolphinpos.data.datasource
 
 import android.content.Context
+import android.net.Uri
 import com.retail.dolphinpos.data.room.DolphinDatabase
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -79,6 +80,84 @@ class DatabaseBackupDataSourceImpl @Inject constructor(
             val backupInputStream = backupInputStreamResult.getOrElse {
                 return@withContext Result.failure(Exception("Failed to read backup file: ${it.message}"))
             }
+
+            val dbFile = context.getDatabasePath(DATABASE_NAME)
+            val dbDir = dbFile.parentFile
+
+            if (!dbDir.exists()) {
+                if (!dbDir.mkdirs()) {
+                    return@withContext Result.failure(Exception("Failed to create database directory"))
+                }
+            }
+
+            // Write to temporary file first
+            val tempFile = File(dbDir, "${DATABASE_NAME}.tmp")
+            
+            // Delete temp file if it exists
+            if (tempFile.exists()) {
+                tempFile.delete()
+            }
+
+            backupInputStream.use { input ->
+                tempFile.outputStream().use { output ->
+                    val buffer = ByteArray(BUFFER_SIZE)
+                    var bytesRead: Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                    }
+                    output.flush()
+                }
+            }
+
+            // Verify temp file was created and has content
+            if (!tempFile.exists() || tempFile.length() == 0L) {
+                return@withContext Result.failure(Exception("Failed to create temporary database file"))
+            }
+
+            // Delete old database files
+            if (dbFile.exists()) {
+                if (!dbFile.delete()) {
+                    // If delete fails, try to rename old file
+                    val oldFile = File(dbDir, "${DATABASE_NAME}.old")
+                    if (oldFile.exists()) {
+                        oldFile.delete()
+                    }
+                    dbFile.renameTo(oldFile)
+                }
+            }
+
+            // Delete WAL and SHM files if they exist (before replacing main file)
+            File(dbDir, "${DATABASE_NAME}-wal").delete()
+            File(dbDir, "${DATABASE_NAME}-shm").delete()
+
+            // Replace original database file
+            if (!tempFile.renameTo(dbFile)) {
+                return@withContext Result.failure(Exception("Failed to replace database file. File may be locked."))
+            }
+
+            // Verify the restored file exists and has content
+            if (!dbFile.exists() || dbFile.length() == 0L) {
+                return@withContext Result.failure(Exception("Restored database file is invalid"))
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(Exception("Restore failed: ${e.message}", e))
+        }
+    }
+
+    override suspend fun restoreDatabaseFromUri(uri: Uri): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            // Ensure database is closed
+            try {
+                database.close()
+            } catch (e: Exception) {
+                // Continue even if close fails
+            }
+
+            // Read backup from SAF URI
+            val backupInputStream = context.contentResolver.openInputStream(uri)
+                ?: return@withContext Result.failure(Exception("Failed to open input stream from URI"))
 
             val dbFile = context.getDatabasePath(DATABASE_NAME)
             val dbDir = dbFile.parentFile

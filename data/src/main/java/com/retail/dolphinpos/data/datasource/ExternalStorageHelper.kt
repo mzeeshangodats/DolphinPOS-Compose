@@ -138,17 +138,29 @@ object ExternalStorageHelper {
             try {
                 val resolver = context.contentResolver
 
-                // Android 10+
+                // Android 10+ - Use SAF/MediaStore URI
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    // Use findBackupFileUri to get the SAF URI
+                    val uri = findBackupFileUri(context)
+                    if (uri != null) {
+                        val inputStream = resolver.openInputStream(uri)
+                        if (inputStream != null) {
+                            return@withContext Result.success(inputStream)
+                        } else {
+                            return@withContext Result.failure(
+                                Exception("Failed to open input stream from URI")
+                            )
+                        }
+                    }
 
+                    // Fallback: Try direct MediaStore query
                     val volumes = listOf(
                         MediaStore.VOLUME_EXTERNAL_PRIMARY,
-                        //MediaStore.VOLUME_EXTERNAL
+                        MediaStore.VOLUME_EXTERNAL
                     )
 
                     volumes.forEach { volume ->
-                        val collection =
-                            MediaStore.Downloads.getContentUri(volume)
+                        val collection = MediaStore.Downloads.getContentUri(volume)
 
                         resolver.query(
                             collection,
@@ -159,13 +171,34 @@ object ExternalStorageHelper {
                         )?.use { cursor ->
                             if (cursor.moveToFirst()) {
                                 val id = cursor.getLong(0)
-                                val uri =
-                                    ContentUris.withAppendedId(collection, id)
+                                val uri = ContentUris.withAppendedId(collection, id)
+                                val inputStream = resolver.openInputStream(uri)
+                                if (inputStream != null) {
+                                    return@withContext Result.success(inputStream)
+                                }
+                            }
+                        }
+                    }
 
-                                return@withContext Result.success(
-                                    resolver.openInputStream(uri)
-                                        ?: throw Exception("InputStream is null")
-                                )
+                    // Also try without .db extension
+                    volumes.forEach { volume ->
+                        val collection = MediaStore.Downloads.getContentUri(volume)
+                        val fileNameWithoutExt = BACKUP_FILE_NAME.removeSuffix(".db")
+
+                        resolver.query(
+                            collection,
+                            arrayOf(MediaStore.Downloads._ID),
+                            "${MediaStore.Downloads.DISPLAY_NAME} = ?",
+                            arrayOf(fileNameWithoutExt),
+                            null
+                        )?.use { cursor ->
+                            if (cursor.moveToFirst()) {
+                                val id = cursor.getLong(0)
+                                val uri = ContentUris.withAppendedId(collection, id)
+                                val inputStream = resolver.openInputStream(uri)
+                                if (inputStream != null) {
+                                    return@withContext Result.success(inputStream)
+                                }
                             }
                         }
                     }
@@ -232,8 +265,9 @@ object ExternalStorageHelper {
         }
     }
 
+    @SuppressLint("Range")
     fun findBackupFileUri(context: Context): Uri? {
-        // Android 10+ - Use MediaStore API only
+        // Android 10+ - Use MediaStore API only (SAF/Content URI)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             val volumes = listOf(
@@ -241,6 +275,7 @@ object ExternalStorageHelper {
                 MediaStore.VOLUME_EXTERNAL
             )
 
+            // Try exact filename match
             volumes.forEach { volume ->
                 val collection = MediaStore.Downloads.getContentUri(volume)
 
@@ -258,7 +293,7 @@ object ExternalStorageHelper {
                 }
             }
             
-            // Also try without .db extension
+            // Try without .db extension
             volumes.forEach { volume ->
                 val collection = MediaStore.Downloads.getContentUri(volume)
                 val fileNameWithoutExt = BACKUP_FILE_NAME.removeSuffix(".db")
@@ -277,7 +312,30 @@ object ExternalStorageHelper {
                 }
             }
             
-            //return null
+            // Try LIKE pattern search
+            val projection = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME)
+            volumes.forEach { volume ->
+                val collection = MediaStore.Downloads.getContentUri(volume)
+                
+                resolver.query(
+                    collection,
+                    projection,
+                    "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
+                    arrayOf("%dolphin_db_backup%"),
+                    "${MediaStore.Downloads.DATE_MODIFIED} DESC"
+                )?.use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val displayName = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Downloads.DISPLAY_NAME))
+                        if (displayName.contains("dolphin_db_backup", ignoreCase = true)) {
+                            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID))
+                            return ContentUris.withAppendedId(collection, id)
+                        }
+                    }
+                }
+            }
+            
+            // Not found - return null (never use file URI on Android 10+)
+            return null
         }
 
         // Android 9 and below - Use File API

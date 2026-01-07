@@ -12,6 +12,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
@@ -43,9 +45,9 @@ import com.retail.dolphinpos.presentation.util.DialogHandler
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import android.app.Activity
+import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
-import java.io.File
 
 private fun navigateFromSplash(navController: NavController, preferenceManager: PreferenceManager) {
     preferenceManager.setSplashScreenShown(true)
@@ -79,6 +81,21 @@ fun SplashScreen(
     var showRestoreProgress by remember { mutableStateOf(false) }
     val isLoading by backupViewModel.isLoading.collectAsStateWithLifecycle()
 
+    // SAF file picker launcher
+    val restoreFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch {
+                backupViewModel.restoreDatabaseFromUri(uri)
+            }
+        } else {
+            // User cancelled - mark as completed and navigate
+            preferenceManager.setDatabaseRestoreCompleted(true)
+            navigateFromSplash(navController, preferenceManager)
+        }
+    }
+
     // Handle backup UI events
     LaunchedEffect(Unit) {
         try {
@@ -87,41 +104,33 @@ fun SplashScreen(
                     is BackupUiEvent.ShowLoading -> showRestoreProgress = true
                     is BackupUiEvent.HideLoading -> {
                         showRestoreProgress = false
-                        // Mark restore as completed and navigate
                         preferenceManager.setDatabaseRestoreCompleted(true)
                         navigateFromSplash(navController, preferenceManager)
                     }
                     is BackupUiEvent.ShowError -> {
                         showRestoreProgress = false
-                        // Check if error is "Backup file does not exist" - if so, just navigate without showing dialog
-                        val isFileNotFound = event.message.contains("Backup file does not exist", ignoreCase = true)
-                        // Mark restore as completed even on error (so it doesn't retry)
                         preferenceManager.setDatabaseRestoreCompleted(true)
-                        if (isFileNotFound) {
-                            // File doesn't exist - just navigate without showing error
+                        DialogHandler.showDialog(
+                            message = event.message,
+                            buttonText = "OK"
+                        ) {
                             navigateFromSplash(navController, preferenceManager)
-                        } else {
-                            // Other errors - show dialog then navigate
-                            DialogHandler.showDialog(
-                                message = event.message,
-                                buttonText = "OK"
-                            ) {
-                                navigateFromSplash(navController, preferenceManager)
-                            }
                         }
                     }
                     is BackupUiEvent.ShowSuccess -> {
-                        // Success dialog will be shown, navigation handled in HideLoading
+                        // Success - navigation handled in HideLoading
                     }
                     is BackupUiEvent.RestartApp -> {
                         if (context is Activity) {
+                            // Clear login state so app navigates to login after restart
+                            preferenceManager.setLogin(false)
                             AppRestartHelper.restartApp(context)
                         }
                     }
                 }
             }
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            // Ignore cancellation - navigation happened, coroutine was cancelled
+        } catch (e: CancellationException) {
+            // Ignore cancellation
         }
     }
 
@@ -129,23 +138,11 @@ fun SplashScreen(
         currentTime = currentTime,
         currentDate = currentDate,
         onStartClick = {
-            // Check if restore has been completed
             val isRestoreCompleted = preferenceManager.isDatabaseRestoreCompleted()
             
             if (!isRestoreCompleted) {
-                // Check if backup file exists before attempting restore
-                coroutineScope.launch {
-                    val backupExists = com.retail.dolphinpos.data.datasource.ExternalStorageHelper.checkIfFileExists()
-                    if (backupExists) {
-                        // Start restore process
-                        backupViewModel.restoreDatabaseFromFile()
-                        // Flag will be set in event handler after restore completes
-                    } else {
-                        // Backup file doesn't exist - mark as completed and navigate without restore
-                        preferenceManager.setDatabaseRestoreCompleted(true)
-                        navigateFromSplash(navController, preferenceManager)
-                    }
-                }
+                // Open file picker to select backup file
+                restoreFilePickerLauncher.launch(arrayOf("application/x-sqlite3", "*/*"))
             } else {
                 // Restore already completed - navigate normally
                 navigateFromSplash(navController, preferenceManager)

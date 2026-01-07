@@ -1,5 +1,6 @@
 package com.retail.dolphinpos.data.repositories.backup
 
+import android.net.Uri
 import com.retail.dolphinpos.data.datasource.DatabaseBackupDataSource
 import com.retail.dolphinpos.domain.repositories.backup.DatabaseBackupRepository
 import java.io.InputStream
@@ -28,6 +29,10 @@ class DatabaseBackupRepositoryImpl @Inject constructor(
 
     override suspend fun restoreDatabaseFromFile(): Result<Unit> {
         return backupDataSource.restoreDatabaseFromFile()
+    }
+
+    override suspend fun restoreDatabaseFromUri(uri: Uri): Result<Unit> {
+        return backupDataSource.restoreDatabaseFromUri(uri)
     }
 
     override fun getBackupFilePath(): String {
