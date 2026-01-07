@@ -87,8 +87,12 @@ open class LoginViewModel @Inject constructor(
                             val locationID = registerStatus.locationId
                             val storeRegisterId = registerStatus.storeRegisterId
 
+                            // Set register flag to true to prevent MainLayout from navigating to selectRegister
+                            preferenceManager.setRegister(true)
                             preferenceManager.setOccupiedLocationID(locationID)
                             preferenceManager.setOccupiedRegisterID(storeRegisterId)
+
+
                         } catch (e: Exception) {
                             // If register status not found, continue anyway
                             // The pin screen will handle the case if locationID is not set
