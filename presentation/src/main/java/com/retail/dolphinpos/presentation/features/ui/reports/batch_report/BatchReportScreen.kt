@@ -29,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,8 +52,12 @@ import com.retail.dolphinpos.common.components.LogoutConfirmationDialog
 import com.retail.dolphinpos.common.utils.GeneralSans
 import com.retail.dolphinpos.common.utils.PreferenceManager
 import com.retail.dolphinpos.presentation.R
+import com.retail.dolphinpos.presentation.features.ui.backup.BackupUiEvent
+import com.retail.dolphinpos.presentation.features.ui.backup.BackupViewModel
 import com.retail.dolphinpos.presentation.util.DialogHandler
 import com.retail.dolphinpos.presentation.util.Loader
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -71,6 +76,9 @@ fun BatchReportContent(
     viewModel: BatchReportViewModel = hiltViewModel(),
     preferenceManager: PreferenceManager
 ) {
+    val backupViewModel: BackupViewModel = hiltViewModel()
+    val coroutineScope = rememberCoroutineScope()
+
     val batchReport by viewModel.batchReport.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val showClosingCashDialog by viewModel.showClosingCashDialog.collectAsState()
@@ -102,7 +110,7 @@ fun BatchReportContent(
                 }
 
                 is BatchReportUiEvent.HideLoading -> {
-                    Loader.hide()
+                    //Loader.hide()
                 }
 
                 is BatchReportUiEvent.ShowError -> {
@@ -113,8 +121,13 @@ fun BatchReportContent(
                 }
 
                 is BatchReportUiEvent.NavigateToPinCode -> {
-                    Loader.hide()
-                    navController.navigate("pinCode")
+                    coroutineScope.launch {
+                        delay(5000)
+                        Loader.hide()
+                        backupViewModel.backupDatabaseToFile()
+                    }
+
+
                 }
 
                 is BatchReportUiEvent.NavigateToCashDenomination -> {
@@ -127,6 +140,28 @@ fun BatchReportContent(
                         popUpTo(0) { inclusive = true }
                     }
                 }
+            }
+        }
+    }
+
+    // Handle backup UI events
+    LaunchedEffect(Unit) {
+        backupViewModel.uiEvent.collect { event ->
+            when (event) {
+                is BackupUiEvent.ShowLoading -> {
+                 }
+                is BackupUiEvent.HideLoading -> {
+                 }
+                is BackupUiEvent.ShowError -> {
+                     DialogHandler.showDialog(
+                        message = event.message,
+                        buttonText = "OK"
+                    ) {}
+                }
+                is BackupUiEvent.ShowSuccess -> {
+                    navController.navigate("pinCode")
+                }
+                is BackupUiEvent.RestartApp -> {}
             }
         }
     }
