@@ -238,13 +238,7 @@ fun HomeScreen(
                         buttonText = "OK"
                     ) {}
                 }
-                is BackupUiEvent.RestartApp -> {
-                    if (context is android.app.Activity) {
-                        // Clear login state so app navigates to login after restart
-                        preferenceManager.setLogin(false)
-                        AppRestartHelper.restartApp(context)
-                    }
-                }
+                is BackupUiEvent.RestartApp -> {}
             }
         }
     }

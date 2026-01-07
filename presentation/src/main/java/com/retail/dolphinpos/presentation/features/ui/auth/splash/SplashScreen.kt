@@ -47,7 +47,10 @@ import kotlinx.coroutines.CancellationException
 import android.app.Activity
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
+import com.retail.dolphinpos.common.utils.getDBFileName
+import kotlinx.coroutines.delay
 
 private fun navigateFromSplash(navController: NavController, preferenceManager: PreferenceManager) {
     preferenceManager.setSplashScreenShown(true)
@@ -81,20 +84,23 @@ fun SplashScreen(
     var showRestoreProgress by remember { mutableStateOf(false) }
     val isLoading by backupViewModel.isLoading.collectAsStateWithLifecycle()
 
-    // SAF file picker launcher
+    // SAF file picker launcher - filtered to .db files only
     val restoreFilePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            coroutineScope.launch {
-                backupViewModel.restoreDatabaseFromUri(uri)
-            }
-        } else {
-            // User cancelled - mark as completed and navigate
-            preferenceManager.setDatabaseRestoreCompleted(true)
-            navigateFromSplash(navController, preferenceManager)
+            val fileName = getDBFileName(context, uri)
+            if (fileName != null && fileName.endsWith(".db", ignoreCase = true))
+                coroutineScope.launch {
+                    backupViewModel.restoreDatabaseFromUri(uri)
+                }
+            else DialogHandler.showDialog(
+                message = "Please select valid database file",
+                buttonText = "OK"
+            )
         }
     }
+
 
     // Handle backup UI events
     LaunchedEffect(Unit) {
@@ -119,11 +125,16 @@ fun SplashScreen(
                     }
                     is BackupUiEvent.ShowSuccess -> {
                         // Success - navigation handled in HideLoading
+                        preferenceManager.setDatabaseRestoreCompleted(true)
+
                     }
                     is BackupUiEvent.RestartApp -> {
                         if (context is Activity) {
-                            // Clear login state so app navigates to login after restart
+                            // Mark splash as shown and clear login state so app navigates to login after restart
+                            preferenceManager.setSplashScreenShown(true)
+                            preferenceManager.setDatabaseRestoreCompleted(true)
                             preferenceManager.setLogin(false)
+                            delay(500)
                             AppRestartHelper.restartApp(context)
                         }
                     }
@@ -141,8 +152,15 @@ fun SplashScreen(
             val isRestoreCompleted = preferenceManager.isDatabaseRestoreCompleted()
             
             if (!isRestoreCompleted) {
-                // Open file picker to select backup file
-                restoreFilePickerLauncher.launch(arrayOf("application/x-sqlite3", "*/*"))
+                // Check if backup file exists
+                val backupExists = com.retail.dolphinpos.data.datasource.ExternalStorageHelper.checkIfFileExists()
+                if (backupExists) {
+                    restoreFilePickerLauncher.launch(arrayOf("application/x-sqlite3", "application/*"))
+                } else {
+                    // File doesn't exist - mark as completed and navigate normally
+                    preferenceManager.setDatabaseRestoreCompleted(true)
+                    navigateFromSplash(navController, preferenceManager)
+                }
             } else {
                 // Restore already completed - navigate normally
                 navigateFromSplash(navController, preferenceManager)

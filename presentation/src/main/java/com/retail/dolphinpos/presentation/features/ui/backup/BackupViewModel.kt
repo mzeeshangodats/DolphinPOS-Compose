@@ -3,7 +3,6 @@ package com.retail.dolphinpos.presentation.features.ui.backup
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.retail.dolphinpos.domain.usecases.backup.BackupDatabaseToFileUseCase
-import com.retail.dolphinpos.domain.usecases.backup.RestoreDatabaseFromFileUseCase
 import com.retail.dolphinpos.domain.usecases.backup.RestoreDatabaseFromUriUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,7 +24,6 @@ sealed class BackupUiEvent {
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     private val backupDatabaseToFileUseCase: BackupDatabaseToFileUseCase,
-    private val restoreDatabaseFromFileUseCase: RestoreDatabaseFromFileUseCase,
     private val restoreDatabaseFromUriUseCase: RestoreDatabaseFromUriUseCase
 ) : ViewModel() {
 
@@ -35,8 +33,6 @@ class BackupViewModel @Inject constructor(
     private val _uiEvent = MutableSharedFlow<BackupUiEvent>()
     val uiEvent: SharedFlow<BackupUiEvent> = _uiEvent.asSharedFlow()
 
-
-
     suspend fun backupDatabaseToFile() {
         try {
             _isLoading.value = true
@@ -45,7 +41,7 @@ class BackupViewModel @Inject constructor(
             val result = backupDatabaseToFileUseCase()
             result.fold(
                 onSuccess = {
-                    _uiEvent.emit(BackupUiEvent.ShowSuccess("Backup completed successfully. App will restart."))
+                    _uiEvent.emit(BackupUiEvent.ShowSuccess("Backup completed successfully."))
                     _uiEvent.emit(BackupUiEvent.RestartApp)
                 },
                 onFailure = { exception ->
@@ -60,28 +56,6 @@ class BackupViewModel @Inject constructor(
         }
     }
 
-    suspend fun restoreDatabaseFromFile() {
-        try {
-            _isLoading.value = true
-            _uiEvent.emit(BackupUiEvent.ShowLoading)
-
-            val result = restoreDatabaseFromFileUseCase()
-            result.fold(
-                onSuccess = {
-                    _uiEvent.emit(BackupUiEvent.ShowSuccess("Restore completed successfully. App will restart."))
-                    _uiEvent.emit(BackupUiEvent.RestartApp)
-                },
-                onFailure = { exception ->
-                    _uiEvent.emit(BackupUiEvent.ShowError("Restore failed: ${exception.message}"))
-                }
-            )
-        } catch (e: Exception) {
-            _uiEvent.emit(BackupUiEvent.ShowError("Restore failed: ${e.message}"))
-        } finally {
-            _isLoading.value = false
-            _uiEvent.emit(BackupUiEvent.HideLoading)
-        }
-    }
 
     suspend fun restoreDatabaseFromUri(uri: Uri) {
         try {
