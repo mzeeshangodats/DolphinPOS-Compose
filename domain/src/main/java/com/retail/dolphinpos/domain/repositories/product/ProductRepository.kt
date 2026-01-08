@@ -10,7 +10,7 @@ interface ProductRepository {
     suspend fun createProduct(request: CreateProductRequest): Result<Long> // Returns local product ID
     suspend fun syncProductToServer(productId: Long): Result<Int> // Returns server product ID
     suspend fun uploadFiles(files: List<File>, type: String = "product"): Result<FileUploadResponse>
-    suspend fun getVendors(): Result<VendorListResponse>
+    suspend fun getVendors(storeId: Int): Result<VendorListResponse>
     suspend fun getVendorsFromDB(): List<com.retail.dolphinpos.domain.model.product.VendorItem>
     suspend fun getCategories(): List<CategoryData>
     suspend fun getProductById(productId: Int): Result<com.retail.dolphinpos.domain.model.home.catrgories_products.Products?>

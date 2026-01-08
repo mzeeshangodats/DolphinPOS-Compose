@@ -195,7 +195,7 @@ class CreateProductViewModel @Inject constructor(
             try {
                 if (networkMonitor.isNetworkAvailable()) {
                     // Load from API if internet is available
-                    getVendorsUseCase().onSuccess { response ->
+                    getVendorsUseCase(storeId = preferenceManager.getStoreID()).onSuccess { response ->
                         _uiState.value = _uiState.value.copy(vendors = response.data.list)
                     }.onFailure { error ->
                         // If API fails, try to load from DB

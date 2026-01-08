@@ -172,7 +172,8 @@ interface ApiService {
         @Query("paginate") paginate: Boolean = false,
         @Query("page") page: Int = 1,
         @Query("orderBy") orderBy: String = "createdAt",
-        @Query("order") order: String = "DESC"
+        @Query("order") order: String = "DESC",
+        @Query("storeId") storeId: Int
     ): VendorListResponse
 
 }

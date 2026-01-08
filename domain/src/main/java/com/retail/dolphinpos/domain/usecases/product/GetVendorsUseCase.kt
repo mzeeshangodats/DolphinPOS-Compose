@@ -7,8 +7,8 @@ import javax.inject.Inject
 class GetVendorsUseCase @Inject constructor(
     private val productRepository: ProductRepository
 ) {
-    suspend operator fun invoke(): Result<VendorListResponse> {
-        return productRepository.getVendors()
+    suspend operator fun invoke(storeId: Int): Result<VendorListResponse> {
+        return productRepository.getVendors(storeId)
     }
 }
 

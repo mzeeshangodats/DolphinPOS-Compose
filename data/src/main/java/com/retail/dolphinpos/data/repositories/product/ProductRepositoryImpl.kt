@@ -151,14 +151,15 @@ class ProductRepositoryImpl(
         }
     }
     
-    override suspend fun getVendors(): Result<VendorListResponse> {
+    override suspend fun getVendors(storeId: Int): Result<VendorListResponse> {
         return safeApiCallResult(
             apiCall = { 
                 val response = apiService.getVendors(
                     paginate = false,
                     page = 1,
                     orderBy = "createdAt",
-                    order = "DESC"
+                    order = "DESC",
+                    storeId = storeId
                 )
                 // Save vendors to database for offline access
                 try {
