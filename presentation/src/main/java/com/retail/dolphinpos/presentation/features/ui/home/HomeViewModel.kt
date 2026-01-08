@@ -1801,7 +1801,10 @@ class HomeViewModel @Inject constructor(
                             cartItem.productTaxAmount.takeIf { it > 0.0 }
                         },
                         // Include tax breakdown with calculated amounts based on item prices
-                        appliedTaxes = itemTaxDetails
+                        appliedTaxes = itemTaxDetails,
+                        // Initialize refund fields to 0 for new orders
+                        refundPrice = 0,
+                        refundQuantity = 0
                     )
                 }
 

@@ -287,8 +287,8 @@ class OrdersViewModel @Inject constructor(
                 ),
                 productVariant = item.productVariantId ?: Unit,
                 quantity = item.quantity ?: 0,
-                refundPrice = 0.0,
-                refundQuantity = 0
+                refundPrice = item.refundPrice,
+                refundQuantity = item.refundQuantity
             )
         }
 
@@ -468,7 +468,8 @@ class OrdersViewModel @Inject constructor(
 
     fun processRefund(
         order: OrderDetailList,
-        selectedItemIndices: Set<Int>
+        selectedItemIndices: Set<Int>,
+        selectedRefundQuantities: Map<Int, Int> = emptyMap()
     ) {
         viewModelScope.launch {
             _uiEvent.emit(OrdersUiEvent.ShowLoading)
@@ -501,9 +502,17 @@ class OrdersViewModel @Inject constructor(
                 
                 // Calculate subtotal for selected items (before discount)
                 var subtotalBeforeDiscount = 0.0
-                itemsToRefund.forEach { item ->
+                itemsToRefund.forEachIndexed { refundIndex, item ->
                     val itemPrice = item.price.toDoubleOrNull() ?: 0.0
-                    subtotalBeforeDiscount += itemPrice * item.quantity
+                    // Get the actual item index in the order
+                    val itemIndexInOrder = if (fullRefund) {
+                        refundIndex
+                    } else {
+                        selectedItemIndices.elementAt(refundIndex)
+                    }
+                    // Use selected quantity if available, otherwise use item quantity
+                    val quantityToRefund = selectedRefundQuantities[itemIndexInOrder] ?: item.quantity
+                    subtotalBeforeDiscount += itemPrice * quantityToRefund
                 }
 
                 // Calculate discount: divide order discount by number of selected items
@@ -531,9 +540,6 @@ class OrdersViewModel @Inject constructor(
                 // Build refund items with discount applied per item
                 val refundItems = itemsToRefund.mapIndexed { index, item ->
                     val itemPrice = item.price.toDoubleOrNull() ?: 0.0
-                    // Apply discount per item (discount divided by number of items)
-                    val itemPriceAfterDiscount = itemPrice - discountPerItem
-                    val itemTotalPrice = itemPriceAfterDiscount * item.quantity
                     
                     // Get item index in original order for ID
                     val itemIndexInOrder = if (fullRefund) {
@@ -542,10 +548,17 @@ class OrdersViewModel @Inject constructor(
                         selectedItemIndices.elementAt(index)
                     }
                     
+                    // Use selected quantity if available, otherwise use item quantity
+                    val quantityToRefund = selectedRefundQuantities[itemIndexInOrder] ?: item.quantity
+                    
+                    // Apply discount per item (discount divided by number of items)
+                    val itemPriceAfterDiscount = itemPrice - discountPerItem
+                    val itemTotalPrice = itemPriceAfterDiscount * quantityToRefund
+                    
                     RefundItem(
                         //id = itemIndexInOrder + 1, // Using 1-based index - may need actual item ID from API
                         productId = item.product.id,
-                        quantity = item.quantity,
+                        quantity = quantityToRefund,
                         price = itemTotalPrice
                     )
                 }

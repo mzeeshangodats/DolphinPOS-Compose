@@ -21,5 +21,7 @@ data class CheckOutOrderItem(
     val cardPrice: Double?,
     // Tax-related fields for product-level tax
     val totalTax: Double? = null,  // Product-level tax amount for this item
-    val appliedTaxes: List<TaxDetail>? = null  // Tax breakdown for this item (store + product taxes)
+    val appliedTaxes: List<TaxDetail>? = null,  // Tax breakdown for this item (store + product taxes)
+    val refundPrice: Int? = 0,
+    val refundQuantity: Int? = 0
 )

@@ -47,6 +47,7 @@ import com.google.android.material.datepicker.DateValidatorPointBackward
 import com.google.android.material.datepicker.MaterialDatePicker
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -697,6 +698,8 @@ fun OrderDetailsPanel(
     // Refund mode state - reset when order changes (using orderNumber as key)
     var isRefundMode by remember(order.orderNumber) { mutableStateOf(false) }
     var selectedItemIndices by remember(order.orderNumber) { mutableStateOf<Set<Int>>(emptySet()) }
+    // Map to store selected refund quantity for each item index (defaults to 1 when item is selected)
+    var selectedRefundQuantities by remember(order.orderNumber) { mutableStateOf<Map<Int, Int>>(emptyMap()) }
     
     val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
     val parsedDate = remember(order.createdAt) {
@@ -710,29 +713,66 @@ fun OrderDetailsPanel(
         }
     }
     
+    // Helper function to get remaining quantity for an item
+    val getRemainingQuantity = { item: com.retail.dolphinpos.domain.model.home.order_details.OrderItem ->
+        val originalQuantity = item.quantity
+        val refundedQuantity = when (val rq = item.refundQuantity) {
+            is Int -> rq
+            is String -> rq.toIntOrNull() ?: 0
+            is Number -> rq.toInt()
+            else -> 0
+        }
+        originalQuantity - refundedQuantity
+    }
+    
+    // Helper function to check if item is fully refunded
+    val isItemFullyRefunded = { item: com.retail.dolphinpos.domain.model.home.order_details.OrderItem ->
+        getRemainingQuantity(item) == 0
+    }
+    
     // Function to toggle item selection
-    val onItemClick = { index: Int ->
+    val onItemClick: (Int) -> Unit = onItemClick@{ index ->
+        val item = order.orderItems[index]
+        // Don't allow selection of fully refunded items
+        if (isItemFullyRefunded(item)) return@onItemClick
+
         selectedItemIndices = if (selectedItemIndices.contains(index)) {
+            // Deselect: remove from selected and remove quantity
+            selectedRefundQuantities = selectedRefundQuantities - index
             selectedItemIndices - index
         } else {
+            // Select: add to selected and set default quantity to 1
+            val remainingQty = getRemainingQuantity(item)
+            selectedRefundQuantities = selectedRefundQuantities + (index to 1.coerceAtMost(remainingQty))
             selectedItemIndices + index
         }
+    }
+    
+    // Function to update refund quantity for an item
+    val onQuantityChange = { index: Int, delta: Int ->
+        val item = order.orderItems[index]
+        val currentQty = selectedRefundQuantities[index] ?: 1
+        val remainingQty = getRemainingQuantity(item)
+        val newQty = (currentQty + delta).coerceIn(1, remainingQty)
+        selectedRefundQuantities = selectedRefundQuantities + (index to newQty)
     }
     
     // Function to enter refund mode
     val enterRefundMode = {
         isRefundMode = true
         selectedItemIndices = emptySet()
+        selectedRefundQuantities = emptyMap()
     }
     
     // Function to cancel refund mode
     val cancelRefundMode = {
         isRefundMode = false
         selectedItemIndices = emptySet()
+        selectedRefundQuantities = emptyMap()
     }
     
-    // Calculate totals for selected items (or all items if full refund)
-    val calculatedTotals = remember(selectedItemIndices, isRefundMode, order) {
+    // Calculate totals for selected items using selected quantities
+    val calculatedTotals = remember(selectedItemIndices, selectedRefundQuantities, isRefundMode, order) {
         if (!isRefundMode) {
             // Normal mode: show full order totals
             Triple(
@@ -741,75 +781,76 @@ fun OrderDetailsPanel(
                 order.total.toDoubleOrNull() ?: 0.0
             )
         } else {
-            val itemsToCalculate = if (selectedItemIndices.isEmpty()) {
-                // Full refund: use all items
-                order.orderItems
+            // Refund mode: calculate from selected items with selected quantities
+            if (selectedItemIndices.isEmpty()) {
+                // No items selected: show zero
+                Triple(0.0, 0.0, 0.0)
             } else {
-                // Partial refund: use selected items
-                selectedItemIndices.map { order.orderItems[it] }
+                // Calculate subtotal from selected items with their selected quantities
+                var subtotal = 0.0
+                selectedItemIndices.forEach { index ->
+                    val item = order.orderItems[index]
+                    val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                    val selectedQty = selectedRefundQuantities[index] ?: 1
+                    subtotal += itemPrice * selectedQty
+                }
+                
+                // Calculate discount proportion
+                val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
+                val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
+                val discount = if (orderDiscountAmount > 0 && orderSubtotal > 0) {
+                    (orderDiscountAmount / orderSubtotal) * subtotal
+                } else {
+                    0.0
+                }
+                
+                // Calculate tax proportion
+                val orderTax = order.taxValue
+                val tax = if (orderSubtotal > 0) {
+                    (orderTax / orderSubtotal) * subtotal
+                } else {
+                    0.0
+                }
+                
+                // Calculate total
+                val total = subtotal - discount + tax
+                
+                Triple(subtotal, tax, total)
             }
-            
-            // Calculate subtotal
-            var subtotal = 0.0
-            itemsToCalculate.forEach { item ->
-                val itemPrice = item.price.toDoubleOrNull() ?: 0.0
-                subtotal += itemPrice * item.quantity
-            }
-            
-            // Calculate discount proportion
-            val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
-            val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
-            val discount = if (orderDiscountAmount > 0 && orderSubtotal > 0) {
-                (orderDiscountAmount / orderSubtotal) * subtotal
-            } else {
-                0.0
-            }
-            
-            // Calculate tax proportion
-            val orderTax = order.taxValue
-            val tax = if (orderSubtotal > 0) {
-                (orderTax / orderSubtotal) * subtotal
-            } else {
-                0.0
-            }
-            
-            // Calculate total
-            val total = subtotal - discount + tax
-            
-            Triple(subtotal, tax, total)
         }
     }
     
     val (displaySubtotal, displayTax, displayTotal) = calculatedTotals
     
     // Calculate discount for display
-    val displayDiscount = remember(selectedItemIndices, isRefundMode, order) {
+    val displayDiscount = remember(selectedItemIndices, selectedRefundQuantities, isRefundMode, order) {
         if (!isRefundMode) {
             order.discountAmount.toDoubleOrNull() ?: 0.0
         } else {
-            val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
-            val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
-            val itemsToCalculate = if (selectedItemIndices.isEmpty()) {
-                order.orderItems
-            } else {
-                selectedItemIndices.map { order.orderItems[it] }
-            }
-            var subtotal = 0.0
-            itemsToCalculate.forEach { item ->
-                val itemPrice = item.price.toDoubleOrNull() ?: 0.0
-                subtotal += itemPrice * item.quantity
-            }
-            if (orderDiscountAmount > 0 && orderSubtotal > 0) {
-                (orderDiscountAmount / orderSubtotal) * subtotal
-            } else {
+            if (selectedItemIndices.isEmpty()) {
                 0.0
+            } else {
+                val orderDiscountAmount = order.discountAmount.toDoubleOrNull() ?: 0.0
+                val orderSubtotal = order.subTotal.toDoubleOrNull() ?: 0.0
+                var subtotal = 0.0
+                selectedItemIndices.forEach { index ->
+                    val item = order.orderItems[index]
+                    val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+                    val selectedQty = selectedRefundQuantities[index] ?: 1
+                    subtotal += itemPrice * selectedQty
+                }
+                if (orderDiscountAmount > 0 && orderSubtotal > 0) {
+                    (orderDiscountAmount / orderSubtotal) * subtotal
+                } else {
+                    0.0
+                }
             }
         }
     }
 
     // Function to confirm refund
     val confirmRefund = {
-        viewModel.processRefund(order, selectedItemIndices)
+        viewModel.processRefund(order, selectedItemIndices, selectedRefundQuantities)
     }
 
     Column(
@@ -897,14 +938,24 @@ fun OrderDetailsPanel(
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(order.orderItems.size) { index ->
+                val item = order.orderItems[index]
+                val remainingQty = getRemainingQuantity(item)
+                val isFullyRefunded = isItemFullyRefunded(item)
+                val selectedQty = selectedRefundQuantities[index] ?: 1
+                
                 OrderDetailItemRow(
                     itemNumber = index + 1,
-                    item = order.orderItems[index],
+                    item = item,
                     isSelected = selectedItemIndices.contains(index),
                     isSelectionMode = isRefundMode,
+                    isFullyRefunded = isFullyRefunded,
+                    remainingQuantity = remainingQty,
+                    selectedRefundQuantity = if (selectedItemIndices.contains(index)) selectedQty else null,
+                    onQuantityIncrease = { onQuantityChange(index, 1) },
+                    onQuantityDecrease = { onQuantityChange(index, -1) },
                     onClick = { onItemClick(index) }
                 )
             }
@@ -1018,7 +1069,7 @@ fun OrderDetailsPanel(
                     textColor = Color.White,
                     fontSize = 12,
                     fontWeight = FontWeight.SemiBold,
-                    height = 50.dp,
+                    height = 60.dp,
                     onClick = confirmRefund,
                     textMaxLines = 2
                 )
@@ -1030,7 +1081,7 @@ fun OrderDetailsPanel(
                     textColor = Color.White,
                     fontSize = 12,
                     fontWeight = FontWeight.SemiBold,
-                    height = 50.dp,
+                    height = 60.dp,
                     onClick = cancelRefundMode,
                     textMaxLines = 2
                 )
@@ -1049,9 +1100,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 11,
+                fontSize = 12,
                 fontWeight = FontWeight.SemiBold,
-                height = 50.dp,
+                height = 60.dp,
                 onClick = onPrintReceipt,
                 textMaxLines = 2
             )
@@ -1061,9 +1112,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 11,
+                fontSize = 12,
                 fontWeight = FontWeight.SemiBold,
-                height = 50.dp,
+                height = 60.dp,
                 textMaxLines = 2,
                 onClick = {
                     DialogHandler.showDialog(
@@ -1078,9 +1129,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                 backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 11,
+                fontSize = 12,
                 fontWeight = FontWeight.SemiBold,
-                height = 50.dp,
+                height = 60.dp,
                 textMaxLines = 2,
                 onClick = {
                     DialogHandler.showDialog(
@@ -1095,9 +1146,9 @@ fun OrderDetailsPanel(
                 modifier = Modifier.weight(1f),
                     backgroundColor = colorResource(id = R.color.color_dark_blue),
                 textColor = Color.White,
-                fontSize = 11,
+                fontSize = 12,
                 fontWeight = FontWeight.SemiBold,
-                height = 50.dp,
+                height = 60.dp,
                 textMaxLines = 2,
                     onClick = enterRefundMode
                 )
@@ -1112,6 +1163,11 @@ fun OrderDetailItemRow(
     item: com.retail.dolphinpos.domain.model.home.order_details.OrderItem,
     isSelected: Boolean = false,
     isSelectionMode: Boolean = false,
+    isFullyRefunded: Boolean = false,
+    remainingQuantity: Int = 0,
+    selectedRefundQuantity: Int? = null,
+    onQuantityIncrease: () -> Unit = {},
+    onQuantityDecrease: () -> Unit = {},
     onClick: () -> Unit = {}
 ) {
     val firstImageUrl = item.product.images.firstOrNull()?.fileURL
@@ -1120,18 +1176,38 @@ fun OrderDetailItemRow(
         else -> ""
     }
 
+    // Calculate display values based on refund mode
+    val displayQuantity = if (isSelectionMode) remainingQuantity else item.quantity
+    val displayPrice = if (isSelectionMode && selectedRefundQuantity != null) {
+        // In refund mode with selected quantity: show price for selected quantity
+        val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+        itemPrice * selectedRefundQuantity
+    } else if (isSelectionMode) {
+        // In refund mode without selection: show price for remaining quantity
+        val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+        itemPrice * remainingQuantity
+    } else {
+        // Normal mode: show total price
+        val itemPrice = item.price.toDoubleOrNull() ?: 0.0
+        itemPrice * item.quantity
+    }
+
     // Text colors based on selection state
     val textColor = if (isSelected) Color.White else Color.Black
     val qtyTextColor = if (isSelected) Color.White.copy(alpha = 0.9f) else colorResource(R.color.grey_text_colour)
     val backgroundColor = if (isSelected) colorResource(id = R.color.primary) else Color.Transparent
+    
+    // Alpha for disabled items
+    val itemAlpha = if (isFullyRefunded) 0.4f else 1f
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(itemAlpha)
             .background(backgroundColor, RoundedCornerShape(8.dp))
-            .padding(10.dp)
+            .padding(12.dp)
             .then(
-                if (isSelectionMode) {
+                if (isSelectionMode && !isFullyRefunded) {
                     Modifier.clickable { onClick() }
                 } else {
                     Modifier
@@ -1145,18 +1221,17 @@ fun OrderDetailItemRow(
             Icon(
                 painter = painterResource(id = R.drawable.ic_tick),
                 contentDescription = "Selected",
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(24.dp),
                 tint = Color.White
             )
         } else {
-        BaseText(
-            text = "$itemNumber-",
-            fontSize = 14f,
-            fontWeight = FontWeight.Medium,
+            BaseText(
+                text = "$itemNumber-",
+                fontSize = 14f,
+                fontWeight = FontWeight.Medium,
                 color = textColor,
-            fontFamily = GeneralSans,
-            //modifier = Modifier.width(32.dp)
-        )
+                fontFamily = GeneralSans,
+            )
         }
 
         // Product Image (fixed size)
@@ -1165,14 +1240,14 @@ fun OrderDetailItemRow(
                 model = firstImageUrl,
                 contentDescription = item.product.name,
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(50.dp)
                     .background(Color.LightGray, RoundedCornerShape(4.dp)),
                 contentScale = androidx.compose.ui.layout.ContentScale.Crop
             )
         } else {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(50.dp)
                     .background(Color.LightGray, RoundedCornerShape(4.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -1188,11 +1263,11 @@ fun OrderDetailItemRow(
         // Product Name and Subtext
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             BaseText(
                 text = item.product.name,
-                fontSize = 13f,
+                fontSize = 14f,
                 color = textColor,
                 fontFamily = GeneralSans,
                 maxLines = 1,
@@ -1200,20 +1275,80 @@ fun OrderDetailItemRow(
             )
 
             BaseText(
-                text = "Qty: ${item.quantity}",
-                fontSize = 11f,
+                text = "Qty: $displayQuantity",
+                fontSize = 12f,
                 color = qtyTextColor,
                 fontFamily = GeneralSans,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
 
+        // Quantity Controls (only shown when item is selected in refund mode)
+        if (isSelectionMode && isSelected && selectedRefundQuantity != null) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Decrease button
+                Button(
+                    onClick = onQuantityDecrease,
+                    enabled = selectedRefundQuantity > 1,
+                    modifier = Modifier.size(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.3f),
+                        disabledContainerColor = Color.White.copy(alpha = 0.1f)
+                    ),
+                    contentPadding = PaddingValues(0.dp),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    BaseText(
+                        text = "-",
+                        fontSize = 18f,
+                        color = if (selectedRefundQuantity > 1) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = GeneralSans
+                    )
+                }
+                
+                // Quantity display
+                BaseText(
+                    text = selectedRefundQuantity.toString(),
+                    fontSize = 14f,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = GeneralSans,
+                    modifier = Modifier.width(30.dp),
+                    textAlign = TextAlign.Center
+                )
+                
+                // Increase button
+                Button(
+                    onClick = onQuantityIncrease,
+                    enabled = selectedRefundQuantity < remainingQuantity,
+                    modifier = Modifier.size(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.3f),
+                        disabledContainerColor = Color.White.copy(alpha = 0.1f)
+                    ),
+                    contentPadding = PaddingValues(0.dp),
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    BaseText(
+                        text = "+",
+                        fontSize = 18f,
+                        color = if (selectedRefundQuantity < remainingQuantity) Color.White else Color.White.copy(alpha = 0.5f),
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = GeneralSans
+                    )
+                }
+            }
         }
 
         // Price aligned to the right
         BaseText(
-            text = "$${String.format("%.2f", item.price.toDoubleOrNull() ?: 0.0)}",
-            fontSize = 13f,
+            text = "$${String.format("%.2f", displayPrice)}",
+            fontSize = 14f,
             color = textColor,
             fontFamily = GeneralSans,
             textAlign = TextAlign.End,

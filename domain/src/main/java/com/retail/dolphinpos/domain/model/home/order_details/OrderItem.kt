@@ -7,6 +7,6 @@ data class OrderItem(
     val product: Product,
     val productVariant: Any?,
     val quantity: Int,
-    val refundPrice: Any?,
-    val refundQuantity: Any?
+    val refundPrice: Int?,
+    val refundQuantity: Int?
 )

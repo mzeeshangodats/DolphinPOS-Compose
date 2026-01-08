@@ -200,7 +200,9 @@ class OrderRepositoryImpl(
                 discountReason = null,
                 fixedPercentageDiscount = 0.0,
                 discountType = "",
-                cardPrice = orderItem.price.toDoubleOrNull() ?: 0.0
+                cardPrice = orderItem.price.toDoubleOrNull() ?: 0.0,
+                refundPrice = orderItem.refundPrice as Int?,
+                refundQuantity = orderItem.refundQuantity as Int?
             )
         })
 
